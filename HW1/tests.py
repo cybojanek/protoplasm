@@ -1,5 +1,6 @@
 from hw1_lists import dup, def_use, ssa
 from hw1_classes import PBF, OR, AND, NOT, PROP
+from hw1_classes import parse, ParseError, TokenError, PBFToken
 from nose.tools import *
 import itertools
 
@@ -57,3 +58,36 @@ def test_NNF():
         eq_(d, answer_a, msg="\nQuery: %s\n%r != %r" % (query, d, answer_a))
         d = str(query.toNNF())
         eq_(str(d), answer_b, msg="\nQuery: %s\n%r != %r" % (query, d, answer_b))
+
+
+def test_parse():
+
+    @raises(ParseError)
+    def parse_with_error(s):
+        return str(parse(s))
+
+    @raises(TokenError)
+    def token_with_error(s):
+        return PBFToken.tokenize(s)
+
+    tests = [
+        'x',
+        "x y &",
+        "x y & z |",
+        "x y ! & z ! |",
+    ]
+    for test in tests:
+        d = str(parse(test))
+        eq_(d, test, msg="\n %r != %r" % (d, test))
+
+    tests = [
+        'x x',
+        'x &',
+        'x x & z !'
+    ]
+    for test in tests:
+        parse_with_error(test)
+
+    tests = ['#', '7', 'x1']
+    for test in tests:
+        token_with_error(test)
