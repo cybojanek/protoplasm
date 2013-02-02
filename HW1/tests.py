@@ -1,6 +1,7 @@
 from hw1_lists import dup, def_use, ssa
 from hw1_classes import PBF, OR, AND, NOT, PROP
 from hw1_classes import parse, ParseError, TokenError, PBFToken
+from subprocess import Popen, PIPE
 from nose.tools import *
 import itertools
 
@@ -20,6 +21,7 @@ def test_def_use():
     tests = [
         ([ ['x', []], ['y', ['x']], ['z', ['x', 'y']], ['x', ['z', 'y']] ], []),
         ([ ['x', []], ['y', ['y', 'x']], ['z', ['x', 'w']], ['x', ['x', 'z']] ], ['y', 'w']),
+        ([ ['x', ['x']], ['y', ['x']] ], ['x']),
     ]
     for test in tests:
         query, answer = test
@@ -34,6 +36,8 @@ def test_ssa():
          [ ['x', []], ['y', ['x']], ['x1', ['x', 'y']], ['z', ['x1', 'y']], ['y1', ['z', 'x1']] ]),
         ([ ['x', []], ['x', ['x']], ['x', ['x']] ],
          [ ['x', []], ['x1', ['x']], ['x2', ['x1']] ]),
+        ([ ['x', []], ['x', []], ['x', []] ],
+         [ ['x', []], ['x1', []], ['x2', []] ])
     ]
     for test in tests:
         query, answer = test
@@ -91,3 +95,29 @@ def test_parse():
     tests = ['#', '7', 'x1']
     for test in tests:
         token_with_error(test)
+
+
+def test_mips():
+    tests = [
+        (1, 0),
+        (4, 3),
+        (10, 8),
+        (9876543, 9876529),
+        (1073741829, 1073741826),
+        (2147483647, 2147483616),
+    ]
+    for test in tests:
+        n, k = test
+        p = Popen(['java', '-jar', 'Mars_4_2.jar', 'hw1_mips.asm'],
+            stdout=PIPE, stdin=PIPE, stderr=PIPE)
+        out, err = p.communicate(input='%s\n' % n)
+        answer = int(out.split('\n')[-2])
+        eq_(p.returncode, 0)
+        eq_(len(err), 0)
+        eq_(answer, k)
+
+    for test in [0, -1, -2323]:
+        p = Popen(['java', '-jar', 'Mars_4_2.jar', 'hw1_mips.asm'],
+            stdout=PIPE, stdin=PIPE, stderr=PIPE)
+        out, err = p.communicate(input='%s\n' % test)
+        eq_(p.returncode, 1)
