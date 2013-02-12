@@ -96,7 +96,7 @@ class NOT(PBF):
         # If we have a NOT as a child, return that child's NNF
         elif isinstance(self.child, NOT):
             return self.child.child.toNNF()
-        # Otherwise, we are NOT or OR and need to check children
+        # Otherwise, we are AND or OR and need to check children
         else:
             # Follow De Morgan's Law to return NNF
             # Convert child to NNF
