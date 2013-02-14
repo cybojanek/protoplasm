@@ -44,6 +44,25 @@ def test_proto_syntax_errors():
         parse_with_error(add_newlines(test))
 
 
+def test_undefined_variables():
+    """proto1 undefined variable errors"""
+
+    @raises(NameError)
+    def parse_with_error(lines):
+        tokens = proto_tokenize(lines=lines)
+        psc = ProtoSyntaxChecker(tokens)
+        psc.check()
+
+    tests = [
+        # Base case
+        ['x = x;'],
+        ['x = x + 1;'],
+        ['x = 1;', 'y = x + 1;', 'z = y + w;'],
+    ]
+    for test in tests:
+        parse_with_error(add_newlines(test))
+
+
 def test_proto_syntax():
     """proto1 syntax"""
 
