@@ -1,4 +1,4 @@
-from proplasm1 import proto_tokenize, ProtoSyntaxChecker
+from proplasm1 import proto_tokenize, ProtoParser
 
 from nose.tools import *
 from tokenize import TokenError
@@ -29,8 +29,8 @@ def test_proto_syntax_errors():
     @raises(SyntaxError)
     def parse_with_error(lines):
         tokens = proto_tokenize(lines=lines)
-        psc = ProtoSyntaxChecker(tokens)
-        psc.check()
+        pp = ProtoParser(tokens)
+        pp.check()
 
     tests = [
         # Missing semicolon
@@ -50,8 +50,8 @@ def test_undefined_variables():
     @raises(NameError)
     def parse_with_error(lines):
         tokens = proto_tokenize(lines=lines)
-        psc = ProtoSyntaxChecker(tokens)
-        psc.check()
+        pp = ProtoParser(tokens)
+        pp.check()
 
     tests = [
         # Base case
@@ -74,5 +74,22 @@ def test_proto_syntax():
     ]
     for test in tests:
         tokens = proto_tokenize(lines=add_newlines(test))
-        psc = ProtoSyntaxChecker(tokens)
-        psc.check()
+        pp = ProtoParser(tokens)
+        pp.check()
+
+
+def test_proto_syntax_tree():
+    """proto1 syntax tree"""
+
+    tests = [
+        (['x = 1;'], 'None -> [= -> [x,1]]'),
+        (['x = 1;', 'z = x + 2 - 3;'],
+            'None -> [= -> [x,1],= -> [z,+ -> [x,- -> [2,3]]]]'),
+        (['x = 1;', 'print(x + 2);', 'z = input();'],
+            'None -> [= -> [x,1],print -> [+ -> [x,2]],= -> [z,input]]')
+    ]
+    for test in tests:
+        tokens = proto_tokenize(lines=add_newlines(test[0]))
+        pp = ProtoParser(tokens)
+        pp.check()
+        eq_(str(pp.parse_tree), test[1])

@@ -40,7 +40,26 @@ def proto_tokenize(file_name=None, lines=None):
     return tokens
 
 
-class ProtoSyntaxChecker(object):
+class ParseTreeNode(object):
+
+    def __init__(self, value, children=None):
+        self.value = value
+        if children:
+            self.children = children
+        else:
+            self.children = []
+
+    def add_child(self, child):
+        self.children.append(child)
+
+    def pop_child(self):
+        return self.children.pop()
+
+    def __str__(self):
+        return "%s -> [%s]" % (self.value, ','.join([str(x) for x in self.children]))
+
+
+class ProtoParser(object):
 
     @staticmethod
     def RaiseError(exp, msg, x):
@@ -69,26 +88,27 @@ class ProtoSyntaxChecker(object):
         """
         self.tokens = tokens
         self.def_vars = set()
+        self.parse_tree = ParseTreeNode(None)
 
     def check(self):
         """Start parser and check for syntax errors.
         Raise SyntaxError on bad syntax.
 
         """
-        self.parse_PRGM(self.tokens)
+        self.parse_PRGM(self.tokens, self.parse_tree)
 
-    def parse_PRGM(self, x):
+    def parse_PRGM(self, x, root):
         """
         Pgm -> Stmt Pgm
             | Stmt
         """
-        rest = self.parse_STMT(x)
+        rest = self.parse_STMT(x, root)
         if not rest:
             return True
         else:
-            return self.parse_PRGM(rest)
+            return self.parse_PRGM(rest, root)
 
-    def parse_STMT(self, x):
+    def parse_STMT(self, x, root):
         """
         Stmt -> Assign
              | Print
@@ -97,44 +117,49 @@ class ProtoSyntaxChecker(object):
         toknum, tokval, _, _, _ = head
         # Peek at print
         if toknum == tokenize.NAME and tokval == 'print':
-            return self.parse_PRINT(x)
+            return self.parse_PRINT(x, root)
         # Peek at variable
         elif toknum == tokenize.NAME:
-            return self.parse_ASSIGN(x)
+            return self.parse_ASSIGN(x, root)
         # Peek at end of tokens
         elif toknum == tokenize.ENDMARKER:
             return []
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError, 'Incorrent STMT!', x)
+            ProtoParser.RaiseError(SyntaxError, 'Incorrent STMT!', x)
 
-    def parse_PRINT(self, x):
+    def parse_PRINT(self, x, root):
         """
         Print -> 'print' '(' AE ')' ';'
         """
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.NAME and tokval == 'print':
+            a = ParseTreeNode(tokval)
+            root.add_child(a)
             return self.consume_SEMICOLON(self.consume_RPAREN(self.parse_AE(
-                self.consume_LPAREN(tail))))
+                self.consume_LPAREN(tail), a)))
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError, 'Expected PRINT', x)
+            ProtoParser.RaiseError(SyntaxError, 'Expected PRINT', x)
 
-    def parse_ASSIGN(self, x):
+    def parse_ASSIGN(self, x, root):
         """
         Assign -> var '=' Rhs ';'
         """
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.NAME:
+            a = ParseTreeNode('=')
+            root.add_child(a)
+            a.add_child(tokval)
             # Add LHS variable
             rest = self.consume_SEMICOLON(self.parse_RHS(
-                self.consume_EQUAL(tail)))
+                self.consume_EQUAL(tail), a))
             self.def_vars.add(tokval)
             return rest
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError, 'Expected NAME', x)
+            ProtoParser.RaiseError(SyntaxError, 'Expected NAME', x)
 
-    def parse_RHS(self, x):
+    def parse_RHS(self, x, root):
         """
         Rhs -> 'input' '(' ')'
             | AE
@@ -142,37 +167,44 @@ class ProtoSyntaxChecker(object):
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.NAME and tokval == 'input':
+            root.add_child('input')
             return self.consume_RPAREN(self.consume_LPAREN(tail))
         else:
-            return self.parse_AE(x)
+            return self.parse_AE(x, root)
 
-    def parse_AE(self, x):
+    def parse_AE(self, x, root):
         """
         AE -> T SumOp AE
            | T
         """
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
-        rest = self.parse_T(x)
-        if rest and rest[0][1] in ProtoSyntaxChecker.SUM_OP:
-            return self.parse_AE(rest[1:])
+        rest = self.parse_T(x, root)
+        if rest and rest[0][1] in ProtoParser.SUM_OP:
+            a = ParseTreeNode(rest[0][1])
+            a.add_child(root.pop_child())
+            root.add_child(a)
+            return self.parse_AE(rest[1:], a)
         else:
             return rest
 
-    def parse_T(self, x):
+    def parse_T(self, x, root):
         """
         T -> F ProdOp T
           | F
         """
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
-        rest = self.parse_F(x)
-        if rest and rest[0][1] in ProtoSyntaxChecker.PROD_OP:
-            return self.parse_T(rest[1:])
+        rest = self.parse_F(x, root)
+        if rest and rest[0][1] in ProtoParser.PROD_OP:
+            a = ParseTreeNode(rest[0][1])
+            a.add_child(root.pop_child())
+            root.add_child(a)
+            return self.parse_T(rest[1:], a)
         else:
             return rest
 
-    def parse_F(self, x):
+    def parse_F(self, x, root):
         """
         F -> '-' F
           | '(' AE ')'
@@ -181,20 +213,26 @@ class ProtoSyntaxChecker(object):
         """
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
-        if toknum == tokenize.MINUS:
-            return self.parse_F(tail)
+        if toknum == tokenize.OP and tokval == '-':
+            a = ParseTreeNode(tokval)
+            root.add_child(a)
+            return self.parse_F(tail, a)
         elif toknum == tokenize.OP and tokval == '(':
-            return self.consume_RPAREN(self.parse_AE(tail))
+            a = ParseTreeNode('()')
+            root.add_child(a)
+            return self.consume_RPAREN(self.parse_AE(tail, a))
         elif toknum == tokenize.NAME:
+            root.add_child(tokval)
             # Check RHS variable
             if tokval not in self.def_vars:
-                ProtoSyntaxChecker.RaiseError(
+                ProtoParser.RaiseError(
                     NameError, 'Undefined variable: %s' % tokval, x)
             return tail
         elif toknum == tokenize.NUMBER and tokval.isdigit():
+            root.add_child(tokval)
             return tail
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError, 'Bad statement!', x)
+            ProtoParser.RaiseError(SyntaxError, 'Bad statement!', x)
 
     def consume_LPAREN(self, x):
         """Consume a LPAREN from head and return tail
@@ -204,7 +242,7 @@ class ProtoSyntaxChecker(object):
         if x and toknum == tokenize.OP and tokval == '(':
             return tail
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError, 'Missing LPAREN', x)
+            ProtoParser.RaiseError(SyntaxError, 'Missing LPAREN', x)
 
     def consume_RPAREN(self, x):
         """Consume a RPAREN from head and return tail
@@ -214,7 +252,7 @@ class ProtoSyntaxChecker(object):
         if x and toknum == tokenize.OP and tokval == ')':
             return tail
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError, 'Missing RPAREN', x)
+            ProtoParser.RaiseError(SyntaxError, 'Missing RPAREN', x)
 
     def consume_EQUAL(self, x):
         """Consume an EQUAL from head and return tail
@@ -224,7 +262,7 @@ class ProtoSyntaxChecker(object):
         if x and toknum == tokenize.OP and tokval == '=':
             return tail
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError, 'Missing EQUAL sign', x)
+            ProtoParser.RaiseError(SyntaxError, 'Missing EQUAL sign', x)
 
     def consume_SEMICOLON(self, x):
         """Consume a SEMICOLON from head and return tail
@@ -234,14 +272,15 @@ class ProtoSyntaxChecker(object):
         if x and toknum == tokenize.OP and tokval == ';':
             return tail
         else:
-            ProtoSyntaxChecker.RaiseError(SyntaxError,
+            ProtoParser.RaiseError(SyntaxError,
                 'Missing SEMICOLON sign', x)
 
 
 def main(file_name):
     statement_tokens = proto_tokenize(file_name)
-    psc = ProtoSyntaxChecker(statement_tokens)
-    psc.check()
+    pp = ProtoParser(statement_tokens)
+    pp.check()
+    print pp.parse_tree
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
