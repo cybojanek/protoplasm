@@ -82,11 +82,11 @@ def test_proto_syntax_tree():
     """proto1 syntax tree"""
 
     tests = [
-        (['x = 1;'], "None -> [= -> [('x', 'variable'),('1', 'integer')]]"),
+        (['x = 1;'], '(None, statement_sequence) -> [(=, assign) -> [(x, variable) -> [],(1, integer) -> []]]'),
         (['x = 1;', 'z = x + 2 - 3;'],
-            "None -> [= -> [('x', 'variable'),('1', 'integer')],= -> [('z', 'variable'),+ -> [('x', 'variable'),- -> [('2', 'integer'),('3', 'integer')]]]]"),
+            '(None, statement_sequence) -> [(=, assign) -> [(x, variable) -> [],(1, integer) -> []],(=, assign) -> [(z, variable) -> [],(+, binary_op) -> [(x, variable) -> [],(-, binary_op) -> [(2, integer) -> [],(3, integer) -> []]]]]'),
         (['x = 1;', 'print(x + 2 * (2 - x));', 'z = input();'],
-            "None -> [= -> [('x', 'variable'),('1', 'integer')],print -> [+ -> [('x', 'variable'),* -> [('2', 'integer'),( ) -> [- -> [('2', 'integer'),('x', 'variable')]]]]],= -> [('z', 'variable'),('input', 'input')]]"),
+            '(None, statement_sequence) -> [(=, assign) -> [(x, variable) -> [],(1, integer) -> []],(print, print) -> [(+, binary_op) -> [(x, variable) -> [],(*, binary_op) -> [(2, integer) -> [],(( ), paranthesis) -> [(-, binary_op) -> [(2, integer) -> [],(x, variable) -> []]]]]],(=, assign) -> [(z, variable) -> [],(input, input) -> []]]'),
     ]
     for test in tests:
         tokens = proto_tokenize(lines=add_newlines(test[0]))

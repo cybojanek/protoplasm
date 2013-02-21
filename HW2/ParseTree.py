@@ -62,32 +62,18 @@ class ParseTreeNode(object):
         self.type = type
         self.children = []
 
-    def add_child(self, child, type=None):
+    def add_child(self, child):
         """Add a child to this node. Order preserving, without limit.
-        Raises TypeError if child and or type is not valid
+        Raises TypeError if child is not a ParseTreeNode
 
         Arguments:
-        child - object to append to childs (assumes that child is either a
-            ParseTreeNode or already a (child, type) tuple)
-
-        Keyword Arguments:
-        type - if type is specified, then a tuple of (child, type) is added
+        child - ParseTreeNode to append as child
 
         """
-        if type:
-            if type not in ParseTreeNode.TYPES:
-                raise TypeError("%r is not a ParseTreeNode type" % type)
-            self.children.append((child, type))
-        elif isinstance(child, ParseTreeNode):
+        if isinstance(child, ParseTreeNode):
             self.children.append(child)
         else:
-            try:
-                if child[1] not in ParseTreeNode.TYPES:
-                    raise TypeError("%r is not a ParseTreeNode type" % (
-                        child[1]))
-            except (IndexError, TypeError):
-                raise TypeError("%r is not a len-2 tuple/list" % child)
-            self.children.append(child)
+            raise TypeError("%r is not a ParseTreeNode type" % (child))
 
     def pop_child(self):
         """Remove and return the last child
@@ -99,7 +85,7 @@ class ParseTreeNode(object):
         return self.children.pop()
 
     def __str__(self):
-        return "%s -> [%s]" % (self.value, ','.join(
+        return "(%s, %s) -> [%s]" % (self.value, self.type, ','.join(
             [str(x) for x in self.children]))
 
     def add_edges_to_graph(self, graph, counter):
@@ -123,21 +109,15 @@ class ParseTreeNode(object):
         for child in self.children:
             # Increment counter for children
             counter += 1
-            # Set child name and type
-            if isinstance(child, ParseTreeNode):
-                child_name = "%s\n%s" % (counter, child.value)
-                child_type = child.type
-            else:
-                child_name = "%s\n%s" % (counter, child[0])
-                child_type = child[1]
+            # Set child name
+            child_name = "%s\n%s" % (counter, child.value)
             # Add the node and fill color
             graph.add_node(child_name,
-                fillcolor=ParseTreeNode.GRAPH_COLORS[child_type])
+                fillcolor=ParseTreeNode.GRAPH_COLORS[child.type])
             # Add the edge
             graph.add_edge(parent, child_name)
-            # If the child is a tree, then recurse down into it
-            if isinstance(child, ParseTreeNode):
-                counter = child.add_edges_to_graph(graph, counter)
+            # Recurse down
+            counter = child.add_edges_to_graph(graph, counter)
         return counter
 
     def graphvizify(self):
@@ -240,7 +220,7 @@ class ProtoParser(object):
         if toknum == tokenize.NAME:
             a = ParseTreeNode('=', ParseTreeNode.ASSIGN)
             root.add_child(a)
-            a.add_child(tokval, ParseTreeNode.VARIABLE)
+            a.add_child(ParseTreeNode(tokval, ParseTreeNode.VARIABLE))
             # Add LHS variable
             rest = self.consume_SEMICOLON(self.parse_RHS(
                 self.consume_EQUAL(tail), a))
@@ -257,7 +237,7 @@ class ProtoParser(object):
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.NAME and tokval == 'input':
-            root.add_child(tokval, ParseTreeNode.INPUT)
+            root.add_child(ParseTreeNode(tokval, ParseTreeNode.INPUT))
             return self.consume_RPAREN(self.consume_LPAREN(tail))
         else:
             return self.parse_AE(x, root)
@@ -312,14 +292,14 @@ class ProtoParser(object):
             root.add_child(a)
             return self.consume_RPAREN(self.parse_AE(tail, a))
         elif toknum == tokenize.NAME:
-            root.add_child(tokval, ParseTreeNode.VARIABLE)
+            root.add_child(ParseTreeNode(tokval, ParseTreeNode.VARIABLE))
             # Check RHS variable
             if tokval not in self.def_vars:
                 ProtoParser.RaiseError(
                     NameError, 'Undefined variable: %s' % tokval, x)
             return tail
         elif toknum == tokenize.NUMBER and tokval.isdigit():
-            root.add_child(tokval, ParseTreeNode.INTEGER)
+            root.add_child(ParseTreeNode(tokval, ParseTreeNode.INTEGER))
             return tail
         else:
             ProtoParser.RaiseError(SyntaxError, 'Bad statement!', x)

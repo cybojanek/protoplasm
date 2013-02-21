@@ -13,7 +13,7 @@ MIPS
 import os
 import sys
 
-from ProtoParse import proto_tokenize, ProtoParser
+from ParseTree import proto_tokenize, ProtoParser
 
 
 def main(file_name):
