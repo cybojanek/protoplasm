@@ -1,4 +1,4 @@
-from proplasm1 import proto_tokenize, ProtoParser
+from ProtoParse import proto_tokenize, ProtoParser
 
 from nose.tools import *
 from tokenize import TokenError
@@ -82,11 +82,11 @@ def test_proto_syntax_tree():
     """proto1 syntax tree"""
 
     tests = [
-        (['x = 1;'], 'None -> [= -> [x,1]]'),
+        (['x = 1;'], "None -> [= -> [('x', 'variable'),('1', 'integer')]]"),
         (['x = 1;', 'z = x + 2 - 3;'],
-            'None -> [= -> [x,1],= -> [z,+ -> [x,- -> [2,3]]]]'),
-        (['x = 1;', 'print(x + 2);', 'z = input();'],
-            'None -> [= -> [x,1],print -> [+ -> [x,2]],= -> [z,input]]')
+            "None -> [= -> [('x', 'variable'),('1', 'integer')],= -> [('z', 'variable'),+ -> [('x', 'variable'),- -> [('2', 'integer'),('3', 'integer')]]]]"),
+        (['x = 1;', 'print(x + 2 * (2 - x));', 'z = input();'],
+            "None -> [= -> [('x', 'variable'),('1', 'integer')],print -> [+ -> [('x', 'variable'),* -> [('2', 'integer'),( ) -> [- -> [('2', 'integer'),('x', 'variable')]]]]],= -> [('z', 'variable'),('input', 'input')]]"),
     ]
     for test in tests:
         tokens = proto_tokenize(lines=add_newlines(test[0]))
