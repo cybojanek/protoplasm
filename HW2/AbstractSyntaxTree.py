@@ -56,14 +56,17 @@ class ASTStatement(ASTNode):
         self.p = p
         self.value = value
 
-    def __str__(self):
-        return 'STMT: %s' % self.value
+    def wellformed(self):
+        return self.value.wellformed()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, 'STMT')
         graph.add_node(name, fillcolor=ASTStatement.COLOR)
         graph.add_edge(parent, name)
         return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'STMT: %s' % self.value
 
 
 class ASTAssign(ASTNode):
@@ -82,8 +85,8 @@ class ASTAssign(ASTNode):
         self.left = left
         self.right = right
 
-    def __str__(self):
-        return 'ASSIGN: %s = %s' % (self.left, self.right)
+    def wellformed(self):
+        return self.right.wellformed()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, '=')
@@ -95,6 +98,9 @@ class ASTAssign(ASTNode):
         graph.add_node(left, fillcolor=ASTVariable.COLOR)
         graph.add_edge(name, left)
         return self.right.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'ASSIGN: %s = %s' % (self.left, self.right)
 
 
 class ASTVariable(ASTNode):
@@ -111,14 +117,17 @@ class ASTVariable(ASTNode):
         self.p = p
         self.value = value
 
-    def __str__(self):
-        return 'ID:%s' % self.value
+    def wellformed(self):
+        return True
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.value)
         graph.add_node(name, fillcolor=ASTVariable.COLOR)
         graph.add_edge(parent, name)
         return counter
+
+    def __str__(self):
+        return 'ID:%s' % self.value
 
 
 class ASTPrint(ASTNode):
@@ -135,14 +144,17 @@ class ASTPrint(ASTNode):
         self.p = p
         self.value = value
 
-    def __str__(self):
-        return 'PRINT: %s' % self.value
+    def wellformed(self):
+        return self.value.wellformed()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, 'print')
         graph.add_node(name, fillcolor=ASTPrint.COLOR)
         graph.add_edge(parent, name)
         return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'PRINT: %s' % self.value
 
 
 class ASTInput(ASTNode):
@@ -157,14 +169,17 @@ class ASTInput(ASTNode):
         """
         self.p = p
 
-    def __str__(self):
-        return 'INPUT'
+    def wellformed(self):
+        return True
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, 'input')
         graph.add_node(name, fillcolor=ASTInput.COLOR)
         graph.add_edge(parent, name)
         return counter
+
+    def __str__(self):
+        return 'INPUT'
 
 
 class ASTInteger(ASTNode):
@@ -181,14 +196,21 @@ class ASTInteger(ASTNode):
         self.p = p
         self.value = value
 
-    def __str__(self):
-        return 'INTEGER: %s' % self.value
+    def wellformed(self):
+        # Only check for positive, since negative is a unrary op above us
+        if isinstance(self.value, int) and (0 <= self.value <= (2 ** 31 - 1)):
+            return True
+        else:
+            raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.value)
         graph.add_node(name, fillcolor=ASTInteger.COLOR)
         graph.add_edge(parent, name)
         return counter
+
+    def __str__(self):
+        return 'INTEGER: %s' % self.value
 
 
 class ASTUnaryOp(ASTNode):
@@ -211,14 +233,23 @@ class ASTUnaryOp(ASTNode):
         if self.type not in ASTUnaryOp.TYPES:
             raise TypeError('Unary operation: %r not supported')
 
-    def __str__(self):
-        return 'NEGATE: %s' % self.value
+    def wellformed(self):
+        # Ugly hack - check if child is integer for bounds
+        if isinstance(self.value, ASTInteger):
+            if(0 <= self.value.value <= (2 ** 31)):
+                return True
+            raise ValueError('-%s is out of bounds for 32 bit integer value' % self.value.value)
+        else:
+            return self.value.wellformed()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.type)
         graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
         graph.add_edge(parent, name)
         return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'NEGATE: %s' % self.value
 
 
 class ASTParen(ASTNode):
@@ -235,14 +266,17 @@ class ASTParen(ASTNode):
         self.p = p
         self.value = value
 
-    def __str__(self):
-        return 'PAREN: %s' % self.value
+    def wellformed(self):
+        return self.value.wellformed()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, '( )')
         graph.add_node(name, fillcolor=ASTParen.COLOR)
         graph.add_edge(parent, name)
         return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'PAREN: %s' % self.value
 
 
 class ASTBinaryOp(ASTNode):
@@ -267,8 +301,8 @@ class ASTBinaryOp(ASTNode):
         if self.type not in ASTBinaryOp.TYPES:
             raise TypeError('Binary operation: %r not supported')
 
-    def __str__(self):
-        return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)
+    def wellformed(self):
+        return self.left.wellformed() and self.right.wellformed()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.type)
@@ -276,3 +310,6 @@ class ASTBinaryOp(ASTNode):
         graph.add_edge(parent, name)
         counter = self.right.add_edges_to_graph(graph, name, counter + 1)
         return self.left.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)

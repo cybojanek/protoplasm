@@ -26,6 +26,7 @@ def main(file_name):
     lexer.input(open(file_name, 'r').read())
     parser = yacc.yacc(module=proto1parser)
     stmts = parser.parse(open(file_name, 'r').read())
+    [s.wellformed() for s in stmts]
     ast_to_png(stmts, '%s.png' % file_name)
     #for x in lexer:
     #    print x
