@@ -40,23 +40,68 @@ def proto_tokenize(file_name=None, lines=None):
     return tokens
 
 
-class ParseTreeNode(object):
+import uuid
+import pygraphviz as pgz
 
-    def __init__(self, value, children=None):
+
+class ParseTreeNode(object):
+    TYPES = ('statement_sequence', 'assign', 'print', 'input', 'binary_op',
+        'single_op', 'paranthesis', 'integer', 'variable')
+    STATEMENT_SEQUENCE, ASSIGN, PRINT, INPUT, BINARY_OP, SINGLE_OP, PARANTHESIS, INTEGER, VARIABLE = TYPES
+    GRAPH_COLORS = {
+        STATEMENT_SEQUENCE: '#FF6C00',
+        ASSIGN: '#9BED00',
+        PRINT: '#BE008A',
+        INPUT: '#BE008A',
+        BINARY_OP: '#0776A0',
+        SINGLE_OP: '#0776A0',
+        PARANTHESIS: '#0B5FA5',
+        INTEGER: '#FFFFFF',
+        VARIABLE: '#FFFFFF'
+    }
+
+    def __init__(self, value, type, children=None):
         self.value = value
+        self.type = type
         if children:
             self.children = children
         else:
             self.children = []
 
-    def add_child(self, child):
-        self.children.append(child)
+    def add_child(self, child, type=None):
+        if type:
+            self.children.append((child, type))
+        else:
+            self.children.append(child)
 
     def pop_child(self):
         return self.children.pop()
 
     def __str__(self):
         return "%s -> [%s]" % (self.value, ','.join([str(x) for x in self.children]))
+
+    def add_edges_to_graph(self, graph, p_uuid=None, c_uuid=None):
+        if not p_uuid:
+            p_uuid = str(uuid.uuid4())[0:4]
+        parent = "%s\n%s" % (p_uuid, self.value)
+        graph.add_node(parent, fillcolor=ParseTreeNode.GRAPH_COLORS[self.type])
+        for child in self.children:
+            u = str(uuid.uuid4())[0:4]
+            if isinstance(child, ParseTreeNode):
+                child_name = "%s\n%s" % (u, child.value)
+                graph.add_node(child_name, fillcolor=ParseTreeNode.GRAPH_COLORS[child.type])
+                graph.add_edge(parent, child_name)
+                child.add_edges_to_graph(graph, p_uuid=u)
+            else:
+                child_name = "%s\n%s" % (u, child[0])
+                graph.add_node(child_name, fillcolor=ParseTreeNode.GRAPH_COLORS[child[1]])
+                graph.add_edge(parent, child_name)
+
+    def graphvizify(self):
+        g = pgz.AGraph(directed=True)
+        g.node_attr['style'] = 'filled'
+        self.add_edges_to_graph(g)
+        g.draw('parse_tree.png', prog='dot')
 
 
 class ProtoParser(object):
@@ -88,7 +133,7 @@ class ProtoParser(object):
         """
         self.tokens = tokens
         self.def_vars = set()
-        self.parse_tree = ParseTreeNode(None)
+        self.parse_tree = ParseTreeNode(None, ParseTreeNode.STATEMENT_SEQUENCE)
 
     def check(self):
         """Start parser and check for syntax errors.
@@ -134,7 +179,7 @@ class ProtoParser(object):
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.NAME and tokval == 'print':
-            a = ParseTreeNode(tokval)
+            a = ParseTreeNode(tokval, ParseTreeNode.PRINT)
             root.add_child(a)
             return self.consume_SEMICOLON(self.consume_RPAREN(self.parse_AE(
                 self.consume_LPAREN(tail), a)))
@@ -148,9 +193,9 @@ class ProtoParser(object):
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.NAME:
-            a = ParseTreeNode('=')
+            a = ParseTreeNode('=', ParseTreeNode.ASSIGN)
             root.add_child(a)
-            a.add_child(tokval)
+            a.add_child(tokval, ParseTreeNode.VARIABLE)
             # Add LHS variable
             rest = self.consume_SEMICOLON(self.parse_RHS(
                 self.consume_EQUAL(tail), a))
@@ -167,7 +212,7 @@ class ProtoParser(object):
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.NAME and tokval == 'input':
-            root.add_child('input')
+            root.add_child(tokval, ParseTreeNode.INPUT)
             return self.consume_RPAREN(self.consume_LPAREN(tail))
         else:
             return self.parse_AE(x, root)
@@ -181,7 +226,7 @@ class ProtoParser(object):
         toknum, tokval, _, _, _ = head
         rest = self.parse_T(x, root)
         if rest and rest[0][1] in ProtoParser.SUM_OP:
-            a = ParseTreeNode(rest[0][1])
+            a = ParseTreeNode(rest[0][1], ParseTreeNode.BINARY_OP)
             a.add_child(root.pop_child())
             root.add_child(a)
             return self.parse_AE(rest[1:], a)
@@ -197,7 +242,7 @@ class ProtoParser(object):
         toknum, tokval, _, _, _ = head
         rest = self.parse_F(x, root)
         if rest and rest[0][1] in ProtoParser.PROD_OP:
-            a = ParseTreeNode(rest[0][1])
+            a = ParseTreeNode(rest[0][1], ParseTreeNode.BINARY_OP)
             a.add_child(root.pop_child())
             root.add_child(a)
             return self.parse_T(rest[1:], a)
@@ -214,22 +259,22 @@ class ProtoParser(object):
         head, tail = x[0], x[1:]
         toknum, tokval, _, _, _ = head
         if toknum == tokenize.OP and tokval == '-':
-            a = ParseTreeNode(tokval)
+            a = ParseTreeNode(tokval, ParseTreeNode.SINGLE_OP)
             root.add_child(a)
             return self.parse_F(tail, a)
         elif toknum == tokenize.OP and tokval == '(':
-            a = ParseTreeNode('()')
+            a = ParseTreeNode('( )', ParseTreeNode.PARANTHESIS)
             root.add_child(a)
             return self.consume_RPAREN(self.parse_AE(tail, a))
         elif toknum == tokenize.NAME:
-            root.add_child(tokval)
+            root.add_child(tokval, ParseTreeNode.VARIABLE)
             # Check RHS variable
             if tokval not in self.def_vars:
                 ProtoParser.RaiseError(
                     NameError, 'Undefined variable: %s' % tokval, x)
             return tail
         elif toknum == tokenize.NUMBER and tokval.isdigit():
-            root.add_child(tokval)
+            root.add_child(tokval, ParseTreeNode.INTEGER)
             return tail
         else:
             ProtoParser.RaiseError(SyntaxError, 'Bad statement!', x)
@@ -281,6 +326,7 @@ def main(file_name):
     pp = ProtoParser(statement_tokens)
     pp.check()
     print pp.parse_tree
+    pp.parse_tree.graphvizify()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
