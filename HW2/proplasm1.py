@@ -13,15 +13,25 @@ MIPS
 import os
 import sys
 
-from ParseTree import proto_tokenize, ProtoParser
+# from ParseTree import proto_tokenize, ProtoParser
+import ply.lex as lex
+import ply.yacc as yacc
+import proto1lexer
+import proto1parser
 
 
 def main(file_name):
-    statement_tokens = proto_tokenize(file_name)
-    pp = ProtoParser(statement_tokens)
-    pp.check()
-    print pp.parse_tree
-    pp.parse_tree.graphvizify()
+    lexer = lex.lex(module=proto1lexer)
+    lexer.input(open(file_name, 'r').read())
+    parser = yacc.yacc(module=proto1parser)
+    print parser.parse(open(file_name, 'r').read())
+    #for x in lexer:
+    #    print x
+    # statement_tokens = proto_tokenize(file_name)
+    # pp = ProtoParser(statement_tokens)
+    # pp.check()
+    # print pp.parse_tree
+    # pp.parse_tree.graphvizify()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
