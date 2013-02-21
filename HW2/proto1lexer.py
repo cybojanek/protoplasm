@@ -8,7 +8,7 @@ reserved = {
 
 # List of token names
 tokens = ['EQUALS', 'SEMICOLON', 'LPAREN', 'RPAREN',
-    'UMINUS', 'MINUS', 'PLUS', 'TIMES', 'DIVIDE', 'MODULUS',
+    'MINUS', 'PLUS', 'TIMES', 'DIVIDE', 'MODULUS',
     'ID', 'NUMBER'] + list(reserved.values())
 
 # Tokens without actions
@@ -16,7 +16,6 @@ t_EQUALS = r'='
 t_SEMICOLON = r';'
 t_LPAREN = r'\('
 t_RPAREN = r'\)'
-# t_UMINUS = r'-'
 t_MINUS = r'-'
 t_PLUS = r'\+'
 t_TIMES = r'\*'
