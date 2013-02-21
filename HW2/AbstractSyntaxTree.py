@@ -43,7 +43,7 @@ class ASTNode(object):
 
 
 class ASTStatement(ASTNode):
-    COLOR = "#FF0000"
+    COLOR = "#FF7400"
 
     def __init__(self, p, value):
         """AST statement
@@ -67,6 +67,7 @@ class ASTStatement(ASTNode):
 
 
 class ASTAssign(ASTNode):
+    COLOR = '#269926'
 
     def __init__(self, p, left, right):
         """AST assignment operation
@@ -97,6 +98,7 @@ class ASTAssign(ASTNode):
 
 
 class ASTVariable(ASTNode):
+    COLOR = '#4380D3'
 
     def __init__(self, p, value):
         """AST variable
@@ -120,6 +122,7 @@ class ASTVariable(ASTNode):
 
 
 class ASTPrint(ASTNode):
+    COLOR = '#FFBF00'
 
     def __init__(self, p, value):
         """AST print statement
@@ -143,6 +146,7 @@ class ASTPrint(ASTNode):
 
 
 class ASTInput(ASTNode):
+    COLOR = '#BF7130'
 
     def __init__(self, p):
         """AST input
@@ -164,6 +168,7 @@ class ASTInput(ASTNode):
 
 
 class ASTInteger(ASTNode):
+    COLOR = "#C0C0C0"
 
     def __init__(self, p, value):
         """AST integer
@@ -241,6 +246,7 @@ class ASTParen(ASTNode):
 
 
 class ASTBinaryOp(ASTNode):
+    COLOR = '#009999'
     TYPES = '-', '+', '*', '/', '%'
     MINUS, PLUS, TIMES, DIVIDE, MODULUS = TYPES
 
