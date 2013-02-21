@@ -74,7 +74,8 @@ def p_t_f(p):
 
 def p_f_paren(p):
     'f : LPAREN ae RPAREN'
-    p[0] = ASTParen(p, p[2])
+    #p[0] = ASTParen(p, p[2])
+    p[0] = p[2]
 
 
 def p_f_uminus(p):

@@ -18,13 +18,15 @@ import ply.lex as lex
 import ply.yacc as yacc
 import proto1lexer
 import proto1parser
+from AbstractSyntaxTree import ast_to_png
 
 
 def main(file_name):
     lexer = lex.lex(module=proto1lexer)
     lexer.input(open(file_name, 'r').read())
     parser = yacc.yacc(module=proto1parser)
-    print parser.parse(open(file_name, 'r').read())
+    stmts = parser.parse(open(file_name, 'r').read())
+    ast_to_png(stmts, '%s.png' % file_name)
     #for x in lexer:
     #    print x
     # statement_tokens = proto_tokenize(file_name)
