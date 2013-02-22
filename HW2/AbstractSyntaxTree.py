@@ -473,7 +473,9 @@ class ASTBinaryOp(ASTNode):
 
     def gencode(self, tac):
         var = tac.new_var()
-        tac.add_instruction(ThreeAddress(dest=var, arg1=tac.pop_var(), arg2=tac.pop_var(),
+        arg2 = tac.pop_var()
+        arg1 = tac.pop_var()
+        tac.add_instruction(ThreeAddress(dest=var, arg1=arg1, arg2=arg2,
             op=self.type))
         tac.add_var(var)
 
