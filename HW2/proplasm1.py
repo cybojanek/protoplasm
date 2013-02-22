@@ -13,28 +13,26 @@ MIPS
 import os
 import sys
 
-# from ParseTree import proto_tokenize, ProtoParser
 import ply.lex as lex
 import ply.yacc as yacc
 import proto1lexer
 import proto1parser
 from AbstractSyntaxTree import ast_to_png
+from AbstractSyntaxTree import ASTProgram
 
 
 def main(file_name):
     lexer = lex.lex(module=proto1lexer)
     lexer.input(open(file_name, 'r').read())
     parser = yacc.yacc(module=proto1parser)
-    stmts = parser.parse(open(file_name, 'r').read())
-    [s.wellformed() for s in stmts]
-    ast_to_png(stmts, '%s.png' % file_name)
-    #for x in lexer:
-    #    print x
-    # statement_tokens = proto_tokenize(file_name)
-    # pp = ProtoParser(statement_tokens)
-    # pp.check()
-    # print pp.parse_tree
-    # pp.parse_tree.graphvizify()
+    program = ASTProgram(parser.parse(open(file_name, 'r').read()))
+    if not program.wellformed():
+        print 'Program not well formed!'
+        sys.exit(1)
+    ast_to_png(program, '%s.png' % file_name)
+    print program.gencode()
+
+    # [s.wellformed() for s in stmts]
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

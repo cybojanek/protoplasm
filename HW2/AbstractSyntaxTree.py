@@ -1,10 +1,10 @@
 
 
-def ast_to_png(statements, file_name):
+def ast_to_png(program, file_name):
     """Output an AST using graphviz
 
     Arguments:
-    statements - list of ASTStatement
+    program - ASTProgram
     file_name - output name for file
 
     """
@@ -16,9 +16,100 @@ def ast_to_png(statements, file_name):
     graph = pgz.AGraph(directed=True)
     graph.node_attr['style'] = 'filled'
     counter = 0
-    for s in statements:
-        counter = s.add_edges_to_graph(graph, 'Program', counter + 1)
+    program.add_edges_to_graph(graph, None, counter + 1)
     graph.draw(file_name, prog='dot')
+
+
+class ThreeAddressContext(object):
+
+    def __init__(self):
+        """Keeps track of the ASTNode to address context translation
+
+        """
+        self.instructions = []
+        self.variables = []
+        self.counter = 0
+
+    def add_instruction(self, ins):
+        """Add a ThreeAddress to the instruction list
+
+        Arguments:
+        ins - ThreeAddress
+
+        """
+        self.instructions.append(ins)
+
+    def new_var(self):
+        """Create a new temporary variable.
+        Autoincremented.
+
+        """
+        name = '$%s' % self.counter
+        self.counter += 1
+        return name
+
+    def add_var(self, var):
+        """Add a variable to the stack
+
+        Arguments:
+        var - variable
+
+        """
+        self.variables.append(var)
+
+    def pop_var(self):
+        """Remove a variable from the stack
+
+        Return:
+        top variable form stack
+
+        """
+        return self.variables.pop()
+
+    def __str__(self):
+        s = ''
+        for x in self.instructions:
+            s += '%s\n' % (x)
+        return s
+
+
+class ThreeAddress(object):
+
+    def __init__(self, dest=None, arg1=None, arg2=None, op=None):
+        """A new three address object: dest = arg1 [op] [arg2]
+        Have the form:
+        dest = arg1
+        dest = op arg1
+        dest = arg1 op arg2
+
+        Arguments:
+                Keyword Arguments:
+        dest - destination variable
+        arg1 - first argument
+
+
+        arg2 - second argument
+        op - operator
+
+        """
+        self.dest = dest
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.op = op
+
+    def __str__(self):
+        if self.dest and self.arg1 and self.arg2 and self.op:
+            return '%s = %s %s %s' % (self.dest, self.arg1, self.op, self.arg2)
+        elif self.dest and self.arg1 and self.op:
+            return '%s = %s %s' % (self.dest, self.op, self.arg1)
+        elif self.dest and self.arg1 and self.op:
+            return '%s = %s %s' % (self.dest, self.op, self.arg1)
+        elif self.dest and self.arg1:
+            return '%s = %s' % (self.dest, self.arg1)
+        elif self.dest and self.op:
+            return '%s = %s' % (self.dest, self.op)
+        elif self.arg1 and self.op:
+            return '%s %s' % (self.op, self.arg1)
 
 
 class ASTNode(object):
@@ -35,11 +126,66 @@ class ASTNode(object):
     def wellformed(self):
         raise NotImplemented()
 
-    def gencode(self):
+    def gencode(self, tac):
+        raise NotImplemented()
+
+    def to_stack(self):
         raise NotImplemented()
 
     def add_edges_to_graph(self, graph, parent, counter):
         pass
+
+
+class ASTProgram(ASTNode):
+
+    def __init__(self, statements):
+        """Encapsulates ASTStatements
+
+        Arguments:
+        statements - array of ASTStatement
+
+        """
+        self.statements = statements
+
+    def wellformed(self):
+        for s in self.statements:
+            if not s.wellformed:
+                return False
+        return True
+
+    def gencode(self):
+        """Translates all statements to three address form
+
+        Return:
+        ThreeAddressContext
+
+        """
+        tac = ThreeAddressContext()
+        stack = self.to_stack()
+        while len(stack) != 0:
+            s = stack.pop()
+            s.gencode(tac)
+        return tac
+
+    def to_stack(self):
+        """Convert from internal tree representation to an
+        in order stack representation
+
+        Return:
+        array of ASTNode in reverse order of operations (last,pop is done first)
+
+        """
+        stack = []
+        for s in self.statements:
+            stack = s.to_stack() + stack
+        return stack
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "program"
+        graph.add_node(name, fillcolor=ASTProgram.COLOR)
+        for s in self.statements:
+            counter = s.add_edges_to_graph(graph, name, counter)
+        return counter
 
 
 class ASTStatement(ASTNode):
@@ -58,6 +204,12 @@ class ASTStatement(ASTNode):
 
     def wellformed(self):
         return self.value.wellformed()
+
+    def gencode(self, tac):
+        return self.value.gencode(tac)
+
+    def to_stack(self):
+        return self.value.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, 'STMT')
@@ -87,6 +239,13 @@ class ASTAssign(ASTNode):
 
     def wellformed(self):
         return self.right.wellformed()
+
+    def gencode(self, tac):
+        tac.add_instruction(ThreeAddress(dest=self.left, arg1=tac.pop_var()))
+        tac.add_var(self.left)
+
+    def to_stack(self):
+        return [self] + self.right.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, '=')
@@ -120,6 +279,12 @@ class ASTVariable(ASTNode):
     def wellformed(self):
         return True
 
+    def gencode(self, tac):
+        tac.add_var(self.value)
+
+    def to_stack(self):
+        return [self]
+
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.value)
         graph.add_node(name, fillcolor=ASTVariable.COLOR)
@@ -147,6 +312,12 @@ class ASTPrint(ASTNode):
     def wellformed(self):
         return self.value.wellformed()
 
+    def gencode(self, tac):
+        tac.add_instruction(ThreeAddress(arg1=tac.pop_var(), op='print'))
+
+    def to_stack(self):
+        return [self] + self.value.to_stack()
+
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, 'print')
         graph.add_node(name, fillcolor=ASTPrint.COLOR)
@@ -171,6 +342,14 @@ class ASTInput(ASTNode):
 
     def wellformed(self):
         return True
+
+    def gencode(self, tac):
+        var = tac.new_var()
+        tac.add_instruction(ThreeAddress(dest=var, op='input'))
+        tac.add_var(var)
+
+    def to_stack(self):
+        return [self]
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, 'input')
@@ -202,6 +381,12 @@ class ASTInteger(ASTNode):
             return True
         else:
             raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
+
+    def gencode(self, tac):
+        tac.add_var(self.value)
+
+    def to_stack(self):
+        return [self]
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.value)
@@ -242,6 +427,15 @@ class ASTUnaryOp(ASTNode):
         else:
             return self.value.wellformed()
 
+    def gencode(self, tac):
+        var = tac.new_var()
+        tac.add_instruction(
+            ThreeAddress(dest=var, arg1=tac.pop_var(), op=self.type))
+        tac.add_var(var)
+
+    def to_stack(self):
+        return [self] + self.value.gencode()
+
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.type)
         graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
@@ -250,33 +444,6 @@ class ASTUnaryOp(ASTNode):
 
     def __str__(self):
         return 'NEGATE: %s' % self.value
-
-
-class ASTParen(ASTNode):
-    """NOTE: might not actualy be needed"""
-
-    def __init__(self, p, value):
-        """AST paren - holds a reference to a child
-
-        Arguments:
-        p - pyl parser object
-        value - ASTNode child
-
-        """
-        self.p = p
-        self.value = value
-
-    def wellformed(self):
-        return self.value.wellformed()
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, '( )')
-        graph.add_node(name, fillcolor=ASTParen.COLOR)
-        graph.add_edge(parent, name)
-        return self.value.add_edges_to_graph(graph, name, counter + 1)
-
-    def __str__(self):
-        return 'PAREN: %s' % self.value
 
 
 class ASTBinaryOp(ASTNode):
@@ -303,6 +470,15 @@ class ASTBinaryOp(ASTNode):
 
     def wellformed(self):
         return self.left.wellformed() and self.right.wellformed()
+
+    def gencode(self, tac):
+        var = tac.new_var()
+        tac.add_instruction(ThreeAddress(dest=var, arg1=tac.pop_var(), arg2=tac.pop_var(),
+            op=self.type))
+        tac.add_var(var)
+
+    def to_stack(self):
+        return [self] + self.left.to_stack() + self.right.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.type)
