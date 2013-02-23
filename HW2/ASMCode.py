@@ -10,13 +10,17 @@ class AsmInstruction(object):
         self.comment = comment
 
     def __str__(self):
+        # to add the comments aligned correctly
+        comment = lambda s: s+(" "*(30-len(s)))+"# "+self.comment
+
         if self.arg1 and self.arg2 and self.arg3:
-            return "%s %s, %s, %s\t# %s" % (self.op, self.arg1, self.arg2, self.arg3, self.comment)       
+            return comment("%s %s, %s, %s" % (self.op, self.arg1, self.arg2, self.arg3))       
         elif self.arg1 and self.arg2: 
-            return "%s %s, %s\t# %s" % (self.op, self.arg1, self.arg2, self.comment)       
+            return comment("%s %s, %s" % (self.op, self.arg1, self.arg2))    
         elif self.arg1: 
-            return "%s %s\t#%s" % (self.op, self.arg1, self.comment)       
-        else: return self.op+"\t\t# "+self.comment
+            return comment("%s %s" % (self.op, self.arg1))  
+        else: 
+            return comment(self.op)
 
 class AsmInstructionContext(object):
     def __init__(self):
