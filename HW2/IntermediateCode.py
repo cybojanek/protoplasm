@@ -13,10 +13,10 @@ class ThreeAddress(object):
                 Keyword Arguments:
         dest - destination variable
         arg1 - first argument
-
-
         arg2 - second argument
         op - operator
+
+
 
         """
         self.dest = dest
@@ -139,7 +139,7 @@ class ThreeAddressContext(object):
         Autoincremented.
 
         """
-        name = '$%s' % self.counter
+        name = '@%s' % self.counter
         self.counter += 1
         return name
 
@@ -170,11 +170,29 @@ class ThreeAddressContext(object):
         ssa - look @ThreeAddressContext.update_ssa
 
         """
+        self.update_immediates()
+
         if flatten_temp:
             self.flatten_temporary_assignments()
         if ssa:
             self.update_ssa()
         self.update_liveliness()
+
+    def update_immediates(self):
+        """
+        Loop through all instructions and replace silly immiedates like this
+        a = 2 + 2   --> a = 4
+        """
+        for i in self.instructions:
+            if i.op and i.arg1 and i.arg2:
+                if(str(i.arg1).isdigit() and str(i.arg2).isdigit()):
+                    if i.op == "+": i.arg1 = i.arg1 + i.arg2
+                    if i.op == "*": i.arg1 = i.arg1 * i.arg2
+                    if i.op == "/": i.arg1 = i.arg1 / i.arg2
+                    if i.op == "%": i.arg1 = i.arg1 % i.arg2
+                    i.arg2 = None
+                    i.op = None
+
 
     def flatten_temporary_assignments(self):
         """TODO:

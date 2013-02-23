@@ -30,10 +30,10 @@ def main(file_name):
     program.to_png('%s.ast.png' % file_name)
     tac = program.gencode()
     tac.registerize(ssa=True)
-  #  tas = tac.instructions
-  #  for i in tas:
-  #      print '%s' % (i, )
-  #  print "---- ASM ----"
+    tas = tac.instructions
+    for i in tas:
+        print '%s' % (i, )
+    print "---- ASM ----"
     asm = tac.gencode()
     for i in asm.instructions:
         print "%s" % (i)
