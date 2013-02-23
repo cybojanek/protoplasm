@@ -290,11 +290,6 @@ class ThreeAddressContext(object):
                 for j in ta.variables['in']:
                     if i != j:
                         self.liveliness_graph.add_edge(i, j)
-        # The last one also needs out, bc the next in is empty
-        for i in self.instructions[-1].variables['out']:
-            for j in self.instructions[-1].variables['out']:
-                if i != j:
-                    self.liveliness_graph.add_edge(i, j)
 
     def gencode(self):
         """Converts the list of ThreeAddress objects to ASMInstruction Objects,
