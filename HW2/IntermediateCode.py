@@ -1,4 +1,6 @@
 from ASMCode import *
+from Graph import UndirectedGraph
+
 
 class ThreeAddress(object):
 
@@ -100,6 +102,21 @@ class ThreeAddress(object):
             (changed or not(self.variables['in'] == new_in)), new_in)
         return changed
 
+    def rename_variables_to_registers(self, variable_map):
+        """Rename variables to registers.
+        DOES NOT UPDATE LIVELINESS
+
+        Arguments:
+        variable_map - dict of name : register
+
+        """
+        if self.dest:
+            self.dest = variable_map[self.dest]
+        if self.arg1 and isinstance(self.arg1, str):
+            self.arg1 = variable_map[self.arg1]
+        if self.arg2 and isinstance(self.arg2, str):
+            self.arg2 = variable_map[self.arg2]
+
     def __str__(self):
         if self.dest and self.arg1 and self.arg2 and self.op:
             return '%s = %s %s %s' % (self.dest, self.arg1, self.op, self.arg2)
@@ -116,6 +133,19 @@ class ThreeAddress(object):
 
 
 class ThreeAddressContext(object):
+    TEMP_REGS = {
+        '$t0': '#FF7400',
+        '$t1': '#009999',
+        '$t2': '#FF7373',
+        '$t3': '#BF7130',
+        '$t4': '#A60000',
+        '$t5': '#008500',
+        '$t6': '#00CC00',
+        '$t7': '#D2006B',
+        '$t8': '#574DD8',
+        '$t9': '#B7F200'
+    }
+    ALL_TEMP_REGS = set(TEMP_REGS.keys())
 
     def __init__(self):
         """Keeps track of the ASTNode to address context translation
@@ -124,6 +154,7 @@ class ThreeAddressContext(object):
         self.instructions = []
         self.variables = []
         self.counter = 0
+        self.liveliness_graph = UndirectedGraph()
 
     def add_instruction(self, ins):
         """Add a ThreeAddress to the instruction list
@@ -177,6 +208,7 @@ class ThreeAddressContext(object):
         if ssa:
             self.update_ssa()
         self.update_liveliness()
+        self.allocate_registers()
 
     def update_immediates(self):
         """
@@ -186,14 +218,18 @@ class ThreeAddressContext(object):
         for i in self.instructions:
             if i.op and i.arg1 and i.arg2:
                 if(str(i.arg1).isdigit() and str(i.arg2).isdigit()):
-                    if i.op == "+": i.arg1 = i.arg1 + i.arg2
-                    if i.op == "-": i.arg1 = i.arg1 + i.arg2
-                    if i.op == "*": i.arg1 = i.arg1 * i.arg2
-                    if i.op == "/": i.arg1 = i.arg1 / i.arg2
-                    if i.op == "%": i.arg1 = i.arg1 % i.arg2
+                    if i.op == "+":
+                        i.arg1 = i.arg1 + i.arg2
+                    if i.op == "-":
+                        i.arg1 = i.arg1 - i.arg2
+                    if i.op == "*":
+                        i.arg1 = i.arg1 * i.arg2
+                    if i.op == "/":
+                        i.arg1 = i.arg1 / i.arg2
+                    if i.op == "%":
+                        i.arg1 = i.arg1 % i.arg2
                     i.arg2 = None
                     i.op = None
-
 
     def flatten_temporary_assignments(self):
         """TODO:
@@ -244,6 +280,21 @@ class ThreeAddressContext(object):
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
                     next_ta=self.instructions[i + 1])
+        for ta in self.instructions:
+            # Add defined variables - will be single nodes if not conflicting
+            for i in ta.variables['defined']:
+                self.liveliness_graph.add_node(i)
+            # All the in variables that conflict with each other
+            for i in ta.variables['in']:
+                self.liveliness_graph.add_node(i)
+                for j in ta.variables['in']:
+                    if i != j:
+                        self.liveliness_graph.add_edge(i, j)
+        # The last one also needs out, bc the next in is empty
+        for i in self.instructions[-1].variables['out']:
+            for j in self.instructions[-1].variables['out']:
+                if i != j:
+                    self.liveliness_graph.add_edge(i, j)
 
     def gencode(self):
         """Converts the list of ThreeAddress objects to ASMInstruction Objects,
@@ -254,36 +305,43 @@ class ThreeAddressContext(object):
             asm.add_threeaddress(i)
         return asm
 
-    def liveliness_to_png(self, file_name):
-        """Output an graph of liveliness
-
-        Arguments:
-        file_name - output name for file
+    def allocate_registers(self):
+        """Allocate registers by coloring in a graph of liveliness
 
         """
-        # Only try if pygraphviz is available
-        try:
-            import pygraphviz as pgz
-        except ImportError:
-            return
-        graph = pgz.AGraph(directed=False)
+        var_map = {}
+        stack = []
+        # Build up graph
+        graph = self.liveliness_graph
+        # Remove all nodes with degree < registers
+        for node in graph.nodes():
+            if graph.degree(node) < len(ThreeAddressContext.TEMP_REGS):
+                # node, set of edges
+                stack.append((node, graph.remove_node(node)))
+        if len(graph.nodes()) != 0:
+            raise ValueError('Not enough registers!')
+        while len(stack) != 0:
+            # Remove a node, edges from stack
+            node, edges = stack.pop()
+            graph.add_edges(node, edges)
+            # Get all neighbhor colors
+            neighbor_regs = set([graph.color(n) for n in edges])
+            # Calculate all possible colors
+            possible_regs = ThreeAddressContext.ALL_TEMP_REGS.difference(
+                neighbor_regs)
+            # Get one
+            reg = possible_regs.pop()
+            # Set the color
+            graph.colorize(node, reg)
+        # Now replace with graph colors with actual colors
+        # and store variable to register mapping
+        for node in graph.nodes():
+            var_map[node] = graph.color(node)
+            graph.colorize(node,
+                ThreeAddressContext.TEMP_REGS[graph.color(node)])
+        # Rename all variables
         for ta in self.instructions:
-            # Add defined variables - will be single nodes if not conflicting
-            for i in ta.variables['defined']:
-                graph.add_node(i)
-            # All the in variables that conflict with each other
-            for i in ta.variables['in']:
-                graph.add_node(i)
-                for j in ta.variables['in']:
-                    if i != j:
-                        graph.add_edge(i, j)
-        # The last one also needs out, bc the next in is empty
-        for i in self.instructions[-1].variables['out']:
-            for j in self.instructions[-1].variables['out']:
-                if i != j:
-                    graph.add_edge(i, j)
-        for i in ['circo', 'fdp']:
-            graph.draw('%s_%s' % (i, file_name), prog=i)
+            ta.rename_variables_to_registers(var_map)
 
     def __str__(self):
         s = ''
