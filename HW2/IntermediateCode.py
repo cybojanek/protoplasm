@@ -187,6 +187,7 @@ class ThreeAddressContext(object):
             if i.op and i.arg1 and i.arg2:
                 if(str(i.arg1).isdigit() and str(i.arg2).isdigit()):
                     if i.op == "+": i.arg1 = i.arg1 + i.arg2
+                    if i.op == "-": i.arg1 = i.arg1 + i.arg2
                     if i.op == "*": i.arg1 = i.arg1 * i.arg2
                     if i.op == "/": i.arg1 = i.arg1 / i.arg2
                     if i.op == "%": i.arg1 = i.arg1 % i.arg2

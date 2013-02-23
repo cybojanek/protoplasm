@@ -22,47 +22,42 @@ class AsmInstructionContext(object):
     def __init__(self):
         self.instructions = []
 
-
     def add_threeaddress(self, ins):
        # self.instructions.append(AsmInstruction("#", str(ins)))
         if ins.op:
-            if ins.op=="+":
-                if(str(ins.arg1).isdigit()):
-                     self.instructions.append(AsmInstruction("addi", ins.dest, ins.arg2, ins.arg1,comment=str(ins)))
-                elif(str(ins.arg2).isdigit()):
-                     self.instructions.append(AsmInstruction("addi", ins.dest, ins.arg1, ins.arg2,comment=str(ins)))
-                else:
-                     self.instructions.append(AsmInstruction("add", ins.dest, ins.arg1, ins.arg2,comment=str(ins)))
-            if ins.op=="*":
-                if(str(ins.arg1).isdigit()):
-                     self.instructions.append(AsmInstruction("li", ins.dest, ins.arg1,comment=str(ins)))  
-                     self.instructions.append(AsmInstruction("mul", ins.dest, ins.dest, ins.arg2))
-                elif(str(ins.arg2).isdigit()):
-                     self.instructions.append(AsmInstruction("li", ins.dest, ins.arg2,comment=str(ins)))  
-                     self.instructions.append(AsmInstruction("mul", ins.dest, ins.dest, ins.arg1))
-                else:
-                     self.instructions.append(AsmInstruction("mul", ins.dest, ins.arg1, ins.arg2,comment=str(ins)))
+            ops = {"+": "add", "-": "sub", "*": "mul", "/": "div", "%": "div"}
 
-            if ins.op=="/":
+            if ins.op in ops:
                 if(str(ins.arg1).isdigit()):
                      self.instructions.append(AsmInstruction("li", ins.dest, ins.arg1,comment=str(ins)))  
-                     self.instructions.append(AsmInstruction("div", ins.dest, ins.dest, ins.arg2))
+                     self.instructions.append(AsmInstruction(ops[ins.op], ins.dest, ins.dest, ins.arg2))
                 elif(str(ins.arg2).isdigit()):
                      self.instructions.append(AsmInstruction("li", ins.dest, ins.arg2,comment=str(ins)))  
-                     self.instructions.append(AsmInstruction("div", ins.dest, ins.dest, ins.arg1))
+                     self.instructions.append(AsmInstruction(ops[ins.op], ins.dest, ins.dest, ins.arg1))
                 else:
-                     self.instructions.append(AsmInstruction("div", ins.dest, ins.arg1, ins.arg2,comment=str(ins)))
+                     self.instructions.append(AsmInstruction(ops[ins.op], ins.dest, ins.arg1, ins.arg2,comment=str(ins)))
+
+            # For modulus, use divison and mfhi
+            if ins.op == "%":
+                self.instructions.append(AsmInstruction("mfhi", ins.dest))
+
 
             if ins.op=="print":
                 self.instructions.append(AsmInstruction("li", "$v0", "1",comment=str(ins)))  
                 if(str(ins.arg1).isdigit()):
-                     self.instructions.append(AsmInstruction("li", "$t1", ins.arg1))
-                else: # use li for an immiedate, or xor with $0 for a register
-                     self.instructions.append(AsmInstruction("xor", "$t1", "$0", ins.arg1))
+                     self.instructions.append(AsmInstruction("li", "$a1", ins.arg1))
+                else: # use li for an immiedate, or add with $0 for a register
+                     self.instructions.append(AsmInstruction("add", "$a1", ins.arg1, "$0"))
                 self.instructions.append(AsmInstruction("syscall"))
+
+            if ins.op=="input":
+                self.instructions.append(AsmInstruction("li", "$v0", "5",comment=str(ins)))  
+                self.instructions.append(AsmInstruction("syscall"))
+                self.instructions.append(AsmInstruction("add", ins.dest, "$a0", "$0"))
+
         else:
             if(str(ins.arg1).isdigit()):
                  self.instructions.append(AsmInstruction("li", ins.dest, ins.arg1, comment=str(ins)))
             else: # use li for an immiedate, or xor with $0 for a register
-                 self.instructions.append(AsmInstruction("xor", ins.dest, "$0", ins.arg1,comment=str(ins)))
+                 self.instructions.append(AsmInstruction("add", ins.dest, "$a0", ins.arg1,comment=str(ins)))
 
