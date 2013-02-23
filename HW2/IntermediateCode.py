@@ -37,6 +37,45 @@ class ThreeAddress(object):
         if arg2 and not str(arg2).isdigit():
             self.variables['used'].add(arg2)
 
+    def rename_dest(self, dest):
+        """Rename destination variable.
+        ONLY FOR THIS STATEMENT
+        Updates defined set
+
+        Arguments:
+        dest - new name for destination
+
+        """
+        self.variables['defined'].remove(self.dest)
+        self.variables['defined'].add(dest)
+        self.dest = dest
+
+    def rename_arg1(self, arg1):
+        """Rename arg1 variable.
+        ONLY FOR THIS STATEMENT
+        Updates used set
+
+        Arguments:
+        arg1 - new name for arg1
+
+        """
+        self.variables['used'].remove(self.arg1)
+        self.variables['used'].add(arg1)
+        self.arg1 = arg1
+
+    def rename_arg2(self, arg2):
+        """Rename arg2 variable.
+        ONLY FOR THIS STATEMENT
+        Updates used set
+
+        Arguments:
+        arg2 - new name for arg2
+
+        """
+        self.variables['used'].remove(self.arg2)
+        self.variables['used'].add(arg2)
+        self.arg2 = arg2
+
     def update_variable_sets(self, next_ta=None):
         """Update in and out sets.
 
@@ -122,6 +161,57 @@ class ThreeAddressContext(object):
         """
         return self.variables.pop()
 
+    def registerize(self, flatten_temp=False, ssa=False):
+        """Perform optimization procedures and translate variables
+        to use registers.
+
+        Keyword Arguments:
+        flatten_temp - look @ThreeAddressContext.flatten_temporary_assignments
+        ssa - look @ThreeAddressContext.update_ssa
+
+        """
+        if flatten_temp:
+            self.flatten_temporary_assignments()
+        if ssa:
+            self.update_ssa()
+        self.update_liveliness()
+
+    def flatten_temporary_assignments(self):
+        """TODO:
+        Its not really necessary to do this fully
+        you only really need to replace a = $1, because liveliness analysis
+        will detect that the rest don't actually conflict.
+        ALTHOUGH, you do save a register when building up the value of a
+
+        Loop through all instructions and flatten temp assignments like this:
+        $1 = $0 * 2   --> a = $0 * 2
+        a = $1
+        Assumptions: any variable of the form $x where x is a number, will NOT
+        be used after it is assigned to a variable.
+        """
+        pass
+
+    def update_ssa(self):
+        """Translate three address code to use Static Single Assignment
+        variables.
+
+        """
+        vc = {}
+        for i in self.instructions:
+            # If its been declared before and updated, use updated
+            # TODO: clean this up
+            if isinstance(i.arg1, str) and i.arg1 in vc and vc[i.arg1] != 0:
+                i.rename_arg1('%s%s' % (i.arg1, vc[i.arg1]))
+            if isinstance(i.arg2, str) and i.arg2 in vc and vc[i.arg2] != 0:
+                i.rename_arg2('%s%s' % (i.arg2, vc[i.arg2]))
+            # If i.dest is not None and its been declared before, update it
+            if i.dest and i.dest in vc:
+                vc[i.dest] += 1
+                i.rename_dest('%s%s' % (i.dest, vc[i.dest]))
+            # Otherwise, first time, so use 0
+            elif i.dest:
+                vc[i.dest] = 0
+
     def update_liveliness(self):
         """Loop through all instructions and update their in and out sets.
 
@@ -135,6 +225,37 @@ class ThreeAddressContext(object):
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
                     next_ta=self.instructions[i + 1])
+
+    def liveliness_to_png(self, file_name):
+        """Output an graph of liveliness
+
+        Arguments:
+        file_name - output name for file
+
+        """
+        # Only try if pygraphviz is available
+        try:
+            import pygraphviz as pgz
+        except ImportError:
+            return
+        graph = pgz.AGraph(directed=False)
+        for ta in self.instructions:
+            # Add defined variables - will be single nodes if not conflicting
+            for i in ta.variables['defined']:
+                graph.add_node(i)
+            # All the in variables that conflict with each other
+            for i in ta.variables['in']:
+                graph.add_node(i)
+                for j in ta.variables['in']:
+                    if i != j:
+                        graph.add_edge(i, j)
+        # The last one also needs out, bc the next in is empty
+        for i in self.instructions[-1].variables['out']:
+            for j in self.instructions[-1].variables['out']:
+                if i != j:
+                    graph.add_edge(i, j)
+        for i in ['circo', 'fdp']:
+            graph.draw('%s_%s' % (i, file_name), prog=i)
 
     def __str__(self):
         s = ''

@@ -1,26 +1,6 @@
 from IntermediateCode import ThreeAddressContext, ThreeAddress
 
 
-def ast_to_png(program, file_name):
-    """Output an AST using graphviz
-
-    Arguments:
-    program - ASTProgram
-    file_name - output name for file
-
-    """
-    # Only try if pygraphviz is available
-    try:
-        import pygraphviz as pgz
-    except ImportError:
-        return
-    graph = pgz.AGraph(directed=True)
-    graph.node_attr['style'] = 'filled'
-    counter = 0
-    program.add_edges_to_graph(graph, None, counter + 1)
-    graph.draw(file_name, prog='dot')
-
-
 class ASTNode(object):
     """ASTNode which represents different AST TYPES
     Exepects to implement wellformed, gencode
@@ -70,13 +50,13 @@ class ASTProgram(ASTNode):
 
         """
         tac = ThreeAddressContext()
-        stack = self.to_stack()
+        stack = self._to_stack()
         while len(stack) != 0:
             s = stack.pop()
             s.gencode(tac)
         return tac
 
-    def to_stack(self):
+    def _to_stack(self):
         """Convert from internal tree representation to an
         in order stack representation
 
@@ -95,6 +75,25 @@ class ASTProgram(ASTNode):
         for s in self.statements:
             counter = s.add_edges_to_graph(graph, name, counter)
         return counter
+
+    def to_png(self, file_name):
+        """Output an AST using graphviz
+
+        Arguments:
+        program - ASTProgram
+        file_name - output name for file
+
+        """
+        # Only try if pygraphviz is available
+        try:
+            import pygraphviz as pgz
+        except ImportError:
+            return
+        graph = pgz.AGraph(directed=True)
+        graph.node_attr['style'] = 'filled'
+        counter = 0
+        self.add_edges_to_graph(graph, None, counter + 1)
+        graph.draw(file_name, prog='dot')
 
 
 class ASTStatement(ASTNode):

@@ -17,7 +17,6 @@ import ply.lex as lex
 import ply.yacc as yacc
 import proto1lexer
 import proto1parser
-from AbstractSyntaxTree import ast_to_png
 from AbstractSyntaxTree import ASTProgram
 
 
@@ -29,13 +28,14 @@ def main(file_name):
     if not program.wellformed():
         print 'Program not well formed!'
         sys.exit(1)
-    ast_to_png(program, '%s.png' % file_name)
+    program.to_png('%s.ast.png' % file_name)
     tac = program.gencode()
-    tac.update_liveliness()
+    tac.registerize(ssa=True)
     tas = tac.instructions
     for i in tas:
         print '%s: %s' % (i, i.variables)
     print "Done with liveliness!"
+    tac.liveliness_to_png('%s.liveliness.png' % file_name)
 
     # [s.wellformed() for s in stmts]
 
