@@ -32,8 +32,8 @@ class AsmInstructionContext(object):
                      self.instructions.append(AsmInstruction("li", ins.dest, ins.arg1,comment=str(ins)))  
                      self.instructions.append(AsmInstruction(ops[ins.op], ins.dest, ins.dest, ins.arg2))
                 elif(str(ins.arg2).isdigit()):
-                     self.instructions.append(AsmInstruction("li", ins.dest, ins.arg2,comment=str(ins)))  
-                     self.instructions.append(AsmInstruction(ops[ins.op], ins.dest, ins.dest, ins.arg1))
+                     self.instructions.append(AsmInstruction("li", ins.dest, ins.arg2, comment=str(ins)))  
+                     self.instructions.append(AsmInstruction(ops[ins.op], ins.dest, ins.arg1, ins.dest))
                 else:
                      self.instructions.append(AsmInstruction(ops[ins.op], ins.dest, ins.arg1, ins.arg2,comment=str(ins)))
 

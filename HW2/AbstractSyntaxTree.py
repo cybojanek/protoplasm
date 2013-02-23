@@ -388,14 +388,14 @@ class ASTBinaryOp(ASTNode):
         tac.add_var(var)
 
     def to_stack(self):
-        return [self] + self.left.to_stack() + self.right.to_stack()
+        return [self] + self.right.to_stack() + self.left.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.type)
         graph.add_node(name, fillcolor=ASTBinaryOp.COLOR)
         graph.add_edge(parent, name)
-        counter = self.right.add_edges_to_graph(graph, name, counter + 1)
-        return self.left.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.left.add_edges_to_graph(graph, name, counter + 1)
+        return self.right.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
         return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)
