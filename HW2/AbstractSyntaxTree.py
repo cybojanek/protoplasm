@@ -1,3 +1,4 @@
+from IntermediateCode import ThreeAddressContext, ThreeAddress
 
 
 def ast_to_png(program, file_name):
@@ -18,98 +19,6 @@ def ast_to_png(program, file_name):
     counter = 0
     program.add_edges_to_graph(graph, None, counter + 1)
     graph.draw(file_name, prog='dot')
-
-
-class ThreeAddressContext(object):
-
-    def __init__(self):
-        """Keeps track of the ASTNode to address context translation
-
-        """
-        self.instructions = []
-        self.variables = []
-        self.counter = 0
-
-    def add_instruction(self, ins):
-        """Add a ThreeAddress to the instruction list
-
-        Arguments:
-        ins - ThreeAddress
-
-        """
-        self.instructions.append(ins)
-
-    def new_var(self):
-        """Create a new temporary variable.
-        Autoincremented.
-
-        """
-        name = '$%s' % self.counter
-        self.counter += 1
-        return name
-
-    def add_var(self, var):
-        """Add a variable to the stack
-
-        Arguments:
-        var - variable
-
-        """
-        self.variables.append(var)
-
-    def pop_var(self):
-        """Remove a variable from the stack
-
-        Return:
-        top variable form stack
-
-        """
-        return self.variables.pop()
-
-    def __str__(self):
-        s = ''
-        for x in self.instructions:
-            s += '%s\n' % (x)
-        return s
-
-
-class ThreeAddress(object):
-
-    def __init__(self, dest=None, arg1=None, arg2=None, op=None):
-        """A new three address object: dest = arg1 [op] [arg2]
-        Have the form:
-        dest = arg1
-        dest = op arg1
-        dest = arg1 op arg2
-
-        Arguments:
-                Keyword Arguments:
-        dest - destination variable
-        arg1 - first argument
-
-
-        arg2 - second argument
-        op - operator
-
-        """
-        self.dest = dest
-        self.arg1 = arg1
-        self.arg2 = arg2
-        self.op = op
-
-    def __str__(self):
-        if self.dest and self.arg1 and self.arg2 and self.op:
-            return '%s = %s %s %s' % (self.dest, self.arg1, self.op, self.arg2)
-        elif self.dest and self.arg1 and self.op:
-            return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1 and self.op:
-            return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1:
-            return '%s = %s' % (self.dest, self.arg1)
-        elif self.dest and self.op:
-            return '%s = %s' % (self.dest, self.op)
-        elif self.arg1 and self.op:
-            return '%s %s' % (self.op, self.arg1)
 
 
 class ASTNode(object):

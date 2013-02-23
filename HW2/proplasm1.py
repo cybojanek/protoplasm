@@ -30,7 +30,12 @@ def main(file_name):
         print 'Program not well formed!'
         sys.exit(1)
     ast_to_png(program, '%s.png' % file_name)
-    print program.gencode()
+    tac = program.gencode()
+    tac.update_liveliness()
+    tas = tac.instructions
+    for i in tas:
+        print '%s: %s' % (i, i.variables)
+    print "Done with liveliness!"
 
     # [s.wellformed() for s in stmts]
 
