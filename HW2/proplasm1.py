@@ -19,7 +19,6 @@ import proto1lexer
 import proto1parser
 from AbstractSyntaxTree import ASTProgram
 
-
 def main(file_name):
     lexer = lex.lex(module=proto1lexer)
     lexer.input(open(file_name, 'r').read())
@@ -31,12 +30,16 @@ def main(file_name):
     program.to_png('%s.ast.png' % file_name)
     tac = program.gencode()
     tac.registerize(ssa=True)
-    tas = tac.instructions
-    for i in tas:
-        print '%s: %s' % (i, i.variables)
-    print "Done with liveliness!"
-    tac.liveliness_to_png('%s.liveliness.png' % file_name)
+  #  tas = tac.instructions
+  #  for i in tas:
+  #      print '%s' % (i, )
+  #  print "---- ASM ----"
+    asm = tac.gencode()
+    for i in asm.instructions:
+        print "%s" % (i)
 
+    #print "Done with liveliness!"
+    #tac.liveliness_to_png('%s.liveliness.png' % file_name)
     # [s.wellformed() for s in stmts]
 
 if __name__ == '__main__':

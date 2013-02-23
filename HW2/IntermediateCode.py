@@ -1,4 +1,4 @@
-
+from ASMCode import *
 
 class ThreeAddress(object):
 
@@ -225,6 +225,15 @@ class ThreeAddressContext(object):
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
                     next_ta=self.instructions[i + 1])
+
+    def gencode(self):
+        """Converts the list of ThreeAddress objects to ASMInstruction Objects,
+           Returns AsmInstructionContext
+        """
+        asm = AsmInstructionContext()
+        for i in self.instructions:
+            asm.add_threeaddress(i)
+        return asm
 
     def liveliness_to_png(self, file_name):
         """Output an graph of liveliness
