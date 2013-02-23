@@ -41,12 +41,11 @@ class AsmInstructionContext(object):
             if ins.op == "%":
                 self.instructions.append(AsmInstruction("mfhi", ins.dest))
 
-
             if ins.op=="print":
                 self.instructions.append(AsmInstruction("li", "$v0", "1",comment=str(ins)))  
                 if(str(ins.arg1).isdigit()):
                      self.instructions.append(AsmInstruction("li", "$a1", ins.arg1))
-                else: # use li for an immiedate, or add with $0 for a register
+                else: 
                      self.instructions.append(AsmInstruction("add", "$a1", ins.arg1, "$0"))
                 self.instructions.append(AsmInstruction("syscall"))
 
@@ -59,5 +58,5 @@ class AsmInstructionContext(object):
             if(str(ins.arg1).isdigit()):
                  self.instructions.append(AsmInstruction("li", ins.dest, ins.arg1, comment=str(ins)))
             else: # use li for an immiedate, or xor with $0 for a register
-                 self.instructions.append(AsmInstruction("add", ins.dest, "$a0", ins.arg1,comment=str(ins)))
+                 self.instructions.append(AsmInstruction("add", ins.dest, ins.arg1, "$0", comment=str(ins)))
 
