@@ -18,8 +18,6 @@ class ThreeAddress(object):
         arg2 - second argument
         op - operator
 
-
-
         """
         self.dest = dest
         self.arg1 = arg1
@@ -202,7 +200,8 @@ class ThreeAddressContext(object):
         return self.variables.pop()
 
     def registerize(self, flatten_temp=False, ssa=False,
-            propagate_constants=False, eliminate_dead_code=False):
+            propagate_variables=False, propagate_constants=False,
+            eliminate_dead_code=False):
         """Perform optimization procedures and translate variables
         to use registers.
 
@@ -213,6 +212,8 @@ class ThreeAddressContext(object):
         """
         if flatten_temp:
             self.flatten_temporary_assignments()
+        if propagate_variables:
+            self.propagate_variables()
         if propagate_constants:
             self.propagate_constants()
         if ssa:
@@ -221,6 +222,37 @@ class ThreeAddressContext(object):
             self.eliminate_dead_code()
         self.update_liveliness()
         self.allocate_registers()
+
+    def propagate_variables(self):
+        """Propagate variables and remove self assignments:
+        a = 1;
+        b = a;      --> a = a;        --> NOP
+        b = b;      --> a = a;        --> NOP
+        print(b);   --> print(a);
+
+        """
+        # Array of: (int, a,b)
+        # from int onwards, change a to b
+        changes = []
+        for i in xrange(len(self.instructions) - 1, -1, -1):
+            ins = self.instructions[i]
+            if ins.is_assignment() and isinstance(ins.arg1, str):
+                changes.insert(0, (i, ins.dest, ins.arg1))
+        # Rename everything using limits
+        for i in xrange(len(self.instructions) - 1, -1, -1):
+            ins = self.instructions[i]
+            for c in xrange(len(changes) - 1, -1, -1):
+                line, orig, new = changes[c]
+                if i >= line:
+                    if ins.arg1 == orig:
+                        ins.rename_arg1(new)
+                    if ins.arg2 == orig:
+                        ins.rename_arg2(new)
+                    if ins.dest == orig:
+                        ins.rename_dest(new)
+            # Remove if it becomes self-referencing
+            if ins.is_assignment() and ins.dest == ins.arg1:
+                self.instructions.pop(i)
 
     def propagate_constants(self):
         """Solve constants: ie
@@ -241,10 +273,11 @@ class ThreeAddressContext(object):
             if i.is_binary_op():
                 result = ops[i.op](i.arg1, i.arg2)
                 i.arg1, i.arg2, i.op = result, None, None
-                values[i.dest] = result
+            if i.is_assignment() and isinstance(i.arg1, int):
+                values[i.dest] = i.arg1
 
     def eliminate_dead_code(self):
-        """Eliminate unused variables
+        """Eliminate unused variables and self assignments
 
         """
         used = set()
@@ -253,6 +286,8 @@ class ThreeAddressContext(object):
             ins = self.instructions[i]
             if (ins.is_assignment() or ins.is_binary_op() or ins.is_unary_op()) \
                 and ins.dest not in used:
+                self.instructions.pop(i)
+            elif ins.is_assignment() and ins.dest == ins.arg1:
                 self.instructions.pop(i)
             else:
                 add_only_variables(ins.arg1)
@@ -275,7 +310,7 @@ class ThreeAddressContext(object):
         while i < len(self.instructions) - 1:
             ins = self.instructions[i]
             next_ins = self.instructions[i + 1]
-            if next_ins.arg2 is None and next_ins.op is None and ins.dest[0] == '@':
+            if ins.is_assignment() and ins.dest[0] == '@':
                 ins.dest = next_ins.dest
                 self.instructions.pop(i + 1)
             i += 1
