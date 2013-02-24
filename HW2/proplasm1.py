@@ -30,7 +30,9 @@ def main(file_name):
         sys.exit(1)
     program.to_png('%s.ast.png' % file_name)
     tac = program.gencode()
-    tac.registerize(ssa=True)
+    tac.registerize(flatten_temp=True, ssa=True)
+    for i in tac.instructions:
+        print i
     print "# ---- ASM ----"
     asm = tac.gencode()
     for i in asm.instructions:

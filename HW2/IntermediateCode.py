@@ -239,12 +239,19 @@ class ThreeAddressContext(object):
         ALTHOUGH, you do save a register when building up the value of a
 
         Loop through all instructions and flatten temp assignments like this:
-        $1 = $0 * 2   --> a = $0 * 2
-        a = $1
+        @1 = @0 * 2   --> a = @0 * 2
+        a = @1
         Assumptions: any variable of the form $x where x is a number, will NOT
         be used after it is assigned to a variable.
         """
-        pass
+        i = 0
+        while i < len(self.instructions) - 1:
+            ins = self.instructions[i]
+            next_ins = self.instructions[i + 1]
+            if next_ins.arg2 is None and next_ins.op is None and ins.dest[0] == '@':
+                ins.dest = next_ins.dest
+                self.instructions.pop(i + 1)
+            i += 1
 
     def update_ssa(self):
         """Translate three address code to use Static Single Assignment
