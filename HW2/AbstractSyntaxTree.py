@@ -342,7 +342,7 @@ class ASTUnaryOp(ASTNode):
         tac.add_var(var)
 
     def to_stack(self):
-        return [self] + self.value.gencode()
+        return [self] + self.value.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.type)
