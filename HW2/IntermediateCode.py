@@ -117,6 +117,15 @@ class ThreeAddress(object):
         if self.arg2 and isinstance(self.arg2, str):
             self.arg2 = variable_map[self.arg2]
 
+    def is_binary_op(self):
+        return self.dest and self.arg1 and self.arg2 and self.op
+
+    def is_assignment(self):
+        return self.dest and self.arg1 and self.arg2 is None and self.op is None
+
+    def is_unary_op(self):
+        return self.dest and self.arg1 and self.arg2 is None and self.op
+
     def __str__(self):
         if self.dest and self.arg1 and self.arg2 and self.op:
             return '%s = %s %s %s' % (self.dest, self.arg1, self.op, self.arg2)
@@ -192,7 +201,8 @@ class ThreeAddressContext(object):
         """
         return self.variables.pop()
 
-    def registerize(self, flatten_temp=False, ssa=False):
+    def registerize(self, flatten_temp=False, ssa=False,
+            propagate_constants=False, eliminate_dead_code=False):
         """Perform optimization procedures and translate variables
         to use registers.
 
@@ -201,35 +211,52 @@ class ThreeAddressContext(object):
         ssa - look @ThreeAddressContext.update_ssa
 
         """
-        self.update_immediates()
-
         if flatten_temp:
             self.flatten_temporary_assignments()
+        if propagate_constants:
+            self.propagate_constants()
         if ssa:
             self.update_ssa()
+        if eliminate_dead_code:
+            self.eliminate_dead_code()
         self.update_liveliness()
         self.allocate_registers()
 
-    def update_immediates(self):
+    def propagate_constants(self):
+        """Solve constants: ie
+        a = 2 + 3;    -->    a = 5;
+        b = 4 * a;    -->    b = 20;
+        print(b);     -->    print(20);
+
         """
-        Loop through all instructions and replace silly immiedates like this
-        a = 2 + 2   --> a = 4
-        """
+        values = {}
+        ops = {
+            '-': lambda x, y: values.get(x, x) - values.get(y, y),
+            '+': lambda x, y: values.get(x, x) + values.get(y, y),
+            '*': lambda x, y: values.get(x, x) * values.get(y, y),
+            '/': lambda x, y: values.get(x, x) / values.get(y, y),
+            '%': lambda x, y: values.get(x, x) % values.get(y, y)
+        }
         for i in self.instructions:
-            if i.op and i.arg1 and i.arg2:
-                if(str(i.arg1).isdigit() and str(i.arg2).isdigit()):
-                    if i.op == "+":
-                        i.arg1 = i.arg1 + i.arg2
-                    if i.op == "-":
-                        i.arg1 = i.arg1 - i.arg2
-                    if i.op == "*":
-                        i.arg1 = i.arg1 * i.arg2
-                    if i.op == "/":
-                        i.arg1 = i.arg1 / i.arg2
-                    if i.op == "%":
-                        i.arg1 = i.arg1 % i.arg2
-                    i.arg2 = None
-                    i.op = None
+            if i.is_binary_op():
+                result = ops[i.op](i.arg1, i.arg2)
+                i.arg1, i.arg2, i.op = result, None, None
+                values[i.dest] = result
+
+    def eliminate_dead_code(self):
+        """Eliminate unused variables
+
+        """
+        used = set()
+        add_only_variables = lambda x: used.add(x) if isinstance(x, str) else None
+        for i in xrange(len(self.instructions) - 1, -1, -1):
+            ins = self.instructions[i]
+            if (ins.is_assignment() or ins.is_binary_op() or ins.is_unary_op()) \
+                and ins.dest not in used:
+                self.instructions.pop(i)
+            else:
+                add_only_variables(ins.arg1)
+                add_only_variables(ins.arg2)
 
     def flatten_temporary_assignments(self):
         """TODO:
