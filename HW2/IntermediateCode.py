@@ -47,7 +47,8 @@ class ThreeAddress(object):
 
         """
         self.variables['defined'].remove(self.dest)
-        self.variables['defined'].add(dest)
+        if dest is not None:
+            self.variables['defined'].add(dest)
         self.dest = dest
 
     def rename_arg1(self, arg1):
@@ -59,8 +60,10 @@ class ThreeAddress(object):
         arg1 - new name for arg1
 
         """
-        self.variables['used'].remove(self.arg1)
-        self.variables['used'].add(arg1)
+        if self.arg1 in self.variables['used']:
+            self.variables['used'].remove(self.arg1)
+        if isinstance(arg1, str):
+            self.variables['used'].add(arg1)
         self.arg1 = arg1
 
     def rename_arg2(self, arg2):
@@ -72,8 +75,10 @@ class ThreeAddress(object):
         arg2 - new name for arg2
 
         """
-        self.variables['used'].remove(self.arg2)
-        self.variables['used'].add(arg2)
+        if self.arg2 in self.variables['used']:
+            self.variables['used'].remove(self.arg2)
+        if isinstance(arg2, str):
+            self.variables['used'].add(arg2)
         self.arg2 = arg2
 
     def update_variable_sets(self, next_ta=None):
@@ -236,11 +241,14 @@ class ThreeAddressContext(object):
         changes = []
         for i in xrange(len(self.instructions) - 1, -1, -1):
             ins = self.instructions[i]
+            # If we're doing: a = b then from here on, we can change
+            # all a's to b's
             if ins.is_assignment() and isinstance(ins.arg1, str):
                 changes.insert(0, (i, ins.dest, ins.arg1))
         # Rename everything using limits
         for i in xrange(len(self.instructions) - 1, -1, -1):
             ins = self.instructions[i]
+            # Rename from bottom up
             for c in xrange(len(changes) - 1, -1, -1):
                 line, orig, new = changes[c]
                 if i >= line:
@@ -263,16 +271,29 @@ class ThreeAddressContext(object):
         """
         values = {}
         ops = {
-            '-': lambda x, y: values.get(x, x) - values.get(y, y),
-            '+': lambda x, y: values.get(x, x) + values.get(y, y),
-            '*': lambda x, y: values.get(x, x) * values.get(y, y),
-            '/': lambda x, y: values.get(x, x) / values.get(y, y),
-            '%': lambda x, y: values.get(x, x) % values.get(y, y)
+            '-': lambda x, y: x - y,
+            '+': lambda x, y: x + y,
+            '*': lambda x, y: x * y,
+            '/': lambda x, y: x / y,
+            '%': lambda x, y: x % y
         }
         for i in self.instructions:
-            if i.is_binary_op():
+            # Replace arg1 if its defined
+            if i.arg1 in values:
+                i.rename_arg1(values[i.arg1])
+            # Replace arg2 if its defined
+            if i.arg2 in values:
+                i.rename_arg2(values[i.arg2])
+            # If its a binary op and both are ints, we can calculate now
+            # Changes it to an assignment statement
+            if i.is_binary_op() and isinstance(i.arg1, int) and \
+                isinstance(i.arg2, int):
                 result = ops[i.op](i.arg1, i.arg2)
-                i.arg1, i.arg2, i.op = result, None, None
+                i.rename_arg1(result)
+                i.rename_arg2(None)
+                i.op = None
+            # If its an assignment and the source is an int
+            # we can save it for future lookup
             if i.is_assignment() and isinstance(i.arg1, int):
                 values[i.dest] = i.arg1
 
@@ -282,38 +303,41 @@ class ThreeAddressContext(object):
         """
         used = set()
         add_only_variables = lambda x: used.add(x) if isinstance(x, str) else None
+        # Move bottom up
         for i in xrange(len(self.instructions) - 1, -1, -1):
             ins = self.instructions[i]
+            # If the result is not used below us...then remove it
             if (ins.is_assignment() or ins.is_binary_op() or ins.is_unary_op()) \
                 and ins.dest not in used:
                 self.instructions.pop(i)
+            # If its used, but its self referencing...then remove it
             elif ins.is_assignment() and ins.dest == ins.arg1:
                 self.instructions.pop(i)
+            # Otherwise add both arguments (filters to only strings)
             else:
                 add_only_variables(ins.arg1)
                 add_only_variables(ins.arg2)
 
     def flatten_temporary_assignments(self):
-        """TODO:
-        Its not really necessary to do this fully
-        you only really need to replace a = $1, because liveliness analysis
-        will detect that the rest don't actually conflict.
-        ALTHOUGH, you do save a register when building up the value of a
-
-        Loop through all instructions and flatten temp assignments like this:
+        """Loop through all instructions and flatten temp assignments like so:
         @1 = @0 * 2   --> a = @0 * 2
         a = @1
-        Assumptions: any variable of the form $x where x is a number, will NOT
+        Assumptions: any variable of the form @x where x is a number, will NOT
         be used after it is assigned to a variable.
         """
-        i = 0
-        while i < len(self.instructions) - 1:
+        i = 1
+        # While loop, because we pop stuff
+        while i < len(self.instructions):
             ins = self.instructions[i]
-            next_ins = self.instructions[i + 1]
-            if ins.is_assignment() and ins.dest[0] == '@':
-                ins.dest = next_ins.dest
-                self.instructions.pop(i + 1)
-            i += 1
+            prev_ins = self.instructions[i - 1]
+            # Look for current assignment == previous destination
+            # and previous destination is a temp var: @...
+            if(ins.is_assignment() and prev_ins.dest == ins.arg1
+                and prev_ins.dest[0] == '@'):
+                prev_ins.rename_dest(ins.dest)
+                self.instructions.pop(i)
+            else:
+                i += 1
 
     def update_ssa(self):
         """Translate three address code to use Static Single Assignment
@@ -342,13 +366,18 @@ class ThreeAddressContext(object):
         """
         if len(self.instructions) == 0:
             return
+        # Keep looping while one of the sets has changed
         changed = True
         while changed:
             changed = False
+            # The last one doesn't have a next
             changed = changed or self.instructions[-1].update_variable_sets()
+            # Bottom up, update in's and out's, using next statement
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
                     next_ta=self.instructions[i + 1])
+        # Now build up a graph of which variables need to be alive at the
+        # same time
         for ta in self.instructions:
             # Add defined variables - will be single nodes if not conflicting
             for i in ta.variables['defined']:
