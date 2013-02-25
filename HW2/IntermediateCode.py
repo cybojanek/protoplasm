@@ -204,6 +204,15 @@ class ThreeAddressContext(object):
         """
         return self.variables.pop()
 
+    def gencode(self):
+        """Converts the list of ThreeAddress objects to ASMInstruction Objects,
+           Returns AsmInstructionContext
+        """
+        asm = AsmInstructionContext()
+        for i in self.instructions:
+            asm.add_threeaddress(i)
+        return asm
+
     def registerize(self, flatten_temp=False, ssa=False,
             propagate_variables=False, propagate_constants=False,
             eliminate_dead_code=False):
@@ -230,43 +239,23 @@ class ThreeAddressContext(object):
         self.allocate_registers()
         self.eliminate_self_assignment()
 
-    def mipsify(self):
-        """Convert from generic three address to mips three address compatible
-        Some operations only accept registers: such as =*/%, while others,
-        like +, cannot add two numbers > 16 bits each. This function splits up
-        such instructions into multiple register assignments and adidtion.
-        addi is currently not implemented
-
+    def flatten_temporary_assignments(self):
+        """Loop through all instructions and flatten temp assignments like so:
+        @1 = @0 * 2   --> a = @0 * 2
+        a = @1
+        Assumptions: any variable of the form @x where x is a number, will NOT
+        be used after it is assigned to a variable.
         """
-        i = 0
+        i = 1
+        # While loop, because we pop stuff
         while i < len(self.instructions):
             ins = self.instructions[i]
-            # Replace with registers if either is an int
-            if ins.is_binary_op() and ins.op in ('/', '*', '%', '-', '+'):
-                if isinstance(ins.arg1, int):
-                    a = self.new_var()
-                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg1))
-                    ins.rename_arg1(a)
-                    i += 1
-                if isinstance(ins.arg2, int):
-                    a = self.new_var()
-                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg2))
-                    ins.rename_arg2(a)
-                    i += 1
-            i += 1
-
-    def eliminate_self_assignment(self):
-        """After assigning registers, some assignments might be of the form:
-        b = a;    -->    $t0 = $t0;
-        This function removes such assignments.
-        NOTE: propagate variables and constants ALREADY tries to do this
-        before registers are assigned!!
-
-        """
-        i = 0
-        while i < len(self.instructions):
-            ins = self.instructions[i]
-            if ins.is_assignment() and ins.dest == ins.arg1:
+            prev_ins = self.instructions[i - 1]
+            # Look for current assignment == previous destination
+            # and previous destination is a temp var: @...
+            if(ins.is_assignment() and prev_ins.dest == ins.arg1
+                and prev_ins.dest[0] == '@'):
+                prev_ins.rename_dest(ins.dest)
                 self.instructions.pop(i)
             else:
                 i += 1
@@ -340,6 +329,27 @@ class ThreeAddressContext(object):
             if i.is_assignment() and isinstance(i.arg1, int):
                 values[i.dest] = i.arg1
 
+    def update_ssa(self):
+        """Translate three address code to use Static Single Assignment
+        variables.
+
+        """
+        vc = {}
+        for i in self.instructions:
+            # If its been declared before and updated, use updated
+            # TODO: clean this up
+            if isinstance(i.arg1, str) and i.arg1 in vc and vc[i.arg1] != 0:
+                i.rename_arg1('%s%s' % (i.arg1, vc[i.arg1]))
+            if isinstance(i.arg2, str) and i.arg2 in vc and vc[i.arg2] != 0:
+                i.rename_arg2('%s%s' % (i.arg2, vc[i.arg2]))
+            # If i.dest is not None and its been declared before, update it
+            if i.dest and i.dest in vc:
+                vc[i.dest] += 1
+                i.rename_dest('%s%s' % (i.dest, vc[i.dest]))
+            # Otherwise, first time, so use 0
+            elif i.dest:
+                vc[i.dest] = 0
+
     def eliminate_dead_code(self):
         """Eliminate unused variables and self assignments
 
@@ -361,47 +371,46 @@ class ThreeAddressContext(object):
                 add_only_variables(ins.arg1)
                 add_only_variables(ins.arg2)
 
-    def flatten_temporary_assignments(self):
-        """Loop through all instructions and flatten temp assignments like so:
-        @1 = @0 * 2   --> a = @0 * 2
-        a = @1
-        Assumptions: any variable of the form @x where x is a number, will NOT
-        be used after it is assigned to a variable.
+    def mipsify(self):
+        """Convert from generic three address to mips three address compatible
+        Some operations only accept registers: such as =*/%, while others,
+        like +, cannot add two numbers > 16 bits each. This function splits up
+        such instructions into multiple register assignments and adidtion.
+        addi is currently not implemented
+
         """
-        i = 1
-        # While loop, because we pop stuff
+        i = 0
         while i < len(self.instructions):
             ins = self.instructions[i]
-            prev_ins = self.instructions[i - 1]
-            # Look for current assignment == previous destination
-            # and previous destination is a temp var: @...
-            if(ins.is_assignment() and prev_ins.dest == ins.arg1
-                and prev_ins.dest[0] == '@'):
-                prev_ins.rename_dest(ins.dest)
+            # Replace with registers if either is an int
+            if ins.is_binary_op() and ins.op in ('/', '*', '%', '-', '+'):
+                if isinstance(ins.arg1, int):
+                    a = self.new_var()
+                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg1))
+                    ins.rename_arg1(a)
+                    i += 1
+                if isinstance(ins.arg2, int):
+                    a = self.new_var()
+                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg2))
+                    ins.rename_arg2(a)
+                    i += 1
+            i += 1
+
+    def eliminate_self_assignment(self):
+        """After assigning registers, some assignments might be of the form:
+        b = a;    -->    $t0 = $t0;
+        This function removes such assignments.
+        NOTE: propagate variables and constants ALREADY tries to do this
+        before registers are assigned!!
+
+        """
+        i = 0
+        while i < len(self.instructions):
+            ins = self.instructions[i]
+            if ins.is_assignment() and ins.dest == ins.arg1:
                 self.instructions.pop(i)
             else:
                 i += 1
-
-    def update_ssa(self):
-        """Translate three address code to use Static Single Assignment
-        variables.
-
-        """
-        vc = {}
-        for i in self.instructions:
-            # If its been declared before and updated, use updated
-            # TODO: clean this up
-            if isinstance(i.arg1, str) and i.arg1 in vc and vc[i.arg1] != 0:
-                i.rename_arg1('%s%s' % (i.arg1, vc[i.arg1]))
-            if isinstance(i.arg2, str) and i.arg2 in vc and vc[i.arg2] != 0:
-                i.rename_arg2('%s%s' % (i.arg2, vc[i.arg2]))
-            # If i.dest is not None and its been declared before, update it
-            if i.dest and i.dest in vc:
-                vc[i.dest] += 1
-                i.rename_dest('%s%s' % (i.dest, vc[i.dest]))
-            # Otherwise, first time, so use 0
-            elif i.dest:
-                vc[i.dest] = 0
 
     def update_liveliness(self):
         """Loop through all instructions and update their in and out sets.
@@ -431,15 +440,6 @@ class ThreeAddressContext(object):
                 for j in ta.variables['in']:
                     if i != j:
                         self.liveliness_graph.add_edge(i, j)
-
-    def gencode(self):
-        """Converts the list of ThreeAddress objects to ASMInstruction Objects,
-           Returns AsmInstructionContext
-        """
-        asm = AsmInstructionContext()
-        for i in self.instructions:
-            asm.add_threeaddress(i)
-        return asm
 
     def allocate_registers(self):
         """Allocate registers by coloring in a graph of liveliness
