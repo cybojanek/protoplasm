@@ -225,8 +225,51 @@ class ThreeAddressContext(object):
             self.update_ssa()
         if eliminate_dead_code:
             self.eliminate_dead_code()
+        self.mipsify()
         self.update_liveliness()
         self.allocate_registers()
+        self.eliminate_self_assignment()
+
+    def mipsify(self):
+        """Convert from generic three address to mips three address compatible
+        Some operations only accept registers: such as =*/%, while others,
+        like +, cannot add two numbers > 16 bits each. This function splits up
+        such instructions into multiple register assignments and adidtion.
+        addi is currently not implemented
+
+        """
+        i = 0
+        while i < len(self.instructions):
+            ins = self.instructions[i]
+            # Replace with registers if either is an int
+            if ins.is_binary_op() and ins.op in ('/', '*', '%', '-', '+'):
+                if isinstance(ins.arg1, int):
+                    a = self.new_var()
+                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg1))
+                    ins.rename_arg1(a)
+                    i += 1
+                if isinstance(ins.arg2, int):
+                    a = self.new_var()
+                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg2))
+                    ins.rename_arg2(a)
+                    i += 1
+            i += 1
+
+    def eliminate_self_assignment(self):
+        """After assigning registers, some assignments might be of the form:
+        b = a;    -->    $t0 = $t0;
+        This function removes such assignments.
+        NOTE: propagate variables and constants ALREADY tries to do this
+        before registers are assigned!!
+
+        """
+        i = 0
+        while i < len(self.instructions):
+            ins = self.instructions[i]
+            if ins.is_assignment() and ins.dest == ins.arg1:
+                self.instructions.pop(i)
+            else:
+                i += 1
 
     def propagate_variables(self):
         """Propagate variables and remove self assignments:
