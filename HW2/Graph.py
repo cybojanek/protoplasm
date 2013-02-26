@@ -108,6 +108,15 @@ class UndirectedGraph(object):
         """
         return set(self.edges.keys())
 
+    def smallest_degree_node(self):
+        """Return a node of smallest degree
+
+        Return:
+        node - node of smallest degree
+
+        """
+        return min(self.edges, key=self.edges.get)
+
     def copy(self):
         g = UndirectedGraph()
         for nodeA in self.edges:
