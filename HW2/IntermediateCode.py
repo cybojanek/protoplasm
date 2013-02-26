@@ -525,7 +525,6 @@ class ThreeAddressContext(object):
         var - variable to be spilled
 
         """
-        print "SPILLING"
         i = 0
         new_var = self.new_var()
         first_use = True

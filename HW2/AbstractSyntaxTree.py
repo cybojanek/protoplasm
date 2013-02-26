@@ -76,12 +76,12 @@ class ASTProgram(ASTNode):
             counter = s.add_edges_to_graph(graph, name, counter)
         return counter
 
-    def to_png(self, file_name):
-        """Output an AST using graphviz
+    def to_png(self, program_name):
+        """Output an AST using graphviz to a file called
+        program_name.ast.png
 
         Arguments:
-        program - ASTProgram
-        file_name - output name for file
+        program_name - name of program
 
         """
         # Only try if pygraphviz is available
@@ -93,7 +93,7 @@ class ASTProgram(ASTNode):
         graph.node_attr['style'] = 'filled'
         counter = 0
         self.add_edges_to_graph(graph, None, counter + 1)
-        graph.draw(file_name, prog='dot')
+        graph.draw('%s.ast.png' % program_name, prog='dot')
 
 
 class ASTStatement(ASTNode):

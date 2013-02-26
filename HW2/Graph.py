@@ -126,11 +126,12 @@ class UndirectedGraph(object):
                 g.add_edge(nodeA, nodeB)
         return g
 
-    def to_png(self, file_name):
-        """Output an graph of liveliness
+    def to_png(self, program_name):
+        """Output a graph of liveliness to a file called
+        program_name_coloring.png
 
         Arguments:
-        file_name - output name for file
+        program_name - name of program
 
         """
         # Only try if pygraphviz is available
@@ -145,5 +146,4 @@ class UndirectedGraph(object):
         for nodeA in self.edges:
             for nodeB in self.edges[nodeA]:
                 graph.add_edge(nodeA, nodeB)
-        for i in ['circo', 'fdp']:
-            graph.draw('%s_%s' % (i, file_name), prog=i)
+        graph.draw('%s_coloring.png' % program_name, prog='circo')

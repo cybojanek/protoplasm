@@ -225,8 +225,15 @@ class AsmInstructionContext(object):
             asm = other_ops[ins.op](ins, self)
         self.instructions = self.instructions + asm
 
-    def write_to_file(self, file_name):
-        out = open(file_name, 'w')
+    def write_to_file(self, program_name):
+        """Write out program to a file called
+        program_name.asm
+
+        Arguments:
+        program_name - name of program
+
+        """
+        out = open('%s.asm' % program_name, 'w')
         out.write('.data\n')
         for x in self.data:
             out.write('%s:    .word 0\n' % x)
@@ -235,4 +242,4 @@ class AsmInstructionContext(object):
         for x in self.instructions:
             out.write('%s\n' % x)
         # Exit gracefully
-        out.write('li $v0, 10\nsyscall\n')
+        out.write('# Exit gracefully\nli $v0, 10\nsyscall\n')
