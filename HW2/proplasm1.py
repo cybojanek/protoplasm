@@ -30,20 +30,17 @@ def main(file_name):
         sys.exit(1)
     program.to_png('%s.ast.png' % file_name)
     tac = program.gencode()
-    tac.registerize(flatten_temp=True, ssa=True, propagate_variables=True,
-        propagate_constants=True, eliminate_dead_code=True)
-    for i in tac.instructions:
-        print i
-    print "# ---- ASM ----"
+    tac.registerize(flatten_temp=False, ssa=True, propagate_variables=False,
+        propagate_constants=False, eliminate_dead_code=False)
+    # for i in tac.instructions:
+        # print i
+    #print "# ---- ASM ----"
     asm = tac.gencode()
-    for i in asm.instructions:
-        print '%s' % (i)
+    #for i in asm.instructions:
+    #    print '%s' % (i)
     #tac.liveliness_to_png('%s.liveliness.png' % file_name)
     tac.liveliness_graph.to_png('%s.liveliness.png' % file_name)
-
-    #print "Done with liveliness!"
-    #tac.liveliness_to_png('%s.liveliness.png' % file_name)
-    # [s.wellformed() for s in stmts]
+    asm.write_to_file('%s.asm' % file_name)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

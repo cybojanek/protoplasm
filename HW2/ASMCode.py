@@ -184,6 +184,7 @@ def asm_input(ins):
 class AsmInstructionContext(object):
     def __init__(self):
         self.instructions = []
+        self.data = []
 
     def add_threeaddress(self, ins):
         binary_ops = {
@@ -206,3 +207,15 @@ class AsmInstructionContext(object):
         else:
             asm = other_ops[ins.op](ins)
         self.instructions = self.instructions + asm
+
+    def write_to_file(self, file_name):
+        out = open(file_name, 'w')
+        out.write('.data\n')
+        for x in self.data:
+            out.write('%s\n' % x)
+        out.write('.text\n')
+        out.write('main:\n')
+        for x in self.instructions:
+            out.write('%s\n' % x)
+        # Exit gracefully
+        out.write('li $v0, 10\nsyscall\n')
