@@ -25,6 +25,6 @@ Command line arguments (only available with argparse):
 
 * **-dc** remove dead code, unused variables, (those which never reach print or input)
 
-* **no-flatten** do _NOT_ flatten temporary assignments. 'a = 1 + 2;' is actually: '@0 = 1 + 2; a = @0;' this flattens these expansions to: 'a = 1 + 2;' (this happens due to the tree expansion)
+* **-noflatten** do _NOT_ flatten temporary assignments. 'a = 1 + 2;' is actually: '@0 = 1 + 2; a = @0;' this flattens these expansions to: 'a = 1 + 2;' (this happens due to the tree expansion)
 
 * **-graphs** output liveliness and AST graphs in png format (requires _pygraphviz_)
