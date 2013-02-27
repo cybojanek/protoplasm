@@ -15,6 +15,7 @@ start = 'pgm'
 
 defined = set()
 
+
 def p_pgm(p):
     '''pgm : stmt pgm
            | stmt'''
@@ -82,7 +83,12 @@ def p_f_paren(p):
 
 def p_f_uminus(p):
     '''f : MINUS f %prec UMINUS'''
-    p[0] = ASTUnaryOp(p, p[2], p[1])
+    # If the f is a minus, then we can negate it and pass it up
+    if isinstance(p[2], ASTInteger):
+        p[0] = ASTInteger(p, - p[2].value)
+    # Otherwise we need to do a unary operation on it
+    else:
+        p[0] = ASTUnaryOp(p, p[2], p[1])
 
 
 def p_f_number(p):

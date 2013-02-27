@@ -284,8 +284,7 @@ class ASTInteger(ASTNode):
         self.value = value
 
     def wellformed(self):
-        # Only check for positive, since negative is a unrary op above us
-        if isinstance(self.value, int) and (0 <= self.value <= (2 ** 31 - 1)):
+        if isinstance(self.value, int) and ((2 ** 31) <= self.value <= (2 ** 31 - 1)):
             return True
         else:
             raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
@@ -327,13 +326,7 @@ class ASTUnaryOp(ASTNode):
             raise TypeError('Unary operation: %r not supported')
 
     def wellformed(self):
-        # Ugly hack - check if child is integer for bounds
-        if isinstance(self.value, ASTInteger):
-            if(0 <= self.value.value <= (2 ** 31)):
-                return True
-            raise ValueError('-%s is out of bounds for 32 bit integer value' % self.value.value)
-        else:
-            return self.value.wellformed()
+        return self.value.wellformed()
 
     def gencode(self, tac):
         var = tac.new_var()
