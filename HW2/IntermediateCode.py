@@ -190,6 +190,15 @@ class ThreeAddressContext(object):
         self.counter += 1
         return name
 
+    def new_label(self):
+        """Create a new label name
+        Autoincremented.
+
+        """
+        name = 'label_%s' % self.counter
+        self.counter += 1
+        return name
+
     def add_var(self, var):
         """Add a variable to the stack
 
@@ -528,18 +537,19 @@ class ThreeAddressContext(object):
         i = 0
         new_var = self.new_var()
         first_use = True
+        label = self.new_label()
         while i < len(self.instructions):
             ins = self.instructions[i]
             if ins.is_assignment() and ins.dest == var:
                 # Insert a store after this statement
                 self.instructions.insert(i + 1, ThreeAddress(
-                    dest=var, arg1=var, op='store'))
+                    dest=label, arg1=var, op='store'))
                 i += 2
                 continue
             elif var in ins.variables['used']:
                 if first_use:
                     self.instructions.insert(i, ThreeAddress(
-                        dest=new_var, arg1=var, op='load'))
+                        dest=new_var, arg1=label, op='load'))
                     first_use = False
                 if ins.arg1 == var:
                     ins.rename_arg1(new_var)
