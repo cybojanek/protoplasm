@@ -105,4 +105,4 @@ def p_f_id(p):
 
 # Syntax errors
 def p_error(p):
-    print "Synax error!: %r" % p
+    raise ValueError("Synax error!: %r" % p)
