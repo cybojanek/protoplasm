@@ -26,11 +26,11 @@ class AsmInstruction(object):
         # to add the comments aligned correctly
         comment = lambda s: s + (" " * (30 - len(s))) + "# " + self.comment
 
-        if self.arg1 and self.arg2 and self.arg3:
+        if self.arg1 is not None and self.arg2 is not None and self.arg3 is not None:
             return comment("%s %s, %s, %s" % (self.op, self.arg1, self.arg2, self.arg3))
-        elif self.arg1 and self.arg2:
+        elif self.arg1 is not None and self.arg2 is not None:
             return comment("%s %s, %s" % (self.op, self.arg1, self.arg2))
-        elif self.arg1:
+        elif self.arg1 is not None:
             return comment("%s %s" % (self.op, self.arg1))
         else:
             return comment(self.op)
@@ -186,14 +186,16 @@ def asm_store(ins, aic):
         raise TypeError('Instruction is not a store operations!')
     aic.data.append(ins.dest)
     # sw Rt, Address(Rs)    Word at M[Address + Rs] = Rt
-    return [AsmInstruction('sw', ins.arg1, ins.dest)]
+    return [AsmInstruction('sw', ins.arg1, ins.dest,
+        comment='label %s = %s' % (ins.dest, ins.arg1))]
 
 
 def asm_load(ins, aic):
     if ins.op != 'load':
         raise TypeError('Instruction is not a load operation!')
     # lw Rt, Address(Rs)    Rt = Word at M[Address + Rs]
-    return [AsmInstruction('lw', ins.dest, ins.arg1)]
+    return [AsmInstruction('lw', ins.dest, ins.arg1,
+        comment='%s = label %s' % (ins.dest, ins.arg1))]
 
 
 class AsmInstructionContext(object):
@@ -236,7 +238,7 @@ class AsmInstructionContext(object):
         out = open('%s.asm' % program_name, 'w')
         out.write('.data\n')
         for x in self.data:
-            out.write('%s:    .word 0\n' % x)
+            out.write('%s:    .word 1\n' % x)
         out.write('.text\n')
         out.write('main:\n')
         for x in self.instructions:

@@ -29,12 +29,12 @@ class ThreeAddress(object):
             'used': set(),
             'defined': set()
         }
-        if dest:
+        if dest is not None:
             self.variables['defined'].add(dest)
         # TODO: make this nicer
-        if arg1 and not str(arg1).isdigit():
+        if arg1 is not None and not str(arg1).isdigit():
             self.variables['used'].add(arg1)
-        if arg2 and not str(arg2).isdigit():
+        if arg2 is not None and not str(arg2).isdigit():
             self.variables['used'].add(arg2)
         # Load and store use memory addresses and not variables
         if op in ('load', 'store'):
@@ -118,32 +118,32 @@ class ThreeAddress(object):
         """
         if self.dest:
             self.dest = variable_map[self.dest]
-        if self.arg1 and isinstance(self.arg1, str):
+        if self.arg1 is not None and isinstance(self.arg1, str):
             self.arg1 = variable_map[self.arg1]
-        if self.arg2 and isinstance(self.arg2, str):
+        if self.arg2 is not None and isinstance(self.arg2, str):
             self.arg2 = variable_map[self.arg2]
 
     def is_binary_op(self):
-        return self.dest and self.arg1 and self.arg2 and self.op
+        return self.dest is not None and self.arg1 is not None and self.arg2 is not None and self.op is not None
 
     def is_assignment(self):
-        return self.dest and self.arg1 and self.arg2 is None and self.op is None
+        return self.dest is not None and self.arg1 is not None and self.arg2 is None and self.op is None
 
     def is_unary_op(self):
-        return self.dest and self.arg1 and self.arg2 is None and self.op in ['-']
+        return self.dest is not None and self.arg1 is not None and self.arg2 is None and self.op in ['-']
 
     def __str__(self):
-        if self.dest and self.arg1 and self.arg2 and self.op:
+        if self.dest and self.arg1 is not None and self.arg2 is not None and self.op:
             return '%s = %s %s %s' % (self.dest, self.arg1, self.op, self.arg2)
-        elif self.dest and self.arg1 and self.op:
+        elif self.dest and self.arg1 is not None and self.op:
             return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1 and self.op:
+        elif self.dest and self.arg1 is not None and self.op:
             return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1:
+        elif self.dest and self.arg1 is not None:
             return '%s = %s' % (self.dest, self.arg1)
         elif self.dest and self.op:
             return '%s = %s' % (self.dest, self.op)
-        elif self.arg1 and self.op:
+        elif self.arg1 is not None and self.op:
             return '%s %s' % (self.op, self.arg1)
 
 
