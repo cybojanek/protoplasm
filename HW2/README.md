@@ -1,5 +1,5 @@
 ### Homework 2
-Implements a compiler for the CFG specified in homework 2.
+Implements a compiler for the CFG specified in homework 2. (I'm pretty satisified by tokenizing, parsing, and AbstractSyntaxTree, but IntermediateCode and ASMCode will need to be cleaned up for homework 3).
 
 Python packages used:
 

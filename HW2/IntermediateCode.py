@@ -37,8 +37,12 @@ class ThreeAddress(object):
         if arg2 is not None and not str(arg2).isdigit():
             self.variables['used'].add(arg2)
         # Load and store use memory addresses and not variables
-        if op in ('load', 'store'):
+        if op == 'load':
+            self.variables['defined'] = set([self.dest])
             self.variables['used'] = set()
+        elif op == 'store':
+            self.variables['used'] = set([self.arg1])
+            self.variables['defined'] = set()
 
     def rename_dest(self, dest):
         """Rename destination variable.
@@ -53,6 +57,12 @@ class ThreeAddress(object):
         if dest is not None:
             self.variables['defined'].add(dest)
         self.dest = dest
+        if self.op == 'load':
+            self.variables['defined'] = set([self.dest])
+            self.variables['used'] = set()
+        elif self.op == 'store':
+            self.variables['used'] = set([self.arg1])
+            self.variables['defined'] = set()
 
     def rename_arg1(self, arg1):
         """Rename arg1 variable.
@@ -68,6 +78,12 @@ class ThreeAddress(object):
         if isinstance(arg1, str):
             self.variables['used'].add(arg1)
         self.arg1 = arg1
+        if self.op == 'load':
+            self.variables['defined'] = set([self.dest])
+            self.variables['used'] = set()
+        elif self.op == 'store':
+            self.variables['used'] = set([self.arg1])
+            self.variables['defined'] = set()
 
     def rename_arg2(self, arg2):
         """Rename arg2 variable.
@@ -437,6 +453,9 @@ class ThreeAddressContext(object):
         """
         if len(self.instructions) == 0:
             return
+        for ins in self.instructions:
+            ins.variables['out'] = set()
+            ins.variables['int'] = set()
         # Keep looping while one of the sets has changed
         changed = True
         while changed:
@@ -535,27 +554,58 @@ class ThreeAddressContext(object):
 
         """
         i = 0
-        new_var = self.new_var()
-        first_use = True
+        first_assign = True
+        new_var = var
         label = self.new_label()
         while i < len(self.instructions):
             ins = self.instructions[i]
-            if ins.is_assignment() and ins.dest == var:
-                # Insert a store after this statement
+            if ins.dest == var and first_assign:
                 self.instructions.insert(i + 1, ThreeAddress(
-                    dest=label, arg1=var, op='store'))
+                    dest=label, arg1=new_var, op='store'))
+                first_assign = False
                 i += 2
                 continue
-            elif var in ins.variables['used']:
-                if first_use:
-                    self.instructions.insert(i, ThreeAddress(
-                        dest=new_var, arg1=label, op='load'))
-                    first_use = False
+            # If we're writing to the variable
+            if ins.is_assignment() and ins.dest == var:
+                new_var = self.new_var()
+                ins.rename_dest(new_var)
+                if ins.arg1 == var:
+                    ins.rename_arg1(new_var)
+                # Insert a store after this statement
+                self.instructions.insert(i + 1, ThreeAddress(
+                    dest=label, arg1=new_var, op='store'))
+                i += 2
+                continue
+            # If the spill variable is used, restore before, rename
+            # and store afterwards
+            if var in ins.variables['used']:
+                new_var = self.new_var()
+                self.instructions.insert(i, ThreeAddress(
+                    dest=new_var, arg1=label, op='load'))
                 if ins.arg1 == var:
                     ins.rename_arg1(new_var)
                 if ins.arg2 == var:
                     ins.rename_arg2(new_var)
+                if ins.dest == var:
+                    ins.rename_dest(new_var)
+                    self.instructions.insert(i + 2, ThreeAddress(
+                        dest=label, arg1=new_var, op='store'))
+                    i += 1
+                i += 2
+                continue
             i += 1
+        # print "#" * 80
+        # print 'spill: %s' % var
+        # for x in self.instructions:
+        #     print x, x.variables['out']
+        # print "#" * 80
+        # self.update_liveliness()
+        # print "#" * 80
+        # print 'spill: %s' % var
+        # for x in self.instructions:
+        #     print x, x.variables['out']
+        # print "#" * 80
+        # sys.exit(1)
 
     def __str__(self):
         s = ''

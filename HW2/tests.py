@@ -22,6 +22,7 @@ def test_proto_files():
                  '0', '0', '0', '0', '0']],
         ['spill_one', ['66']],
         ['spill_five', ['120']],
+        ['spill_many', ['681']],
     ]
     for test, results in tests:
         test_result = ''.join(results)
