@@ -1,4 +1,7 @@
-import argparse
+try:
+    import argparse
+except ImportError:
+    argparse = None
 import os
 import sys
 
@@ -38,24 +41,36 @@ def main(args):
         # Output liveliness coloring of
         tac.liveliness_graph.to_png(program_name)
     asm.write_to_file(program_name)
-    sys.exit(1)
+    sys.exit(0)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Proto1 Compiler')
-    parser.add_argument('-pc', action='store_true', default=False,
-        help='Propagate constants')
-    parser.add_argument('-pv', action='store_true', default=False,
-        help='Propagate variables')
-    parser.add_argument('-dc', action='store_true', default=False,
-        help='Eliminate dead code')
-    parser.add_argument('-nossa', action='store_false', default=True,
-        help='Do NOT use SSA')
-    parser.add_argument('-noflatten', action='store_false', default=True,
-        help='Do NOT flatten temporary variables')
-    parser.add_argument('-graphs', action='store_true', default=False,
-        help='Generate png graphs for AST and liveliness')
-    parser.add_argument('file', type=str, help='File to compile')
-    args = parser.parse_args()
+    if argparse is not None:
+        parser = argparse.ArgumentParser(description='Proto1 Compiler')
+        parser.add_argument('-pc', action='store_true', default=False,
+            help='Propagate constants')
+        parser.add_argument('-pv', action='store_true', default=False,
+            help='Propagate variables')
+        parser.add_argument('-dc', action='store_true', default=False,
+            help='Eliminate dead code')
+        parser.add_argument('-nossa', action='store_true', default=False,
+            help='Do NOT use SSA')
+        parser.add_argument('-noflatten', action='store_true', default=False,
+            help='Do NOT flatten temporary variables')
+        parser.add_argument('-graphs', action='store_true', default=False,
+            help='Generate png graphs for AST and liveliness')
+        parser.add_argument('file', type=str, help='File to compile')
+        args = parser.parse_args()
+    else:
+        class CArgs(object):
+            def __init__(self):
+                self.pc = False
+                self.pv = False
+                self.dc = False
+                self.nossa = False
+                self.noflatten = False
+                self.graphs = False
+                self.file = sys.argv[1]
+        args = CArgs()
     if not os.path.exists(args.file):
         print '%r does not exist' % args.file
         sys.exit(1)

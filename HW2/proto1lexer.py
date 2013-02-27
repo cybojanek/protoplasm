@@ -54,7 +54,7 @@ def t_newline(t):
 
 # On character error
 def t_error(t):
-    raise ValueError("Illegal character %s" % t.value[0])
+    raise ValueError("Illegal character %r at line: %s" % (t.value[0], t.lexer.lineno))
     # t.lexer.skip(1)
 
 # Parsing rules
