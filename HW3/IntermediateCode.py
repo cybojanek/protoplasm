@@ -48,6 +48,10 @@ class IC(object):
         self.liveliness = {'in': set(), 'out': set(), 'used': set(),
                            'defined': set()}
         self.register_map = {}
+        self.context = None
+
+    def set_context(self, context):
+        self.context = context
 
     def add_used(self, variable):
         """Add a variable that is used. Automatically filters out Integers
@@ -227,6 +231,26 @@ class ICBinaryOp(IC):
         dest = self.get_register_or_value(self.dest)
         arg1 = self.get_register_or_value(self.arg1)
         arg2 = self.get_register_or_value(self.arg2)
+        # Short circuit logic for &&
+        if self.op == '&&':
+            label_set_0 = self.context.new_label(suffix='set_0')
+            label_done = self.context.new_label(suffix='done')
+            return [AsmInstruction('beqz', arg1, label_set_0, comment=str(self)),
+                    AsmInstruction('move', dest, arg2),
+                    AsmInstruction('b', label_done),
+                    AsmInstruction('%s:' % label_set_0),
+                    AsmInstruction('li', dest, 0),
+                    AsmInstruction('%s:' % label_done)]
+        # Short circuit logic for ||
+        elif self.op == '||':
+            label_use_arg1 = self.context.new_label(suffix='use_arg1')
+            label_done = self.context.new_label(suffix='done')
+            return [AsmInstruction('bnez', arg1, label_use_arg1, comment=str(self)),
+                    AsmInstruction('move', dest, arg2),
+                    AsmInstruction('b', label_done),
+                    AsmInstruction('%s:' % label_use_arg1),
+                    AsmInstruction('move', dest, arg1),
+                    AsmInstruction('%s:' % label_done)]
         # op Rd, Rs, Rt    Rd = Rs op Rt
         return [AsmInstruction(op, dest, arg1, arg2, comment=str(self))]
 
@@ -399,6 +423,7 @@ class ICContext(object):
 
         """
         self.instructions.append(ins)
+        ins.set_context(self)
 
     def new_var(self):
         """Create a new temporary variable.
@@ -409,12 +434,12 @@ class ICContext(object):
         self.counter += 1
         return Variable(name)
 
-    def new_label(self):
+    def new_label(self, suffix=''):
         """Create a new label name
         Autoincremented.
 
         """
-        name = 'label_%s' % self.counter
+        name = 'label_%s_%s' % (self.counter, suffix)
         self.counter += 1
         return name
 
