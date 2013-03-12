@@ -186,8 +186,8 @@ class ICBinaryOp(IC):
     """Do a binary operation
     """
     ASM_OPS = {'+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '%': 'rem',
-               '==': 'seq', '!=': 'sne', '<': 'slt', '<=': 'sle', '>': 'sgt',
-               '>=': 'sge'}
+               '&&': None, '||': None, '==': 'seq', '!=': 'sne', '<': 'slt',
+               '<=': 'sle', '>': 'sgt', '>=': 'sge'}
 
     def __init__(self, dest, arg1, arg2, op):
         super(ICBinaryOp, self).__init__()
@@ -237,14 +237,13 @@ class ICBinaryOp(IC):
 class ICUnaryOp(IC):
     """Do a unary operation
     """
-    OPS = set(['-'])
-    ASM_OPS = {'-': 'neg'}
+    ASM_OPS = {'-': 'neg', '!': None}
 
     def __init__(self, dest, arg1, op):
         super(ICUnaryOp, self).__init__()
         if not(isinstance(dest, Variable)
            and (isinstance(arg1, Variable) or isinstance(arg1, Integer))
-           and (op in ICBinaryOp.OPS)):
+           and (op in ICUnaryOp.ASM_OPS)):
             raise ValueError("Unsupported unary operation")
         self.dest = dest
         self.arg1 = arg1
@@ -267,6 +266,14 @@ class ICUnaryOp(IC):
     def generate_assembly(self):
         dest = self.get_register_or_value(self.dest)
         arg1 = self.get_register_or_value(self.arg1)
+        # Negation is a bit more complicated
+        if self.op == '!':
+            if isinstance(self.arg1, Integer):
+                return [AsmInstruction('li', dest, arg1, comment=str(self)),
+                        AsmInstruction('seq', dest, dest, 0)]
+            else:
+                return [AsmInstruction('seq', dest, arg1, 0, comment=str(self))]
+        # Otherwise
         op = ICUnaryOp.ASM_OPS[self.op]
         # op Rd, Rs    Rd = op Rs
         if isinstance(self.arg1, Integer):

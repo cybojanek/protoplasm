@@ -307,8 +307,7 @@ class ASTInteger(ASTNode):
 
 
 class ASTUnaryOp(ASTNode):
-    TYPES = '-'
-    NEGATE = TYPES
+    TYPES = set(['-', '!'])
 
     def __init__(self, p, value, type):
         """AST unary operator (ie, -, ~).
@@ -324,7 +323,7 @@ class ASTUnaryOp(ASTNode):
         self.value = value
         self.type = type
         if self.type not in ASTUnaryOp.TYPES:
-            raise TypeError('Unary operation: %r not supported')
+            raise TypeError('Unary operation: %s not supported' % self.type)
 
     def wellformed(self):
         return self.value.wellformed()
@@ -344,12 +343,13 @@ class ASTUnaryOp(ASTNode):
         return self.value.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
-        return 'NEGATE: %s' % self.value
+        return '%s: %s' % (self.type, self.value)
 
 
 class ASTBinaryOp(ASTNode):
     COLOR = '#009999'
-    TYPES = set(['+', '-', '*', '/', '%', '==', '!=', '<', '<=', '>', '>='])
+    TYPES = set(['+', '-', '*', '/', '%', '&&', '||', '==', '!=', '<', '<=',
+                 '>', '>='])
 
     def __init__(self, p, left, right, type):
         """AST binary operator (ie, +, -, *).

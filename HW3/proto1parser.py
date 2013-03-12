@@ -113,7 +113,7 @@ def p_ae_un_minus(p):
 
 def p_ae_un_not(p):
     '''ae : NOT ae %prec UNOT'''
-    p[0] = ASTUnaryOp(p, p[1], p[2])
+    p[0] = ASTUnaryOp(p, p[2], p[1])
 
 
 def p_ae_paren(p):
