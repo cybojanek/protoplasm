@@ -35,8 +35,8 @@ def main(args):
     tac.registerize(ssa=not(args.nossa))
     # Generate assembly
     asm = tac.gencode()
-    for a in asm:
-        print a
+    # for a in asm:
+    #     print a
     if args.graphs:
         # Output program abstract syntax tree as png
         program.to_png(program_name)

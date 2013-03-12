@@ -453,8 +453,8 @@ class ICContext(object):
         if ssa:
             self.update_ssa()
         self.mipsify()
-        for i in self.instructions:
-            print i
+        # for i in self.instructions:
+        #     print i
         # Keep looping until we allocated
         # will loop multiple times if not enough registers and we spill
         allocated = False
