@@ -31,9 +31,11 @@ def main(args):
     tac = program.gencode()
     # Optimize and assign registers
     tac.registerize(ssa=not(args.nossa))
-    sys.exit(0)
     # Generate assembly
     asm = tac.gencode()
+    for a in asm:
+        print a
+    sys.exit(0)
     if args.graphs:
         # Output program abstract syntax tree as png
         program.to_png(program_name)

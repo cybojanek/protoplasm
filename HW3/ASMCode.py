@@ -9,11 +9,6 @@ def is_int(i):
     return isinstance(i, int)
 
 
-def is_gt_16_bit(i):
-    """Check if its out of bounds for 16 bit singed integer"""
-    return is_int(i) and not (MIN_SINT_16 <= i <= MAX_SINT_16)
-
-
 class AsmInstruction(object):
     def __init__(self, op=None, arg1=None, arg2=None, arg3=None, comment=""):
         self.op = op
@@ -25,7 +20,6 @@ class AsmInstruction(object):
     def __str__(self):
         # to add the comments aligned correctly
         comment = lambda s: s + (" " * (30 - len(s))) + "# " + self.comment
-
         if self.arg1 is not None and self.arg2 is not None and self.arg3 is not None:
             return comment("%s %s, %s, %s" % (self.op, self.arg1, self.arg2, self.arg3))
         elif self.arg1 is not None and self.arg2 is not None:
@@ -52,46 +46,6 @@ def asm_add(ins, aic):
         raise TypeError('Addition can only use registers!')
     # add Rd, Rs, Rt
     return [AsmInstruction('add', ins.dest, ins.arg1, ins.arg2)]
-    # TODO:
-    # Re-implement addi - right now its too verbose and buggy
-    # Adding two constants each > 16 bits is not allowed
-    # if is_gt_16_bit(ins.arg1) and is_gt_16_bit(ins.arg2):
-    #     raise TypeError('Cant add two integers which dont fit in 16 bits!')
-    # # add Rd, Rs, Rt    Rd = Rs + Rt
-    # elif not is_int(ins.arg1) and not is_int(ins.arg2):
-    #     asm.append(AsmInstruction('add', ins.dest, ins.arg1, ins.arg2,
-    #         comment=str(ins)))
-    # # Two integers: at least one < 16 bits
-    # elif is_int(ins.arg1) and is_int(ins.arg2):
-    #     # arg1 is too big for addi
-    #     if is_gt_16_bit(ins.arg1):
-    #         asm.append(AsmInstruction('li', ins.dest, ins.arg1, comment=str(ins)))
-    #         asm.append(AsmInstruction('addi', ins.dest, ins.dest, ins.arg2))
-    #     # arg2 is too big for addi
-    #     else:
-    #         asm.append(AsmInstruction('li', ins.dest, ins.arg2, comment=str(ins)))
-    #         asm.append(AsmInstruction('addi', ins.dest, ins.dest, ins.arg1))
-    # elif is_int(ins.arg1):
-    #     if is_gt_16_bit(ins.arg1):
-    #         # li Rd, Imm        Rd = Imm
-    #         # add Rd, Rs, Rt    Rd = Rs + Rt
-    #         asm.append(AsmInstruction('li', ins.dest, ins.arg1, comment=str(ins)))
-    #         asm.append(AsmInstruction('add', ins.dest, ins.dest, ins.arg2))
-    #     else:
-    #         asm.append(AsmInstruction('addi', ins.dest, ins.arg2, ins.arg1,
-    #             comment=str(ins)))
-    # elif is_int(ins.arg2):
-    #     if is_gt_16_bit(ins.arg2):
-    #         # li Rd, Imm        Rd = Imm
-    #         # add Rd, Rs, Rt    Rd = Rs + Rt
-    #         asm.append(AsmInstruction('li', ins.dest, ins.arg2, comment=str(ins)))
-    #         asm.append(AsmInstruction('add', ins.dest, ins.dest, ins.arg1))
-    #     else:
-    #         asm.append(AsmInstruction('addi', ins.dest, ins.arg1, ins.arg2,
-    #             comment=str(ins)))
-    # else:
-    #     raise TypeError('%s not translated' % ins)
-    # return asm
 
 
 def asm_div(ins, aic):

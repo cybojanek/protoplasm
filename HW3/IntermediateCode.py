@@ -1,14 +1,6 @@
 from ASMCode import *
 from Graph import UndirectedGraph
-
-"""ThreeAddress types:
-a = 1
-b = a
-a = label[offset];
-label[offset] = a;
-label[offset] = label[offset]
-
-"""
+from ASMCode import AsmInstruction
 
 
 class Variable(object):
@@ -50,30 +42,60 @@ class ICLabel(object):
 
 class IC(object):
     def __init__(self):
+        """Intermediate Code object
+
+        """
         self.liveliness = {'in': set(), 'out': set(), 'used': set(),
                            'defined': set()}
+        self.register_map = {}
 
     def add_used(self, variable):
+        """Add a variable that is used. Automatically filters out constants
+
+        Arguments:
+        variable - Variable object, others passed up on
+
+        """
         if isinstance(variable, Variable):
             self.liveliness['used'].add(variable)
 
     def remove_used(self, variable):
+        """Remove a variable from the set of used variables
+        Checks for inclusion, so won't generate any excpetions on removal
+
+        Arguments:
+        variable - Variable object to be remove
+
+        """
         if variable in self.liveliness['used']:
             self.liveliness['used'].remove(variable)
 
     def add_defined(self, dest):
+        """Add a variable that is defined. Automatically filters out constants
+
+        Arguments:
+        variable - Variable object, others passed up on
+
+        """
         if isinstance(dest, Variable):
             self.liveliness['defined'].add(dest)
 
     def remove_defined(self, dest):
+        """Remove a variable from the set of defined variables
+        Checks for inclusion, so won't generate any excpetions on removal
+
+        Arguments:
+        variable - Variable object to be remove
+
+        """
         if dest in self.liveliness['defined']:
             self.liveliness['defined'].remove(dest)
 
-    def update_variable_sets(self, next_ta=None):
+    def update_variable_sets(self, next_ic=None):
         """Update in and out sets.
 
         Keyword Arguments:
-        next_ta - the three address after this one (used to update out set)
+        next_ic - the intermediate code after this one (used to update out set)
             if None given, then Out not updated (good for last statement)
 
         Return:
@@ -81,11 +103,11 @@ class IC(object):
 
         """
         changed = False
-        if next_ta:
+        if next_ic:
             # Out(n) = In(n + 1)
             changed, self.liveliness['out'] = (
-                not(self.liveliness['out'] == next_ta.liveliness['in']),
-                next_ta.liveliness['in'])
+                not(self.liveliness['out'] == next_ic.liveliness['in']),
+                next_ic.liveliness['in'])
         # In(n) = Used(n) U (Out(n) - Defined(n))
         new_in = self.liveliness['used'].union(
             self.liveliness['out'].difference(self.liveliness['defined']))
@@ -93,8 +115,32 @@ class IC(object):
             (changed or not(self.liveliness['in'] == new_in)), new_in)
         return changed
 
-    def gen_asm(self):
-        pass
+    def set_register_map(self, reg_map):
+        self.register_map = reg_map
+
+    def get_register_or_value(self, variable):
+        """Get the register or constant value of a variable
+
+        Arguments:
+        variable - Constant/Variable object
+
+        Return:
+        constant.value or register string name
+
+        """
+        if isinstance(variable, Constant):
+            return variable.value
+        else:
+            return self.register_map[variable]
+
+    def generate_assembly(self):
+        raise NotImplemented()
+
+    def rename_used(self, old, new):
+        raise NotImplemented()
+
+    def rename_defined(self, old, new):
+        raise NotImplemented()
 
 
 class ICAssign(IC):
@@ -102,7 +148,8 @@ class ICAssign(IC):
     """
     def __init__(self, dest, arg1):
         super(ICAssign, self).__init__()
-        if not(isinstance(dest, Variable) and (isinstance(arg1, Variable) or isinstance(arg1, Constant))):
+        if not(isinstance(dest, Variable)and (isinstance(arg1, Variable) or
+               isinstance(arg1, Constant))):
             raise ValueError("Unsupported Assignment")
         self.dest = dest
         self.arg1 = arg1
@@ -121,6 +168,16 @@ class ICAssign(IC):
             self.dest = new
             self.add_defined(self.dest)
 
+    def generate_assembly(self):
+        dest = self.get_register_or_value(self.dest)
+        arg1 = self.get_register_or_value(self.arg1)
+        if isinstance(self.arg1, Constant):
+            # li Rd, Imm    Rd = Imm
+            return [AsmInstruction('li', dest, arg1, comment=str(self))]
+        else:
+            # move Rd, Rs   Rs = Rs
+            return [AsmInstruction('move', dest, arg1, comment=str(self))]
+
     def __str__(self):
         return "%s = %s" % (self.dest, self.arg1)
 
@@ -129,6 +186,7 @@ class ICBinaryOp(IC):
     """Do a binary operation
     """
     OPS = set(['+', '-', '/', '%', '*'])
+    ASM_OPS = {'+': 'add', '-': 'sub', '/': 'div', '%': 'rem', '*': 'mul'}
 
     def __init__(self, dest, arg1, arg2, op):
         super(ICBinaryOp, self).__init__()
@@ -161,6 +219,16 @@ class ICBinaryOp(IC):
             self.dest = new
             self.add_defined(self.dest)
 
+    def generate_assembly(self):
+        if isinstance(self.arg1, Constant) or isinstance(self.arg2, Constant):
+            raise ValueError("Cannot do binary operation on constants!")
+        op = ICBinaryOp.ASM_OPS[self.op]
+        dest = self.get_register_or_value(self.dest)
+        arg1 = self.get_register_or_value(self.arg1)
+        arg2 = self.get_register_or_value(self.arg2)
+        # op Rd, Rs, Rt    Rd = Rs op Rt
+        return [AsmInstruction(op, dest, arg1, arg2, comment=str(self))]
+
     def __str__(self):
         return "%s = %s %s %s" % (self.dest, self.arg1, self.op, self.arg2)
 
@@ -169,6 +237,7 @@ class ICUnaryOp(IC):
     """Do a unary operation
     """
     OPS = set(['-'])
+    ASM_OPS = {'-': 'neg'}
 
     def __init__(self, dest, arg1, op):
         super(ICUnaryOp, self).__init__()
@@ -194,6 +263,17 @@ class ICUnaryOp(IC):
             self.dest = new
             self.add_defined(self.dest)
 
+    def generate_assembly(self):
+        dest = self.get_register_or_value(self.dest)
+        arg1 = self.get_register_or_value(self.arg1)
+        op = ICUnaryOp.ASM_OPS[self.op]
+        # op Rd, Rs    Rd = op Rs
+        if isinstance(self.arg1, Constant):
+            return [ASMInstruction('li', dest, arg1, comment=str(self)),
+                    ASMInstruction(op, dest, dest)]
+        else:
+            return [ASMInstruction(op, dest, arg1, comment=str(self))]
+
     def __str__(self):
         return "%s = %s %s" % (self.dest, self.op, self.arg1)
 
@@ -218,6 +298,21 @@ class ICPrint(IC):
     def rename_defined(self, old, new):
         pass
 
+    def generate_assembly(self):
+        arg1 = self.get_register_or_value(self.arg1)
+        asm = []
+        if isinstance(self.arg1, Constant):
+            # li Rd, Imm    Rd = Imm
+            asm.append(ASMInstruction('li', '$a0', arg1, comment=str(self)))
+        else:
+            # move Rd, Rs   Rd = Rs
+            asm.append(AsmInstruction('move', '$a0', arg1, comment=str(self)))
+        # li Rd, Imm    Rd = Imm
+        # syscall
+        asm.append(AsmInstruction('li', '$v0', 1))
+        asm.append(AsmInstruction('syscall'))
+        return asm
+
     def __str__(self):
         return "print(%s)" % (self.arg1)
 
@@ -240,6 +335,17 @@ class ICInput(IC):
             self.remove_defined(self.dest)
             self.dest = new
             self.add_defined(self.dest)
+
+    def generate_assembly(self):
+        dest = self.get_register_or_value(self.dest)
+        asm = []
+        # li Rd, Imm    Rd = Imm
+        # syscall
+        # move Rd, Rs   Rd = Rs
+        asm.append(AsmInstruction('li', '$v0', 5, comment=str(self)))
+        asm.append(AsmInstruction('syscall'))
+        asm.append(AsmInstruction('move', dest, '$v0'))
+        return asm
 
     def __str__(self):
         return "%s = input()" % (self.dest)
@@ -319,14 +425,16 @@ class ICContext(object):
         """Converts the list of IC objects to ASMInstruction Objects,
            Returns AsmInstructionContext
         """
-        asm = AsmInstructionContext()
+        asm = []
         for i in self.instructions:
-            asm.add_threeaddress(i)
+            asm = asm + i.generate_assembly()
         return asm
+        # asm = AsmInstructionContext()
+        # for i in self.instructions:
+        #     asm.add_threeaddress(i)
+        # return asm
 
-    def registerize(self, flatten_temp=False, ssa=False,
-            propagate_variables=False, propagate_constants=False,
-            eliminate_dead_code=False):
+    def registerize(self, ssa=False):
         """Perform optimization procedures and translate variables
         to use registers.
 
@@ -340,7 +448,6 @@ class ICContext(object):
         self.mipsify()
         for i in self.instructions:
             print i
-        return
         # Keep looping until we allocated
         # will loop multiple times if not enough registers and we spill
         allocated = False
@@ -366,11 +473,11 @@ class ICContext(object):
                     vc[x] = 0
 
     def mipsify(self):
-        """Convert from generic three address to mips three address compatible
+        """Convert from generic intermediate code to mips three address compatible
         Some operations only accept registers: such as =*/%, while others,
         like +, cannot add two numbers > 16 bits each. This function splits up
         such instructions into multiple register assignments and adidtion.
-        addi is currently not implemented
+        For all binary ops, put constants into registers
 
         """
         i = 0
@@ -378,7 +485,7 @@ class ICContext(object):
             ins = self.instructions[i]
             if isinstance(ins, ICBinaryOp):
                 if isinstance(ins.arg1, Constant):
-                    a =self.new_var()
+                    a = self.new_var()
                     self.instructions.insert(i, ICAssign(a, ins.arg1))
                     ins.arg1 = a
                     ins.add_used(a)
@@ -400,8 +507,8 @@ class ICContext(object):
             return
         # Clear up outs and ins
         for ins in self.instructions:
-            ins.variables['out'] = set()
-            ins.variables['int'] = set()
+            ins.liveliness['out'] = set()
+            ins.liveliness['int'] = set()
         # Keep looping while one of the sets has changed
         changed = True
         while changed:
@@ -411,24 +518,24 @@ class ICContext(object):
             # Bottom up, update in's and out's, using next statement
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
-                    next_ta=self.instructions[i + 1])
+                    next_ic=self.instructions[i + 1])
         # Now build up a graph of which variables need to be alive at the
         # same time
         self.liveliness_graph = UndirectedGraph()
-        for ta in self.instructions:
+        for ic in self.instructions:
             # Add defined variables - will be single nodes if not conflicting
-            for i in ta.variables['defined']:
+            for i in ic.liveliness['defined']:
                 self.liveliness_graph.add_node(i)
             # All the in variables that conflict with each other
-            for i in ta.variables['in']:
+            for i in ic.liveliness['in']:
                 self.liveliness_graph.add_node(i)
-                for j in ta.variables['in']:
+                for j in ic.liveliness['in']:
                     if i != j:
                         self.liveliness_graph.add_edge(i, j)
         # Calculate how many times each variable is used
         self.variable_usage = {}
         for ins in self.instructions:
-            for v in ins.variables['used']:
+            for v in ins.liveliness['used']:
                 if v not in self.variable_usage:
                     self.variable_usage[v] = 1
                 else:
@@ -485,7 +592,8 @@ class ICContext(object):
                 ICContext.TEMP_REGS[graph.color(node)])
         # Rename all variables
         for ic in self.instructions:
-            ic.rename_variables_to_registers(var_map)
+            ic.set_register_map(var_map)
+            # ic.rename_variables_to_registers(var_map)
             # if ta.op == 'load':
             #     ta.rename_dest(var_map[ta.dest])
             # elif ta.op == 'store':
