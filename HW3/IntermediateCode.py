@@ -311,6 +311,10 @@ class ICPrint(IC):
         # syscall
         asm.append(AsmInstruction('li', '$v0', 1))
         asm.append(AsmInstruction('syscall'))
+        # Add a newline
+        asm.append(AsmInstruction('li', '$a0', 10, comment='newline'))
+        asm.append(AsmInstruction('li', '$v0', 6))
+        asm.append(AsmInstruction('syscall'))
         return asm
 
     def __str__(self):

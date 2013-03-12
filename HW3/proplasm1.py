@@ -11,6 +11,7 @@ import proto1lexer
 import proto1parser
 
 from AbstractSyntaxTree import ASTProgram
+from ASMCode import write_asm_to_file
 
 
 def main(args):
@@ -24,6 +25,7 @@ def main(args):
     parser = yacc.yacc(module=proto1parser)
     # Parse program
     program = ASTProgram(parser.parse(open(args.file, 'r').read()))
+    print 'FIX WELLFORMED'
     if not program.wellformed():
         print 'Program not well formed!'
         sys.exit(1)
@@ -35,13 +37,12 @@ def main(args):
     asm = tac.gencode()
     for a in asm:
         print a
-    sys.exit(0)
     if args.graphs:
         # Output program abstract syntax tree as png
         program.to_png(program_name)
         # Output liveliness coloring of
         tac.liveliness_graph.to_png(program_name)
-    asm.write_to_file(program_name)
+    write_asm_to_file(program_name, asm)
     sys.exit(0)
 
 if __name__ == '__main__':
