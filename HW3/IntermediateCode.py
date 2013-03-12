@@ -185,15 +185,16 @@ class ICAssign(IC):
 class ICBinaryOp(IC):
     """Do a binary operation
     """
-    OPS = set(['+', '-', '/', '%', '*'])
-    ASM_OPS = {'+': 'add', '-': 'sub', '/': 'div', '%': 'rem', '*': 'mul'}
+    ASM_OPS = {'+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '%': 'rem',
+               '==': 'seq', '!=': 'sne', '<': 'slt', '<=': 'sle', '>': 'sgt',
+               '>=': 'sge'}
 
     def __init__(self, dest, arg1, arg2, op):
         super(ICBinaryOp, self).__init__()
         if not(isinstance(dest, Variable)
            and (isinstance(arg1, Variable) or isinstance(arg1, Integer))
            and (isinstance(arg2, Variable) or isinstance(arg2, Integer))
-           and (op in ICBinaryOp.OPS)):
+           and (op in ICBinaryOp.ASM_OPS)):
             raise ValueError("Unsupported binary operation")
         self.dest = dest
         self.arg1 = arg1

@@ -349,8 +349,7 @@ class ASTUnaryOp(ASTNode):
 
 class ASTBinaryOp(ASTNode):
     COLOR = '#009999'
-    TYPES = '-', '+', '*', '/', '%'
-    MINUS, PLUS, TIMES, DIVIDE, MODULUS = TYPES
+    TYPES = set(['+', '-', '*', '/', '%', '==', '!=', '<', '<=', '>', '>='])
 
     def __init__(self, p, left, right, type):
         """AST binary operator (ie, +, -, *).
