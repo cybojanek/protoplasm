@@ -2,25 +2,43 @@ import ply.lex as lex
 
 # Reserved words
 reserved = {
+    'input': 'INPUT',
     'print': 'PRINT',
-    'input': 'INPUT'
+    'if': 'IF',
+    'then': 'THEN',
+    'else': 'ELSE',
+    'while': 'WHILE',
+    'do': 'DO'
 }
 
 # List of token names
-tokens = ['EQUALS', 'SEMICOLON', 'LPAREN', 'RPAREN',
-          'MINUS', 'PLUS', 'TIMES', 'DIVIDE', 'MODULUS',
+tokens = ['EQUALS', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MODULUS',
+          'AND', 'OR', 'EQUALEQUAL', 'NOTEQUAL', 'NOT',
+          'LESSTHAN', 'LESSTHANEQUAL', 'GREATERTHAN', 'GREATERTHANEQUAL',
+          'LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'SEMICOLON',
           'ID', 'NUMBER'] + list(reserved.values())
 
 # Tokens without actions
 t_EQUALS = r'='
-t_SEMICOLON = r';'
-t_LPAREN = r'\('
-t_RPAREN = r'\)'
-t_MINUS = r'-'
 t_PLUS = r'\+'
+t_MINUS = r'-'
 t_TIMES = r'\*'
 t_DIVIDE = r'/'
 t_MODULUS = r'%'
+t_AND = r'&&'
+t_OR = r'\|\|'
+t_EQUALEQUAL = r'=='
+t_NOTEQUAL = r'!='
+t_NOT = r'!'
+t_LESSTHAN = r'<'
+t_LESSTHANEQUAL = r'<='
+t_GREATERTHAN = r'>'
+t_GREATERTHANEQUAL = r'>='
+t_LPAREN = r'\('
+t_RPAREN = r'\)'
+t_LBRACKET = r'{'
+t_RBRACKET = r'}'
+t_SEMICOLON = r';'
 
 
 # Tokens with actions

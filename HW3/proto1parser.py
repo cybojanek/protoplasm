@@ -7,8 +7,13 @@ from AbstractSyntaxTree import *
 # Precedence ordering lowest to highest
 # Associativity: left / right
 precedence = (
-    ('right', 'PLUS', 'MINUS'),
-    ('right', 'TIMES', 'DIVIDE', 'MODULUS'),
+    ('left', 'AND'),
+    ('left', 'OR'),
+    ('nonassoc', 'EQUALEQUAL', 'NOTEQUAL', 'LESSTHAN', 'LESSTHANEQUAL',
+        'GREATERTHAN', 'GREATERTHANEQUAL'),
+    ('left', 'PLUS', 'MINUS'),
+    ('left', 'TIMES', 'DIVIDE', 'MODULUS'),
+    ('right', 'UNOT'),
     ('right', 'UMINUS')
 )
 start = 'pgm'
@@ -17,17 +22,25 @@ defined = set()
 
 
 def p_pgm(p):
-    '''pgm : stmt pgm
-           | stmt'''
-    if len(p) == 2:
-        p[0] = [p[1]]
-    else:
+    '''pgm : stmtseq'''
+    p[0] = p[1]
+
+
+def p_stmtseq(p):
+    '''stmtseq : stmt stmtseq
+               | stmt'''
+    if len(p) == 3:
         p[0] = [p[1]] + p[2]
+    else:
+        p[0] = [p[1]]
 
 
 def p_stmt(p):
     '''stmt : assign
-            | print'''
+            | print
+            | block
+            | if
+            | while'''
     p[0] = ASTStatement(p, p[1])
 
 
@@ -42,6 +55,26 @@ def p_print(p):
     p[0] = ASTPrint(p, p[3])
 
 
+def p_block(p):
+    '''block : LBRACKET stmtseq RBRACKET'''
+    print 'BLOCK', p
+
+
+def p_if_then_else(p):
+    '''if : IF ae THEN stmt ELSE stmt'''
+    print 'IF', p
+
+
+def p_if_then(p):
+    '''if : IF ae THEN stmt'''
+    print 'IF', p
+
+
+def p_while(p):
+    '''while : WHILE ae DO stmt'''
+    print 'WHILE', p
+
+
 def p_rhs(p):
     '''rhs : INPUT LPAREN RPAREN'''
     p[0] = ASTInput(p)
@@ -52,37 +85,25 @@ def p_rhs_ae(p):
     p[0] = p[1]
 
 
-def p_ae(p):
-    '''ae : t PLUS ae
-          | t MINUS ae'''
+def p_ae_bin(p):
+    '''ae : ae PLUS ae
+          | ae MINUS ae
+          | ae TIMES ae
+          | ae DIVIDE ae
+          | ae MODULUS ae
+          | ae AND ae
+          | ae OR ae
+          | ae EQUALEQUAL ae
+          | ae NOTEQUAL ae
+          | ae LESSTHAN ae
+          | ae LESSTHANEQUAL ae
+          | ae GREATERTHAN ae
+          | ae GREATERTHANEQUAL ae'''
     p[0] = ASTBinaryOp(p, p[1], p[3], p[2])
 
 
-def p_ae_t(p):
-    '''ae : t'''
-    p[0] = p[1]
-
-
-def p_t(p):
-    '''t : f TIMES t
-         | f DIVIDE t
-         | f MODULUS t'''
-    p[0] = ASTBinaryOp(p, p[1], p[3], p[2])
-
-
-def p_t_f(p):
-    '''t : f'''
-    p[0] = p[1]
-
-
-def p_f_paren(p):
-    '''f : LPAREN ae RPAREN'''
-    p[0] = p[2]
-
-
-def p_f_uminus(p):
-    '''f : MINUS f %prec UMINUS'''
-    # If the f is a minus, then we can negate it and pass it up
+def p_ae_un_minus(p):
+    '''ae : MINUS ae %prec UMINUS'''
     if isinstance(p[2], ASTInteger):
         p[0] = ASTInteger(p, - p[2].value)
     # Otherwise we need to do a unary operation on it
@@ -90,15 +111,25 @@ def p_f_uminus(p):
         p[0] = ASTUnaryOp(p, p[2], p[1])
 
 
-def p_f_number(p):
-    '''f : NUMBER'''
+def p_ae_un_not(p):
+    '''ae : NOT ae %prec UNOT'''
+    p[0] = ASTUnaryOp(p, p[1], p[2])
+
+
+def p_ae_paren(p):
+    '''ae : LPAREN ae RPAREN'''
+    p[0] = p[2]
+
+
+def p_ae_intconst(p):
+    '''ae : NUMBER'''
     if not isinstance(p[1], int):
         raise TypeError('%r is not an integer' % p[1])
     p[0] = ASTInteger(p, p[1])
 
 
 def p_f_id(p):
-    '''f : ID'''
+    '''ae : ID'''
     if not p[1] in defined:
         raise NameError('%r is not defined at line: ??' % p[1])
     p[0] = ASTVariable(p, p[1])
