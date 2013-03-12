@@ -17,7 +17,7 @@ class Variable(object):
         return hash(self.name)
 
 
-class Constant(object):
+class Integer(object):
     def __init__(self, value):
         self.value = value
 
@@ -31,7 +31,7 @@ class Constant(object):
         return hash(self.value)
 
 
-class ICLabel(object):
+class Label(object):
 
     def __init__(self, name):
         self.name = name
@@ -50,7 +50,7 @@ class IC(object):
         self.register_map = {}
 
     def add_used(self, variable):
-        """Add a variable that is used. Automatically filters out constants
+        """Add a variable that is used. Automatically filters out Integers
 
         Arguments:
         variable - Variable object, others passed up on
@@ -71,7 +71,7 @@ class IC(object):
             self.liveliness['used'].remove(variable)
 
     def add_defined(self, dest):
-        """Add a variable that is defined. Automatically filters out constants
+        """Add a variable that is defined. Automatically filters out Integers
 
         Arguments:
         variable - Variable object, others passed up on
@@ -119,16 +119,16 @@ class IC(object):
         self.register_map = reg_map
 
     def get_register_or_value(self, variable):
-        """Get the register or constant value of a variable
+        """Get the register or Integer value of a variable
 
         Arguments:
-        variable - Constant/Variable object
+        variable - Integer/Variable object
 
         Return:
-        constant.value or register string name
+        Integer.value or register string name from register_map
 
         """
-        if isinstance(variable, Constant):
+        if isinstance(variable, Integer):
             return variable.value
         else:
             return self.register_map[variable]
@@ -144,12 +144,12 @@ class IC(object):
 
 
 class ICAssign(IC):
-    """Assign variable to variable, or constant to variable
+    """Assign variable to variable, or Integer to variable
     """
     def __init__(self, dest, arg1):
         super(ICAssign, self).__init__()
         if not(isinstance(dest, Variable)and (isinstance(arg1, Variable) or
-               isinstance(arg1, Constant))):
+               isinstance(arg1, Integer))):
             raise ValueError("Unsupported Assignment")
         self.dest = dest
         self.arg1 = arg1
@@ -171,7 +171,7 @@ class ICAssign(IC):
     def generate_assembly(self):
         dest = self.get_register_or_value(self.dest)
         arg1 = self.get_register_or_value(self.arg1)
-        if isinstance(self.arg1, Constant):
+        if isinstance(self.arg1, Integer):
             # li Rd, Imm    Rd = Imm
             return [AsmInstruction('li', dest, arg1, comment=str(self))]
         else:
@@ -191,8 +191,8 @@ class ICBinaryOp(IC):
     def __init__(self, dest, arg1, arg2, op):
         super(ICBinaryOp, self).__init__()
         if not(isinstance(dest, Variable)
-           and (isinstance(arg1, Variable) or isinstance(arg1, Constant))
-           and (isinstance(arg2, Variable) or isinstance(arg2, Constant))
+           and (isinstance(arg1, Variable) or isinstance(arg1, Integer))
+           and (isinstance(arg2, Variable) or isinstance(arg2, Integer))
            and (op in ICBinaryOp.OPS)):
             raise ValueError("Unsupported binary operation")
         self.dest = dest
@@ -220,8 +220,8 @@ class ICBinaryOp(IC):
             self.add_defined(self.dest)
 
     def generate_assembly(self):
-        if isinstance(self.arg1, Constant) or isinstance(self.arg2, Constant):
-            raise ValueError("Cannot do binary operation on constants!")
+        if isinstance(self.arg1, Integer) or isinstance(self.arg2, Integer):
+            raise ValueError("Cannot do binary operation on Integers!")
         op = ICBinaryOp.ASM_OPS[self.op]
         dest = self.get_register_or_value(self.dest)
         arg1 = self.get_register_or_value(self.arg1)
@@ -242,7 +242,7 @@ class ICUnaryOp(IC):
     def __init__(self, dest, arg1, op):
         super(ICUnaryOp, self).__init__()
         if not(isinstance(dest, Variable)
-           and (isinstance(arg1, Variable) or isinstance(arg1, Constant))
+           and (isinstance(arg1, Variable) or isinstance(arg1, Integer))
            and (op in ICBinaryOp.OPS)):
             raise ValueError("Unsupported unary operation")
         self.dest = dest
@@ -268,11 +268,11 @@ class ICUnaryOp(IC):
         arg1 = self.get_register_or_value(self.arg1)
         op = ICUnaryOp.ASM_OPS[self.op]
         # op Rd, Rs    Rd = op Rs
-        if isinstance(self.arg1, Constant):
-            return [ASMInstruction('li', dest, arg1, comment=str(self)),
-                    ASMInstruction(op, dest, dest)]
+        if isinstance(self.arg1, Integer):
+            return [AsmInstruction('li', dest, arg1, comment=str(self)),
+                    AsmInstruction(op, dest, dest)]
         else:
-            return [ASMInstruction(op, dest, arg1, comment=str(self))]
+            return [AsmInstruction(op, dest, arg1, comment=str(self))]
 
     def __str__(self):
         return "%s = %s %s" % (self.dest, self.op, self.arg1)
@@ -284,7 +284,7 @@ class ICPrint(IC):
 
     def __init__(self, arg1):
         super(ICPrint, self).__init__()
-        if not(isinstance(arg1, Variable) or isinstance(arg1, Constant)):
+        if not(isinstance(arg1, Variable) or isinstance(arg1, Integer)):
             raise ValueError("Unsupported print operation")
         self.arg1 = arg1
         self.add_used(arg1)
@@ -301,9 +301,9 @@ class ICPrint(IC):
     def generate_assembly(self):
         arg1 = self.get_register_or_value(self.arg1)
         asm = []
-        if isinstance(self.arg1, Constant):
+        if isinstance(self.arg1, Integer):
             # li Rd, Imm    Rd = Imm
-            asm.append(ASMInstruction('li', '$a0', arg1, comment=str(self)))
+            asm.append(AsmInstruction('li', '$a0', arg1, comment=str(self)))
         else:
             # move Rd, Rs   Rd = Rs
             asm.append(AsmInstruction('move', '$a0', arg1, comment=str(self)))
@@ -312,8 +312,8 @@ class ICPrint(IC):
         asm.append(AsmInstruction('li', '$v0', 1))
         asm.append(AsmInstruction('syscall'))
         # Add a newline
-        asm.append(AsmInstruction('li', '$a0', 10, comment='newline'))
-        asm.append(AsmInstruction('li', '$v0', 6))
+        asm.append(AsmInstruction('li', '$a0', ord('\n'), comment='newline'))
+        asm.append(AsmInstruction('li', '$v0', 11))
         asm.append(AsmInstruction('syscall'))
         return asm
 
@@ -343,6 +343,9 @@ class ICInput(IC):
     def generate_assembly(self):
         dest = self.get_register_or_value(self.dest)
         asm = []
+        asm.append(AsmInstruction('li', '$a0', ord('>'), comment='prompt'))
+        asm.append(AsmInstruction('li', '$v0', 11))
+        asm.append(AsmInstruction('syscall'))
         # li Rd, Imm    Rd = Imm
         # syscall
         # move Rd, Rs   Rd = Rs
@@ -407,7 +410,7 @@ class ICContext(object):
         self.counter += 1
         return name
 
-    def add_var(self, var):
+    def push_var(self, var):
         """Add a variable to the stack
 
         Arguments:
@@ -467,7 +470,7 @@ class ICContext(object):
         vc = {}
         for i in self.instructions:
             for x in i.liveliness['used']:
-                if isinstance(x, Variable) and x in vc and vc[i.arg1] != 0:
+                if isinstance(x, Variable) and x in vc and vc[x] != 0:
                     i.rename_used(x, Variable('%s%s' % (x, vc[x])))
             for x in i.liveliness['defined']:
                 if x in vc:
@@ -481,20 +484,20 @@ class ICContext(object):
         Some operations only accept registers: such as =*/%, while others,
         like +, cannot add two numbers > 16 bits each. This function splits up
         such instructions into multiple register assignments and adidtion.
-        For all binary ops, put constants into registers
+        For all binary ops, put Integers into registers
 
         """
         i = 0
         while i < len(self.instructions):
             ins = self.instructions[i]
             if isinstance(ins, ICBinaryOp):
-                if isinstance(ins.arg1, Constant):
+                if isinstance(ins.arg1, Integer):
                     a = self.new_var()
                     self.instructions.insert(i, ICAssign(a, ins.arg1))
                     ins.arg1 = a
                     ins.add_used(a)
                     i += 1
-                if isinstance(ins.arg2, Constant):
+                if isinstance(ins.arg2, Integer):
                     a =self.new_var()
                     self.instructions.insert(i, ICAssign(a, ins.arg2))
                     ins.arg2 = a

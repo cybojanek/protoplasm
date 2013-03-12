@@ -28,8 +28,6 @@ def write_asm_to_file(program_name, asm):
 
     """
     out = open('%s.asm' % program_name, 'w')
-    out.write('.data\n')
-    out.write('newline: "\n"')
     out.write('.text\n')
     out.write('main:\n')
     for a in asm:

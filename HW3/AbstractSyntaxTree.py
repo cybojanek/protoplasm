@@ -61,7 +61,7 @@ class ASTProgram(ASTNode):
         in order stack representation
 
         Return:
-        array of ASTNode in reverse order of operations (last,pop is done first)
+        array of ASTNode in reverse order of operations
 
         """
         stack = []
@@ -151,7 +151,7 @@ class ASTAssign(ASTNode):
     def gencode(self, icc):
         dest = Variable(self.left)
         icc.add_instruction(ICAssign(dest, icc.pop_var()))
-        icc.add_var(dest)
+        icc.push_var(dest)
 
     def to_stack(self):
         return [self] + self.right.to_stack()
@@ -189,7 +189,7 @@ class ASTVariable(ASTNode):
         return True
 
     def gencode(self, icc):
-        icc.add_var(Variable(self.value))
+        icc.push_var(Variable(self.value))
 
     def to_stack(self):
         return [self]
@@ -255,7 +255,7 @@ class ASTInput(ASTNode):
     def gencode(self, icc):
         var = icc.new_var()
         icc.add_instruction(ICInput(var))
-        icc.add_var(var)
+        icc.push_var(var)
 
     def to_stack(self):
         return [self]
@@ -291,7 +291,7 @@ class ASTInteger(ASTNode):
             raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
 
     def gencode(self, icc):
-        icc.add_var(Constant(self.value))
+        icc.push_var(Integer(self.value))
 
     def to_stack(self):
         return [self]
@@ -332,7 +332,7 @@ class ASTUnaryOp(ASTNode):
     def gencode(self, icc):
         var = icc.new_var()
         icc.add_instruction(ICUnaryOp(var, icc.pop_var(), self.type))
-        icc.add_var(var)
+        icc.push_var(var)
 
     def to_stack(self):
         return [self] + self.value.to_stack()
@@ -377,7 +377,7 @@ class ASTBinaryOp(ASTNode):
         arg2 = icc.pop_var()
         arg1 = icc.pop_var()
         icc.add_instruction(ICBinaryOp(var, arg1, arg2, self.type))
-        icc.add_var(var)
+        icc.push_var(var)
 
     def to_stack(self):
         return [self] + self.right.to_stack() + self.left.to_stack()
