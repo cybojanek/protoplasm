@@ -1,4 +1,4 @@
-from IntermediateCode import ThreeAddressContext, ThreeAddress
+from IntermediateCode import *
 
 
 class ASTNode(object):
@@ -46,15 +46,15 @@ class ASTProgram(ASTNode):
         """Translates all statements to three address form
 
         Return:
-        ThreeAddressContext
+        ICContext
 
         """
-        tac = ThreeAddressContext()
+        icc = ICContext()
         stack = self._to_stack()
         while len(stack) != 0:
             s = stack.pop()
-            s.gencode(tac)
-        return tac
+            s.gencode(icc)
+        return icc
 
     def _to_stack(self):
         """Convert from internal tree representation to an
@@ -113,8 +113,8 @@ class ASTStatement(ASTNode):
     def wellformed(self):
         return self.value.wellformed()
 
-    def gencode(self, tac):
-        return self.value.gencode(tac)
+    def gencode(self, icc):
+        return self.value.gencode(icc)
 
     def to_stack(self):
         return self.value.to_stack()
@@ -148,9 +148,10 @@ class ASTAssign(ASTNode):
     def wellformed(self):
         return self.right.wellformed()
 
-    def gencode(self, tac):
-        tac.add_instruction(ThreeAddress(dest=self.left, arg1=tac.pop_var()))
-        tac.add_var(self.left)
+    def gencode(self, icc):
+        dest = Variable(self.left)
+        icc.add_instruction(ICAssign(dest, icc.pop_var()))
+        icc.add_var(dest)
 
     def to_stack(self):
         return [self] + self.right.to_stack()
@@ -187,8 +188,8 @@ class ASTVariable(ASTNode):
     def wellformed(self):
         return True
 
-    def gencode(self, tac):
-        tac.add_var(self.value)
+    def gencode(self, icc):
+        icc.add_var(Variable(self.value))
 
     def to_stack(self):
         return [self]
@@ -220,8 +221,8 @@ class ASTPrint(ASTNode):
     def wellformed(self):
         return self.value.wellformed()
 
-    def gencode(self, tac):
-        tac.add_instruction(ThreeAddress(arg1=tac.pop_var(), op='print'))
+    def gencode(self, icc):
+        icc.add_instruction(ICPrint(icc.pop_var()))
 
     def to_stack(self):
         return [self] + self.value.to_stack()
@@ -251,10 +252,10 @@ class ASTInput(ASTNode):
     def wellformed(self):
         return True
 
-    def gencode(self, tac):
-        var = tac.new_var()
-        tac.add_instruction(ThreeAddress(dest=var, op='input'))
-        tac.add_var(var)
+    def gencode(self, icc):
+        var = icc.new_var()
+        icc.add_instruction(ICInput(var))
+        icc.add_var(var)
 
     def to_stack(self):
         return [self]
@@ -289,8 +290,8 @@ class ASTInteger(ASTNode):
         else:
             raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
 
-    def gencode(self, tac):
-        tac.add_var(self.value)
+    def gencode(self, icc):
+        icc.add_var(Constant(self.value))
 
     def to_stack(self):
         return [self]
@@ -328,11 +329,10 @@ class ASTUnaryOp(ASTNode):
     def wellformed(self):
         return self.value.wellformed()
 
-    def gencode(self, tac):
-        var = tac.new_var()
-        tac.add_instruction(
-            ThreeAddress(dest=var, arg1=tac.pop_var(), op=self.type))
-        tac.add_var(var)
+    def gencode(self, icc):
+        var = icc.new_var()
+        icc.add_instruction(ICUnaryOp(var, icc.pop_var(), self.type))
+        icc.add_var(var)
 
     def to_stack(self):
         return [self] + self.value.to_stack()
@@ -372,13 +372,12 @@ class ASTBinaryOp(ASTNode):
     def wellformed(self):
         return self.left.wellformed() and self.right.wellformed()
 
-    def gencode(self, tac):
-        var = tac.new_var()
-        arg2 = tac.pop_var()
-        arg1 = tac.pop_var()
-        tac.add_instruction(ThreeAddress(dest=var, arg1=arg1, arg2=arg2,
-            op=self.type))
-        tac.add_var(var)
+    def gencode(self, icc):
+        var = icc.new_var()
+        arg2 = icc.pop_var()
+        arg1 = icc.pop_var()
+        icc.add_instruction(ICBinaryOp(var, arg1, arg2, self.type))
+        icc.add_var(var)
 
     def to_stack(self):
         return [self] + self.right.to_stack() + self.left.to_stack()

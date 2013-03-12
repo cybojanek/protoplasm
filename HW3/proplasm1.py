@@ -30,9 +30,8 @@ def main(args):
     # Generate three address code
     tac = program.gencode()
     # Optimize and assign registers
-    tac.registerize(flatten_temp=not(args.noflatten), ssa=not(args.nossa),
-        propagate_variables=args.pv, propagate_constants=args.pc,
-        eliminate_dead_code=args.dc)
+    tac.registerize(ssa=not(args.nossa))
+    sys.exit(0)
     # Generate assembly
     asm = tac.gencode()
     if args.graphs:
@@ -46,16 +45,8 @@ def main(args):
 if __name__ == '__main__':
     if argparse is not None:
         parser = argparse.ArgumentParser(description='Proto1 Compiler')
-        parser.add_argument('-pc', action='store_true', default=False,
-            help='Propagate constants')
-        parser.add_argument('-pv', action='store_true', default=False,
-            help='Propagate variables')
-        parser.add_argument('-dc', action='store_true', default=False,
-            help='Eliminate dead code')
         parser.add_argument('-nossa', action='store_true', default=False,
             help='Do NOT use SSA')
-        parser.add_argument('-noflatten', action='store_true', default=False,
-            help='Do NOT flatten temporary variables')
         parser.add_argument('-graphs', action='store_true', default=False,
             help='Generate png graphs for AST and liveliness')
         parser.add_argument('file', type=str, help='File to compile')

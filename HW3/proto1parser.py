@@ -77,7 +77,6 @@ def p_t_f(p):
 
 def p_f_paren(p):
     '''f : LPAREN ae RPAREN'''
-    #p[0] = ASTParen(p, p[2])
     p[0] = p[2]
 
 
@@ -95,10 +94,6 @@ def p_f_number(p):
     '''f : NUMBER'''
     if not isinstance(p[1], int):
         raise TypeError('%r is not an integer' % p[1])
-    # We can't check here: bc - is one greater, and negation is done above
-    # with unrary operator...
-    # if not(-(2 ** 31) <= p[1] <= (2 ** 31 - 1)):
-        # raise TypeError('%r is out of bounds for 32 bit signed integer' % p[1])
     p[0] = ASTInteger(p, p[1])
 
 

@@ -1,104 +1,73 @@
 from ASMCode import *
 from Graph import UndirectedGraph
 
+"""ThreeAddress types:
+a = 1
+b = a
+a = label[offset];
+label[offset] = a;
+label[offset] = label[offset]
 
-class ThreeAddress(object):
+"""
 
-    def __init__(self, dest=None, arg1=None, arg2=None, op=None):
-        """A new three address object: dest = arg1 [op] [arg2]
-        Have the form:
-        dest = arg1
-        dest = op arg1
-        dest = arg1 op arg2
 
-        Arguments:
-                Keyword Arguments:
-        dest - destination variable
-        arg1 - first argument
-        arg2 - second argument
-        op - operator
+class Variable(object):
+    def __init__(self, name):
+        self.name = name
 
-        """
-        self.dest = dest
-        self.arg1 = arg1
-        self.arg2 = arg2
-        self.op = op
-        self.variables = {
-            'in': set(),
-            'out': set(),
-            'used': set(),
-            'defined': set()
-        }
-        if dest is not None:
-            self.variables['defined'].add(dest)
-        # TODO: make this nicer
-        if arg1 is not None and not str(arg1).isdigit():
-            self.variables['used'].add(arg1)
-        if arg2 is not None and not str(arg2).isdigit():
-            self.variables['used'].add(arg2)
-        # Load and store use memory addresses and not variables
-        if op == 'load':
-            self.variables['defined'] = set([self.dest])
-            self.variables['used'] = set()
-        elif op == 'store':
-            self.variables['used'] = set([self.arg1])
-            self.variables['defined'] = set()
+    def __str__(self):
+        return self.name
 
-    def rename_dest(self, dest):
-        """Rename destination variable.
-        ONLY FOR THIS STATEMENT
-        Updates defined set
+    def __eq__(self, other):
+        return self.name == other.name
 
-        Arguments:
-        dest - new name for destination
+    def __hash__(self):
+        return hash(self.name)
 
-        """
-        self.variables['defined'].remove(self.dest)
-        if dest is not None:
-            self.variables['defined'].add(dest)
-        self.dest = dest
-        if self.op == 'load':
-            self.variables['defined'] = set([self.dest])
-            self.variables['used'] = set()
-        elif self.op == 'store':
-            self.variables['used'] = set([self.arg1])
-            self.variables['defined'] = set()
 
-    def rename_arg1(self, arg1):
-        """Rename arg1 variable.
-        ONLY FOR THIS STATEMENT
-        Updates used set
+class Constant(object):
+    def __init__(self, value):
+        self.value = value
 
-        Arguments:
-        arg1 - new name for arg1
+    def __str__(self):
+        return str(self.value)
 
-        """
-        if self.arg1 in self.variables['used']:
-            self.variables['used'].remove(self.arg1)
-        if isinstance(arg1, str):
-            self.variables['used'].add(arg1)
-        self.arg1 = arg1
-        if self.op == 'load':
-            self.variables['defined'] = set([self.dest])
-            self.variables['used'] = set()
-        elif self.op == 'store':
-            self.variables['used'] = set([self.arg1])
-            self.variables['defined'] = set()
+    def __eq__(self, other):
+        return self.value == other.value
 
-    def rename_arg2(self, arg2):
-        """Rename arg2 variable.
-        ONLY FOR THIS STATEMENT
-        Updates used set
+    def __hash__(self):
+        return hash(self.value)
 
-        Arguments:
-        arg2 - new name for arg2
 
-        """
-        if self.arg2 in self.variables['used']:
-            self.variables['used'].remove(self.arg2)
-        if isinstance(arg2, str):
-            self.variables['used'].add(arg2)
-        self.arg2 = arg2
+class ICLabel(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return "%s:"
+
+
+class IC(object):
+    def __init__(self):
+        self.liveliness = {'in': set(), 'out': set(), 'used': set(),
+                           'defined': set()}
+
+    def add_used(self, variable):
+        if isinstance(variable, Variable):
+            self.liveliness['used'].add(variable)
+
+    def remove_used(self, variable):
+        if variable in self.liveliness['used']:
+            self.liveliness['used'].remove(variable)
+
+    def add_defined(self, dest):
+        if isinstance(dest, Variable):
+            self.liveliness['defined'].add(dest)
+
+    def remove_defined(self, dest):
+        if dest in self.liveliness['defined']:
+            self.liveliness['defined'].remove(dest)
 
     def update_variable_sets(self, next_ta=None):
         """Update in and out sets.
@@ -114,56 +83,169 @@ class ThreeAddress(object):
         changed = False
         if next_ta:
             # Out(n) = In(n + 1)
-            changed, self.variables['out'] = (
-                not(self.variables['out'] == next_ta.variables['in']),
-                next_ta.variables['in'])
+            changed, self.liveliness['out'] = (
+                not(self.liveliness['out'] == next_ta.liveliness['in']),
+                next_ta.liveliness['in'])
         # In(n) = Used(n) U (Out(n) - Defined(n))
-        new_in = self.variables['used'].union(
-            self.variables['out'].difference(self.variables['defined']))
-        changed, self.variables['in'] = (
-            (changed or not(self.variables['in'] == new_in)), new_in)
+        new_in = self.liveliness['used'].union(
+            self.liveliness['out'].difference(self.liveliness['defined']))
+        changed, self.liveliness['in'] = (
+            (changed or not(self.liveliness['in'] == new_in)), new_in)
         return changed
 
-    def rename_variables_to_registers(self, variable_map):
-        """Rename variables to registers.
-        DOES NOT UPDATE LIVELINESS
+    def gen_asm(self):
+        pass
 
-        Arguments:
-        variable_map - dict of name : register
 
-        """
-        if self.dest:
-            self.dest = variable_map[self.dest]
-        if self.arg1 is not None and isinstance(self.arg1, str):
-            self.arg1 = variable_map[self.arg1]
-        if self.arg2 is not None and isinstance(self.arg2, str):
-            self.arg2 = variable_map[self.arg2]
+class ICAssign(IC):
+    """Assign variable to variable, or constant to variable
+    """
+    def __init__(self, dest, arg1):
+        super(ICAssign, self).__init__()
+        if not(isinstance(dest, Variable) and (isinstance(arg1, Variable) or isinstance(arg1, Constant))):
+            raise ValueError("Unsupported Assignment")
+        self.dest = dest
+        self.arg1 = arg1
+        self.add_defined(dest)
+        self.add_used(arg1)
 
-    def is_binary_op(self):
-        return self.dest is not None and self.arg1 is not None and self.arg2 is not None and self.op is not None
+    def rename_used(self, old, new):
+        if self.arg1 == old:
+            self.remove_used(self.arg1)
+            self.arg1 = new
+            self.add_used(self.arg1)
 
-    def is_assignment(self):
-        return self.dest is not None and self.arg1 is not None and self.arg2 is None and self.op is None
-
-    def is_unary_op(self):
-        return self.dest is not None and self.arg1 is not None and self.arg2 is None and self.op in ['-']
+    def rename_defined(self, old, new):
+        if self.dest == old:
+            self.remove_defined(self.dest)
+            self.dest = new
+            self.add_defined(self.dest)
 
     def __str__(self):
-        if self.dest and self.arg1 is not None and self.arg2 is not None and self.op:
-            return '%s = %s %s %s' % (self.dest, self.arg1, self.op, self.arg2)
-        elif self.dest and self.arg1 is not None and self.op:
-            return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1 is not None and self.op:
-            return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1 is not None:
-            return '%s = %s' % (self.dest, self.arg1)
-        elif self.dest and self.op:
-            return '%s = %s' % (self.dest, self.op)
-        elif self.arg1 is not None and self.op:
-            return '%s %s' % (self.op, self.arg1)
+        return "%s = %s" % (self.dest, self.arg1)
 
 
-class ThreeAddressContext(object):
+class ICBinaryOp(IC):
+    """Do a binary operation
+    """
+    OPS = set(['+', '-', '/', '%', '*'])
+
+    def __init__(self, dest, arg1, arg2, op):
+        super(ICBinaryOp, self).__init__()
+        if not(isinstance(dest, Variable)
+           and (isinstance(arg1, Variable) or isinstance(arg1, Constant))
+           and (isinstance(arg2, Variable) or isinstance(arg2, Constant))
+           and (op in ICBinaryOp.OPS)):
+            raise ValueError("Unsupported binary operation")
+        self.dest = dest
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.op = op
+        self.add_defined(dest)
+        self.add_used(arg1)
+        self.add_used(arg2)
+
+    def rename_used(self, old, new):
+        if self.arg1 == old:
+            self.remove_used(self.arg1)
+            self.arg1 = new
+            self.add_used(self.arg1)
+        if self.arg2 == old:
+            self.remove_used(self.arg2)
+            self.arg2 = new
+            self.add_used(self.arg2)
+
+    def rename_defined(self, old, new):
+        if self.dest == old:
+            self.remove_defined(self.dest)
+            self.dest = new
+            self.add_defined(self.dest)
+
+    def __str__(self):
+        return "%s = %s %s %s" % (self.dest, self.arg1, self.op, self.arg2)
+
+
+class ICUnaryOp(IC):
+    """Do a unary operation
+    """
+    OPS = set(['-'])
+
+    def __init__(self, dest, arg1, op):
+        super(ICUnaryOp, self).__init__()
+        if not(isinstance(dest, Variable)
+           and (isinstance(arg1, Variable) or isinstance(arg1, Constant))
+           and (op in ICBinaryOp.OPS)):
+            raise ValueError("Unsupported unary operation")
+        self.dest = dest
+        self.arg1 = arg1
+        self.op = op
+        self.add_defined(dest)
+        self.add_used(arg1)
+
+    def rename_used(self, old, new):
+        if self.arg1 == old:
+            self.remove_used(self.arg1)
+            self.arg1 = new
+            self.add_used(self.arg1)
+
+    def rename_defined(self, old, new):
+        if self.dest == old:
+            self.remove_defined(self.dest)
+            self.dest = new
+            self.add_defined(self.dest)
+
+    def __str__(self):
+        return "%s = %s %s" % (self.dest, self.op, self.arg1)
+
+
+class ICPrint(IC):
+    """Do a print statement for an integer
+    """
+
+    def __init__(self, arg1):
+        super(ICPrint, self).__init__()
+        if not(isinstance(arg1, Variable) or isinstance(arg1, Constant)):
+            raise ValueError("Unsupported print operation")
+        self.arg1 = arg1
+        self.add_used(arg1)
+
+    def rename_used(self, old, new):
+        if self.arg1 == old:
+            self.remove_used(self.arg1)
+            self.arg1 = new
+            self.add_used(self.arg1)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def __str__(self):
+        return "print(%s)" % (self.arg1)
+
+
+class ICInput(IC):
+    """Do an input statement for an integer
+    """
+
+    def __init__(self, dest):
+        super(ICInput, self).__init__()
+        if not(isinstance(dest, Variable)):
+            raise ValueError("Unsupported input operation")
+        self.dest = dest
+
+    def rename_used(self, old, new):
+        pass
+
+    def rename_defined(self, old, new):
+        if self.dest == old:
+            self.remove_defined(self.dest)
+            self.dest = new
+            self.add_defined(self.dest)
+
+    def __str__(self):
+        return "%s = input()" % (self.dest)
+
+
+class ICContext(object):
     TEMP_REGS = {
         '$t0': '#FF7400',
         '$t1': '#009999',
@@ -189,10 +271,10 @@ class ThreeAddressContext(object):
         self.variable_usage = {}
 
     def add_instruction(self, ins):
-        """Add a ThreeAddress to the instruction list
+        """Add a IC to the instruction list
 
         Arguments:
-        ins - ThreeAddress
+        ins - IC
 
         """
         self.instructions.append(ins)
@@ -204,7 +286,7 @@ class ThreeAddressContext(object):
         """
         name = '@%s' % self.counter
         self.counter += 1
-        return name
+        return Variable(name)
 
     def new_label(self):
         """Create a new label name
@@ -234,7 +316,7 @@ class ThreeAddressContext(object):
         return self.variables.pop()
 
     def gencode(self):
-        """Converts the list of ThreeAddress objects to ASMInstruction Objects,
+        """Converts the list of IC objects to ASMInstruction Objects,
            Returns AsmInstructionContext
         """
         asm = AsmInstructionContext()
@@ -249,119 +331,22 @@ class ThreeAddressContext(object):
         to use registers.
 
         Keyword Arguments:
-        flatten_temp - look @ThreeAddressContext.flatten_temporary_assignments
-        ssa - look @ThreeAddressContext.update_ssa
+        flatten_temp - look @ICContext.flatten_temporary_assignments
+        ssa - look @ICContext.update_ssa
 
         """
-        if flatten_temp:
-            self.flatten_temporary_assignments()
-        if propagate_variables:
-            self.propagate_variables()
-        if propagate_constants:
-            self.propagate_constants()
         if ssa:
             self.update_ssa()
-        if eliminate_dead_code:
-            self.eliminate_dead_code()
         self.mipsify()
+        for i in self.instructions:
+            print i
+        return
         # Keep looping until we allocated
         # will loop multiple times if not enough registers and we spill
         allocated = False
         while not allocated:
             self.update_liveliness()
             allocated = self.allocate_registers()
-        # Remove self assignments
-        self.eliminate_self_assignment()
-
-    def flatten_temporary_assignments(self):
-        """Loop through all instructions and flatten temp assignments like so:
-        @1 = @0 * 2   --> a = @0 * 2
-        a = @1
-        Assumptions: any variable of the form @x where x is a number, will NOT
-        be used after it is assigned to a variable.
-        """
-        i = 1
-        # While loop, because we pop stuff
-        while i < len(self.instructions):
-            ins = self.instructions[i]
-            prev_ins = self.instructions[i - 1]
-            # Look for current assignment == previous destination
-            # and previous destination is a temp var: @...
-            if(ins.is_assignment() and prev_ins.dest == ins.arg1
-                and prev_ins.dest[0] == '@'):
-                prev_ins.rename_dest(ins.dest)
-                self.instructions.pop(i)
-            else:
-                i += 1
-
-    def propagate_variables(self):
-        """Propagate variables and remove self assignments:
-        a = 1;
-        b = a;      --> a = a;        --> NOP
-        b = b;      --> a = a;        --> NOP
-        print(b);   --> print(a);
-
-        """
-        # Array of: (int, a,b)
-        # from int onwards, change a to b
-        changes = []
-        for i in xrange(len(self.instructions) - 1, -1, -1):
-            ins = self.instructions[i]
-            # If we're doing: a = b then from here on, we can change
-            # all a's to b's
-            if ins.is_assignment() and isinstance(ins.arg1, str):
-                changes.insert(0, (i, ins.dest, ins.arg1))
-        # Rename everything using limits
-        for i in xrange(len(self.instructions) - 1, -1, -1):
-            ins = self.instructions[i]
-            # Rename from bottom up
-            for c in xrange(len(changes) - 1, -1, -1):
-                line, orig, new = changes[c]
-                if i >= line:
-                    if ins.arg1 == orig:
-                        ins.rename_arg1(new)
-                    if ins.arg2 == orig:
-                        ins.rename_arg2(new)
-                    if ins.dest == orig:
-                        ins.rename_dest(new)
-            # Remove if it becomes self-referencing
-            if ins.is_assignment() and ins.dest == ins.arg1:
-                self.instructions.pop(i)
-
-    def propagate_constants(self):
-        """Solve constants: ie
-        a = 2 + 3;    -->    a = 5;
-        b = 4 * a;    -->    b = 20;
-        print(b);     -->    print(20);
-
-        """
-        values = {}
-        ops = {
-            '-': lambda x, y: x - y,
-            '+': lambda x, y: x + y,
-            '*': lambda x, y: x * y,
-            '/': lambda x, y: x / y,
-            '%': lambda x, y: x % y
-        }
-        for i in self.instructions:
-            # Replace arg1 if its defined
-            if i.arg1 in values:
-                i.rename_arg1(values[i.arg1])
-            # Replace arg2 if its defined
-            if i.arg2 in values:
-                i.rename_arg2(values[i.arg2])
-            # If its a binary op and both are ints, we can calculate now
-            # Changes it to an assignment statement
-            if i.is_binary_op() and isinstance(i.arg1, int) and \
-                isinstance(i.arg2, int):
-                result = ops[i.op](i.arg1, i.arg2)
-                i.rename_arg1(result)
-                i.rename_arg2(None)
-                i.op = None
-            # If its an assignment and the source is an int
-            # we can save it for future lookup
-            if i.is_assignment() and isinstance(i.arg1, int):
-                values[i.dest] = i.arg1
 
     def update_ssa(self):
         """Translate three address code to use Static Single Assignment
@@ -370,40 +355,15 @@ class ThreeAddressContext(object):
         """
         vc = {}
         for i in self.instructions:
-            # If its been declared before and updated, use updated
-            # TODO: clean this up
-            if isinstance(i.arg1, str) and i.arg1 in vc and vc[i.arg1] != 0:
-                i.rename_arg1('%s%s' % (i.arg1, vc[i.arg1]))
-            if isinstance(i.arg2, str) and i.arg2 in vc and vc[i.arg2] != 0:
-                i.rename_arg2('%s%s' % (i.arg2, vc[i.arg2]))
-            # If i.dest is not None and its been declared before, update it
-            if i.dest and i.dest in vc:
-                vc[i.dest] += 1
-                i.rename_dest('%s%s' % (i.dest, vc[i.dest]))
-            # Otherwise, first time, so use 0
-            elif i.dest:
-                vc[i.dest] = 0
-
-    def eliminate_dead_code(self):
-        """Eliminate unused variables and self assignments
-
-        """
-        used = set()
-        add_only_variables = lambda x: used.add(x) if isinstance(x, str) else None
-        # Move bottom up
-        for i in xrange(len(self.instructions) - 1, -1, -1):
-            ins = self.instructions[i]
-            # If the result is not used below us...then remove it
-            if (ins.is_assignment() or ins.is_binary_op() or ins.is_unary_op()) \
-                and ins.dest not in used:
-                self.instructions.pop(i)
-            # If its used, but its self referencing...then remove it
-            elif ins.is_assignment() and ins.dest == ins.arg1:
-                self.instructions.pop(i)
-            # Otherwise add both arguments (filters to only strings)
-            else:
-                add_only_variables(ins.arg1)
-                add_only_variables(ins.arg2)
+            for x in i.liveliness['used']:
+                if isinstance(x, Variable) and x in vc and vc[i.arg1] != 0:
+                    i.rename_used(x, Variable('%s%s' % (x, vc[x])))
+            for x in i.liveliness['defined']:
+                if x in vc:
+                    vc[x] += 1
+                    i.rename_defined(x, Variable('%s%s' % (x, vc[x])))
+                else:
+                    vc[x] = 0
 
     def mipsify(self):
         """Convert from generic three address to mips three address compatible
@@ -416,35 +376,20 @@ class ThreeAddressContext(object):
         i = 0
         while i < len(self.instructions):
             ins = self.instructions[i]
-            # Replace with registers if either is an int
-            if ins.is_binary_op() and ins.op in ('/', '*', '%', '-', '+'):
-                if isinstance(ins.arg1, int):
-                    a = self.new_var()
-                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg1))
-                    ins.rename_arg1(a)
+            if isinstance(ins, ICBinaryOp):
+                if isinstance(ins.arg1, Constant):
+                    a =self.new_var()
+                    self.instructions.insert(i, ICAssign(a, ins.arg1))
+                    ins.arg1 = a
+                    ins.add_used(a)
                     i += 1
-                if isinstance(ins.arg2, int):
-                    a = self.new_var()
-                    self.instructions.insert(i, ThreeAddress(dest=a, arg1=ins.arg2))
-                    ins.rename_arg2(a)
+                if isinstance(ins.arg2, Constant):
+                    a =self.new_var()
+                    self.instructions.insert(i, ICAssign(a, ins.arg2))
+                    ins.arg2 = a
+                    ins.add_used(a)
                     i += 1
             i += 1
-
-    def eliminate_self_assignment(self):
-        """After assigning registers, some assignments might be of the form:
-        b = a;    -->    $t0 = $t0;
-        This function removes such assignments.
-        NOTE: propagate variables and constants ALREADY tries to do this
-        before registers are assigned!!
-
-        """
-        i = 0
-        while i < len(self.instructions):
-            ins = self.instructions[i]
-            if ins.is_assignment() and ins.dest == ins.arg1:
-                self.instructions.pop(i)
-            else:
-                i += 1
 
     def update_liveliness(self):
         """Loop through all instructions and update their in and out sets.
@@ -453,6 +398,7 @@ class ThreeAddressContext(object):
         """
         if len(self.instructions) == 0:
             return
+        # Clear up outs and ins
         for ins in self.instructions:
             ins.variables['out'] = set()
             ins.variables['int'] = set()
@@ -501,7 +447,7 @@ class ThreeAddressContext(object):
             # Get the smallest degree node
             node = graph.smallest_degree_node()
             # If its less than amount of registers: we're okay
-            if graph.degree(node) < len(ThreeAddressContext.TEMP_REGS):
+            if graph.degree(node) < len(ICContext.TEMP_REGS):
                 # node, set of edges
                 stack.append((node, graph.remove_node(node)))
             # Else we need to look through and find a good candidate
@@ -519,11 +465,12 @@ class ThreeAddressContext(object):
             # Get all neighbhor colors
             neighbor_regs = set([graph.color(n) for n in edges])
             # Calculate all possible colors
-            possible_regs = ThreeAddressContext.ALL_TEMP_REGS.difference(
+            possible_regs = ICContext.ALL_TEMP_REGS.difference(
                 neighbor_regs)
             # If we don't have something to color with, then spill
             # return false, and wait to be called again
             if len(possible_regs) == 0:
+                raise ValueError("NOT ENOUGH REGISTERS")
                 self.spill_variable(node)
                 return False
             # Get one
@@ -535,15 +482,16 @@ class ThreeAddressContext(object):
         for node in graph.nodes():
             var_map[node] = graph.color(node)
             graph.colorize(node,
-                ThreeAddressContext.TEMP_REGS[graph.color(node)])
+                ICContext.TEMP_REGS[graph.color(node)])
         # Rename all variables
-        for ta in self.instructions:
-            if ta.op == 'load':
-                ta.rename_dest(var_map[ta.dest])
-            elif ta.op == 'store':
-                ta.rename_arg1(var_map[ta.arg1])
-            else:
-                ta.rename_variables_to_registers(var_map)
+        for ic in self.instructions:
+            ic.rename_variables_to_registers(var_map)
+            # if ta.op == 'load':
+            #     ta.rename_dest(var_map[ta.dest])
+            # elif ta.op == 'store':
+            #     ta.rename_arg1(var_map[ta.arg1])
+            # else:
+                # ta.rename_variables_to_registers(var_map)
         return True
 
     def spill_variable(self, var):
