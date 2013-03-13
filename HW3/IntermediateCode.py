@@ -110,9 +110,9 @@ class IC(object):
         changed = False
         if next_ic:
             # Out(n) = U In(n + 1)
-            changed, self.liveliness['out'] = (
-                not(self.liveliness['out'] == next_ic.liveliness['in']),
-                self.liveliness['out'].union(next_ic.liveliness['in']))
+            old_out = self.liveliness['out']
+            self.liveliness['out'] = self.liveliness['out'].union(next_ic.liveliness['in'])
+            changed = changed or not(old_out == self.liveliness['out'])
         # In(n) = Used(n) U (Out(n) - Defined(n))
         new_in = self.liveliness['used'].union(
             self.liveliness['out'].difference(self.liveliness['defined']))
@@ -397,7 +397,7 @@ class ICIf(IC):
     def __init__(self, if_part):
         super(ICIf, self).__init__()
         if not(isinstance(if_part, Variable) or isinstance(if_part, Integer)):
-            raise ValueError("Unsupported Assignment")
+            raise ValueError("Unsupported if statement")
         self.if_part = if_part
         self.add_used(if_part)
 
@@ -581,10 +581,6 @@ class ICContext(object):
             for ins in block.instructions:
                 asm = asm + ins.generate_assembly()
         return asm
-        # asm = AsmInstructionContext()
-        # for i in self.instructions:
-        #     asm.add_threeaddress(i)
-        # return asm
 
     def registerize(self, ssa=False):
         """Perform optimization procedures and translate variables
@@ -631,6 +627,7 @@ class ICContext(object):
         like +, cannot add two numbers > 16 bits each. This function splits up
         such instructions into multiple register assignments and adidtion.
         For all binary ops, put Integers into registers
+        For if statements, make sure condition is in a variable
 
         """
         for block in self.blocks:
@@ -650,6 +647,12 @@ class ICContext(object):
                         ins.arg2 = a
                         ins.add_used(a)
                         i += 1
+                if isinstance(ins, ICIf) and isinstance(ins.if_part, Integer):
+                    a = self.new_var()
+                    block.instructions.insert(i, ICAssign(a, ins.if_part))
+                    ins.if_part = a
+                    ins.add_used(a)
+                    i += 1
                 i += 1
 
     def update_liveliness(self):
