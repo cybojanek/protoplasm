@@ -525,7 +525,7 @@ class ASTIf(ASTNode):
         return [self] + self.if_part.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'if then [else]')
+        name = "%s\n%s" % (counter, 'if then%s' % ('' if self.else_part is None else ' else'))
         graph.add_node(name, fillcolor=ASTIf.COLOR)
         graph.add_edge(parent, name)
         counter = self.if_part.add_edges_to_graph(graph, name, counter + 1)

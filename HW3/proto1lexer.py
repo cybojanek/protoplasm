@@ -42,6 +42,14 @@ t_SEMICOLON = r';'
 
 
 # Tokens with actions
+
+# Comments
+def t_COMMENT(t):
+    r'//.*\n'
+    # Increment line number and don't return these tokens
+    t.lexer.lineno += t.value.count('\n')
+
+
 # Variables and reserved words
 def t_ID(t):
     r'[_a-zA-Z]\w*'
