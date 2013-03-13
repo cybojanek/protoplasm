@@ -57,17 +57,17 @@ def p_print(p):
 
 def p_block(p):
     '''block : LBRACKET stmtseq RBRACKET'''
-    print 'BLOCK', p
+    p[0] = ASTBlock(p, p[2])
 
 
-def p_if_then_else(p):
-    '''if : IF ae THEN stmt ELSE stmt'''
-    print 'IF', p
+# def p_if_then_else(p):
+#     '''if : IF ae THEN stmt ELSE stmt'''
+#     print 'IF', p
 
 
 def p_if_then(p):
     '''if : IF ae THEN stmt'''
-    print 'IF', p
+    p[0] = ASTIf(p, p[2], p[4])
 
 
 def p_while(p):

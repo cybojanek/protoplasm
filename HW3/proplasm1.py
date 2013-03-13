@@ -31,6 +31,13 @@ def main(args):
         sys.exit(1)
     # Generate three address code
     tac = program.gencode()
+    print tac
+    for block in tac.blocks:
+        print '----------\n'
+        print 'MASTER:\n%s' % block
+        for follow in block.follow:
+            print 'FOLLOW:\n%s' % follow
+    sys.exit(0)
     # Optimize and assign registers
     tac.registerize(ssa=not(args.nossa))
     # Generate assembly

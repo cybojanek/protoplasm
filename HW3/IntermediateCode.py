@@ -50,8 +50,9 @@ class IC(object):
         self.register_map = {}
         self.context = None
 
-    def set_context(self, context):
+    def set_context(self, context, block):
         self.context = context
+        self.block = block
 
     def add_used(self, variable):
         """Add a variable that is used. Automatically filters out Integers
@@ -390,6 +391,49 @@ class ICInput(IC):
         return "%s = input()" % (self.dest)
 
 
+class ICIf(IC):
+    """Assign variable to variable, or Integer to variable
+    """
+    def __init__(self, if_part, then_part):
+        super(ICIf, self).__init__()
+        if not(isinstance(if_part, Variable) or isinstance(if_part, Integer)):
+            raise ValueError("Unsupported Assignment")
+        self.if_part = if_part
+        self.then_part = then_part
+        self.add_used(if_part)
+
+    def rename_used(self, old, new):
+        pass
+
+    def rename_defined(self, old, new):
+        pass
+
+    def generate_assembly(self):
+        pass
+
+    def __str__(self):
+        # return "if %s then... [%s]" % (self.if_part, self.then_part.statements.value.statements[0])
+        return "if %s then... %r" % (self.if_part, self.then_part)
+
+
+class ICContextBasicBlock(object):
+
+    def __init__(self):
+        """Collection of instructions in a basic block
+
+        """
+        self.instructions = []
+        self.follow = []
+
+    def add_follow(self, block):
+        self.follow.append(block)
+
+    def __str__(self):
+        s = ''
+        for x in self.instructions:
+            s += '%s\n' % x
+        return s
+
 class ICContext(object):
     TEMP_REGS = {
         '$t0': '#FF7400',
@@ -409,21 +453,38 @@ class ICContext(object):
         """Keeps track of the ASTNode to address context translation
 
         """
-        self.instructions = []
+        self.blocks = [ICContextBasicBlock()]
         self.variables = []
         self.counter = 0
         self.liveliness_graph = UndirectedGraph()
         self.variable_usage = {}
 
-    def add_instruction(self, ins):
+    def new_block(self):
+        """Create a new instruction block
+        Instructions pushed after this will be pushed onto this list
+
+        """
+        a = ICContextBasicBlock()
+        self.blocks[-1].add_follow(a)
+        self.blocks.append(a)
+        return a
+
+    def get_current_block(self):
+        return self.blocks[-1]
+
+    def add_instruction(self, ins, block=None):
         """Add a IC to the instruction list
 
         Arguments:
         ins - IC
 
         """
-        self.instructions.append(ins)
-        ins.set_context(self)
+        if block is None:
+            self.blocks[-1].instructions.append(ins)
+            ins.set_context(self, self.blocks[-1])
+        else:
+            block.instructions.append(ins)
+            ins.set_context(self, block)
 
     def new_var(self):
         """Create a new temporary variable.
@@ -483,6 +544,7 @@ class ICContext(object):
         ssa - look @ICContext.update_ssa
 
         """
+        raise NotImplemented()
         if ssa:
             self.update_ssa()
         self.mipsify()
@@ -705,6 +767,7 @@ class ICContext(object):
 
     def __str__(self):
         s = ''
-        for x in self.instructions:
-            s += '%s\n' % (x)
+        for x in self.blocks:
+            s += '---------------------\n'
+            s += str(x)
         return s

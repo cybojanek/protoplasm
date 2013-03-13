@@ -96,6 +96,47 @@ class ASTProgram(ASTNode):
         graph.draw('%s.ast.png' % program_name, prog='dot')
 
 
+class ASTBlock(ASTNode):
+    COLOR = "#FF7400"
+
+    def __init__(self, p, statements):
+        """AST block
+
+        Arguments:
+        p - pyl parser object
+        statements - block statements
+
+        """
+        self.p = p
+        self.statements = statements
+
+    def wellformed(self):
+        for s in self.statements:
+            if not s.wellformed:
+                return False
+        return True
+
+    def gencode(self, icc):
+        for s in self.statements:
+            s.gencode(icc)
+
+    def to_stack(self):
+        stack = []
+        for s in self.statements:
+            stack = s.to_stack() + stack
+        return stack
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "block"
+        graph.add_node(name, fillcolor=ASTBlock.COLOR)
+        for s in self.statements:
+            counter = s.add_edges_to_graph(graph, name, counter)
+        return counter
+
+    def __str__(self):
+        return 'BLOCK: %s' % self.statements
+
+
 class ASTStatement(ASTNode):
     COLOR = "#FF7400"
 
@@ -114,7 +155,7 @@ class ASTStatement(ASTNode):
         return self.value.wellformed()
 
     def gencode(self, icc):
-        return self.value.gencode(icc)
+        self.value.gencode(icc)
 
     def to_stack(self):
         return self.value.to_stack()
@@ -390,3 +431,98 @@ class ASTBinaryOp(ASTNode):
 
     def __str__(self):
         return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)
+
+
+class ASTHelperBlock(ASTNode):
+    COLOR = "#FF7400"
+
+    def __init__(self, p, statements):
+        """AST block
+
+        Arguments:
+        p - pyl parser object
+        statements - block statements
+
+        """
+        self.p = p
+        self.statements = statements
+        self.current_icc_block = None
+        self.next_icc_block = None
+
+    def wellformed(self):
+        return self.statements.wellformed()
+
+    def gencode(self, icc):
+        if self.current_icc_block is None:
+            self.current_icc_block = icc.new_block()
+        else:
+            self.next_icc_block = icc.new_block()
+        # self.statements.gencode(icc)
+        # icc.new_block()
+
+    def to_stack(self):
+        return [self] + self.statements.to_stack() + [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "block"
+        graph.add_node(name, fillcolor=ASTHelperBlock.COLOR)
+        return self.statements.add_edges_to_graph(graph, name, counter)
+
+    def __str__(self):
+        return 'BLOCK: %s' % self.statements
+
+
+class ASTIf(ASTNode):
+    COLOR = '#009999'
+
+    def __init__(self, p, if_part, then_part, else_part=None):
+        """AST if statements
+
+        Arguments:
+        p = pyl object
+        if_part - algebraic expression of condition
+        then_part - statement for then
+
+        Keyword Arguments:
+        else_part - optional else statement for if then
+
+        """
+        self.p = p
+        self.if_part = if_part
+        self.then_part = then_part
+
+    def wellformed(self):
+        return self.if_part.wellformed() and self.then_part.wellformed()
+
+    def gencode(self, icc):
+        if_condition = icc.pop_var()
+        current_block = icc.get_current_block()
+        # then_part -> to_stack, make extra block, after then_part finishes
+        # get next block which will be the follow
+        then_block = icc.new_block()
+        then_stack = self.then_part.to_stack()
+        while len(then_stack) != 0:
+            s = then_stack.pop()
+            s.gencode(icc)
+        end_if_block = icc.new_block()
+        # Then can go to either, so lets add the end_if follow
+        current_block.add_follow(end_if_block)
+        icc.add_instruction(ICIf(if_condition, self.then_part), current_block)
+
+    def to_stack(self):
+        # Let the if part happen before, so we can get the final result
+        # Self will then make the recursive blocks
+        return [self] + self.if_part.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'if then [else]')
+        graph.add_node(name, fillcolor=ASTIf.COLOR)
+        graph.add_edge(parent, name)
+        counter = self.if_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.then_part.add_edges_to_graph(graph, name, counter + 1)
+        if self.else_part is not None:
+            counter = self.else_part.add_edges_to_graph(graph, name, counter + 1)
+        return counter
+
+    def __str__(self):
+        return 'IF: [%s] THEN [%s]' % (self.if_part, self.then_part)
