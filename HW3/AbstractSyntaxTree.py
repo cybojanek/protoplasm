@@ -1,6 +1,24 @@
 from IntermediateCode import *
 
 
+class ASTContext(object):
+
+    def __init__(self):
+        self.defined = set()
+        self.used = set()
+
+    def get_undefined(self):
+        return self.used.difference(self.defined)
+
+    def clone(self):
+        a = ASTContext()
+        for x in self.defined:
+            a.defined.add(x)
+        for x in self.used:
+            a.used.add(x)
+        return a
+
+
 class ASTNode(object):
     """ASTNode which represents different AST TYPES
     Exepects to implement wellformed, gencode
@@ -37,8 +55,9 @@ class ASTProgram(ASTNode):
         self.statements = statements
 
     def wellformed(self):
+        astc = ASTContext()
         for s in self.statements:
-            if not s.wellformed:
+            if not s.wellformed(astc):
                 return False
         return True
 
@@ -110,9 +129,9 @@ class ASTBlock(ASTNode):
         self.p = p
         self.statements = statements
 
-    def wellformed(self):
+    def wellformed(self, astc):
         for s in self.statements:
-            if not s.wellformed:
+            if not s.wellformed(astc):
                 return False
         return True
 
@@ -151,8 +170,8 @@ class ASTStatement(ASTNode):
         self.p = p
         self.value = value
 
-    def wellformed(self):
-        return self.value.wellformed()
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
 
     def gencode(self, icc):
         self.value.gencode(icc)
@@ -186,8 +205,12 @@ class ASTAssign(ASTNode):
         self.left = left
         self.right = right
 
-    def wellformed(self):
-        return self.right.wellformed()
+    def wellformed(self, astc):
+        right_well = self.right.wellformed(astc)
+        if not right_well:
+            return False
+        astc.defined.add(self.left)
+        return True
 
     def gencode(self, icc):
         dest = Variable(self.left)
@@ -226,7 +249,11 @@ class ASTVariable(ASTNode):
         self.p = p
         self.value = value
 
-    def wellformed(self):
+    def wellformed(self, astc):
+        if self.value not in astc.defined:
+            print 'UNDEFINED VARIABLE: %s' % self
+            return False
+        astc.used.add(self.value)
         return True
 
     def gencode(self, icc):
@@ -259,8 +286,8 @@ class ASTPrint(ASTNode):
         self.p = p
         self.value = value
 
-    def wellformed(self):
-        return self.value.wellformed()
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
 
     def gencode(self, icc):
         icc.add_instruction(ICPrint(icc.pop_var()))
@@ -290,7 +317,7 @@ class ASTInput(ASTNode):
         """
         self.p = p
 
-    def wellformed(self):
+    def wellformed(self, astc):
         return True
 
     def gencode(self, icc):
@@ -325,8 +352,8 @@ class ASTInteger(ASTNode):
         self.p = p
         self.value = value
 
-    def wellformed(self):
-        if isinstance(self.value, int) and ((2 ** 31) <= self.value <= (2 ** 31 - 1)):
+    def wellformed(self, astc):
+        if isinstance(self.value, int) and (-(2 ** 31) <= self.value <= (2 ** 31 - 1)):
             return True
         else:
             raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
@@ -366,8 +393,8 @@ class ASTUnaryOp(ASTNode):
         if self.type not in ASTUnaryOp.TYPES:
             raise TypeError('Unary operation: %s not supported' % self.type)
 
-    def wellformed(self):
-        return self.value.wellformed()
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
 
     def gencode(self, icc):
         var = icc.new_var()
@@ -409,8 +436,8 @@ class ASTBinaryOp(ASTNode):
         if self.type not in ASTBinaryOp.TYPES:
             raise TypeError('Binary operation: %r not supported')
 
-    def wellformed(self):
-        return self.left.wellformed() and self.right.wellformed()
+    def wellformed(self, astc):
+        return self.left.wellformed(astc) and self.right.wellformed(astc)
 
     def gencode(self, icc):
         var = icc.new_var()
@@ -433,45 +460,6 @@ class ASTBinaryOp(ASTNode):
         return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)
 
 
-class ASTHelperBlock(ASTNode):
-    COLOR = "#FF7400"
-
-    def __init__(self, p, statements):
-        """AST block
-
-        Arguments:
-        p - pyl parser object
-        statements - block statements
-
-        """
-        self.p = p
-        self.statements = statements
-        self.current_icc_block = None
-        self.next_icc_block = None
-
-    def wellformed(self):
-        return self.statements.wellformed()
-
-    def gencode(self, icc):
-        if self.current_icc_block is None:
-            self.current_icc_block = icc.new_block()
-        else:
-            self.next_icc_block = icc.new_block()
-        # self.statements.gencode(icc)
-        # icc.new_block()
-
-    def to_stack(self):
-        return [self] + self.statements.to_stack() + [self]
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "block"
-        graph.add_node(name, fillcolor=ASTHelperBlock.COLOR)
-        return self.statements.add_edges_to_graph(graph, name, counter)
-
-    def __str__(self):
-        return 'BLOCK: %s' % self.statements
-
-
 class ASTIf(ASTNode):
     COLOR = '#009999'
 
@@ -491,8 +479,14 @@ class ASTIf(ASTNode):
         self.if_part = if_part
         self.then_part = then_part
 
-    def wellformed(self):
-        return self.if_part.wellformed() and self.then_part.wellformed()
+    def wellformed(self, astc):
+        # Then part can only check for usage, and not defined new variables
+        # because its path is uncertain
+        if_well = self.if_part.wellformed(astc)
+        if not if_well:
+            return False
+        then_astc = astc.clone()
+        return self.then_part.wellformed(then_astc)
 
     def gencode(self, icc):
         if_condition = icc.pop_var()
@@ -507,7 +501,7 @@ class ASTIf(ASTNode):
         end_if_block = icc.new_block()
         # Then can go to either, so lets add the end_if follow
         current_block.add_follow(end_if_block)
-        icc.add_instruction(ICIf(if_condition, self.then_part), current_block)
+        icc.add_instruction(ICIf(if_condition), current_block)
 
     def to_stack(self):
         # Let the if part happen before, so we can get the final result

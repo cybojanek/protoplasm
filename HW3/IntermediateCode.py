@@ -394,12 +394,11 @@ class ICInput(IC):
 class ICIf(IC):
     """Assign variable to variable, or Integer to variable
     """
-    def __init__(self, if_part, then_part):
+    def __init__(self, if_part):
         super(ICIf, self).__init__()
         if not(isinstance(if_part, Variable) or isinstance(if_part, Integer)):
             raise ValueError("Unsupported Assignment")
         self.if_part = if_part
-        self.then_part = then_part
         self.add_used(if_part)
 
     def rename_used(self, old, new):
@@ -413,7 +412,7 @@ class ICIf(IC):
 
     def __str__(self):
         # return "if %s then... [%s]" % (self.if_part, self.then_part.statements.value.statements[0])
-        return "if %s then... %r" % (self.if_part, self.then_part)
+        return "if %s then..." % (self.if_part)
 
 
 class ICContextBasicBlock(object):
@@ -422,11 +421,15 @@ class ICContextBasicBlock(object):
         """Collection of instructions in a basic block
 
         """
+        self.start_label = None
         self.instructions = []
         self.follow = []
 
     def add_follow(self, block):
         self.follow.append(block)
+
+    def add_start_label(self, name):
+        self.start_label = name
 
     def __str__(self):
         s = ''
@@ -463,13 +466,23 @@ class ICContext(object):
         """Create a new instruction block
         Instructions pushed after this will be pushed onto this list
 
+        Return:
+        new ICContextBasicBlock object
         """
+        # Make new block
         a = ICContextBasicBlock()
+        # Add it as a follow of previous
         self.blocks[-1].add_follow(a)
+        # Add it as the current block
         self.blocks.append(a)
         return a
 
     def get_current_block(self):
+        """Return the current block to which instructions are appended to
+
+        Return:
+        ICContextBasicBlock object
+        """
         return self.blocks[-1]
 
     def add_instruction(self, ins, block=None):

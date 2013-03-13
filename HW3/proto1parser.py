@@ -130,6 +130,7 @@ def p_ae_intconst(p):
 
 def p_f_id(p):
     '''ae : ID'''
+    # Simple checking only, because this does not follow all paths
     if not p[1] in defined:
         raise NameError('%r is not defined at line: ??' % p[1])
     p[0] = ASTVariable(p, p[1])
