@@ -109,10 +109,10 @@ class IC(object):
         """
         changed = False
         if next_ic:
-            # Out(n) = In(n + 1)
+            # Out(n) = U In(n + 1)
             changed, self.liveliness['out'] = (
                 not(self.liveliness['out'] == next_ic.liveliness['in']),
-                next_ic.liveliness['in'])
+                self.liveliness['out'].union(next_ic.liveliness['in']))
         # In(n) = Used(n) U (Out(n) - Defined(n))
         new_in = self.liveliness['used'].union(
             self.liveliness['out'].difference(self.liveliness['defined']))
@@ -402,13 +402,19 @@ class ICIf(IC):
         self.add_used(if_part)
 
     def rename_used(self, old, new):
-        pass
+        if self.if_part == old:
+            self.remove_used(self.if_part)
+            self.if_part = new
+            self.add_used(new)
 
     def rename_defined(self, old, new):
         pass
 
     def generate_assembly(self):
-        pass
+        arg1 = self.get_register_or_value(self.if_part)
+        end_if = self.context.new_label(suffix='end_if')
+        self.block.follow[1].add_start_label(end_if)
+        return [AsmInstruction('beqz', arg1, end_if)]
 
     def __str__(self):
         # return "if %s then... [%s]" % (self.if_part, self.then_part.statements.value.statements[0])
@@ -431,10 +437,40 @@ class ICContextBasicBlock(object):
     def add_start_label(self, name):
         self.start_label = name
 
+    def generate_assembly(self):
+        if self.start_label is not None:
+            return [AsmInstruction('%s:' % self.start_label)]
+        return []
+
+    def update_liveliness(self):
+        if len(self.instructions) == 0:
+            return
+        # Keep looping while one of the sets has changed
+        block_changed = False
+        changed = True
+        while changed:
+            changed = False
+            # The last one might not have a next so we have to do this first
+            changed = changed or self.instructions[-1].update_variable_sets()
+            # Then loop through its follows
+            for follow in self.follow:
+                if len(follow.instructions) >= 1:
+                    changed = changed or self.instructions[-1].update_variable_sets(follow.instructions[0])
+            # Bottom up, update in's and out's, using next statement
+            for i in xrange(len(self.instructions) - 2, -1, -1):
+                changed = changed or self.instructions[i].update_variable_sets(
+                    next_ic=self.instructions[i + 1])
+            block_changed = block_changed or changed
+        return block_changed
+
     def __str__(self):
         s = ''
         for x in self.instructions:
-            s += '%s\n' % x
+            line = '%s' % x
+            line = '%s%s' % (line, ' ' * (15 - len(line)))
+            line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            s += line
+            #s += '%s\t%s\n' % (x, x.liveliness['out'])
         return s
 
 class ICContext(object):
@@ -540,8 +576,10 @@ class ICContext(object):
            Returns AsmInstructionContext
         """
         asm = []
-        for i in self.instructions:
-            asm = asm + i.generate_assembly()
+        for block in self.blocks:
+            asm = asm + block.generate_assembly()
+            for ins in block.instructions:
+                asm = asm + ins.generate_assembly()
         return asm
         # asm = AsmInstructionContext()
         # for i in self.instructions:
@@ -557,12 +595,10 @@ class ICContext(object):
         ssa - look @ICContext.update_ssa
 
         """
-        raise NotImplemented()
         if ssa:
             self.update_ssa()
         self.mipsify()
-        # for i in self.instructions:
-        #     print i
+        self.update_liveliness()
         # Keep looping until we allocated
         # will loop multiple times if not enough registers and we spill
         allocated = False
@@ -571,21 +607,23 @@ class ICContext(object):
             allocated = self.allocate_registers()
 
     def update_ssa(self):
-        """Translate three address code to use Static Single Assignment
+        """Translate intermediate code to use Static Single Assignment
         variables.
 
         """
+        return
         vc = {}
-        for i in self.instructions:
-            for x in i.liveliness['used']:
-                if isinstance(x, Variable) and x in vc and vc[x] != 0:
-                    i.rename_used(x, Variable('%s%s' % (x, vc[x])))
-            for x in i.liveliness['defined']:
-                if x in vc:
-                    vc[x] += 1
-                    i.rename_defined(x, Variable('%s%s' % (x, vc[x])))
-                else:
-                    vc[x] = 0
+        for block in self.blocks:
+            for i in block.instructions: 
+                for x in i.liveliness['used']:
+                    if isinstance(x, Variable) and x in vc and vc[x] != 0:
+                        i.rename_used(x, Variable('%s%s' % (x, vc[x])))
+                for x in i.liveliness['defined']:
+                    if x in vc:
+                        vc[x] += 1
+                        i.rename_defined(x, Variable('%s%s' % (x, vc[x])))
+                    else:
+                        vc[x] = 0
 
     def mipsify(self):
         """Convert from generic intermediate code to mips three address compatible
@@ -595,66 +633,66 @@ class ICContext(object):
         For all binary ops, put Integers into registers
 
         """
-        i = 0
-        while i < len(self.instructions):
-            ins = self.instructions[i]
-            if isinstance(ins, ICBinaryOp):
-                if isinstance(ins.arg1, Integer):
-                    a = self.new_var()
-                    self.instructions.insert(i, ICAssign(a, ins.arg1))
-                    ins.arg1 = a
-                    ins.add_used(a)
-                    i += 1
-                if isinstance(ins.arg2, Integer):
-                    a =self.new_var()
-                    self.instructions.insert(i, ICAssign(a, ins.arg2))
-                    ins.arg2 = a
-                    ins.add_used(a)
-                    i += 1
-            i += 1
+        for block in self.blocks:
+            i = 0
+            while i < len(block.instructions):
+                ins = block.instructions[i]
+                if isinstance(ins, ICBinaryOp):
+                    if isinstance(ins.arg1, Integer):
+                        a = self.new_var()
+                        block.instructions.insert(i, ICAssign(a, ins.arg1))
+                        ins.arg1 = a
+                        ins.add_used(a)
+                        i += 1
+                    if isinstance(ins.arg2, Integer):
+                        a =self.new_var()
+                        block.instructions.insert(i, ICAssign(a, ins.arg2))
+                        ins.arg2 = a
+                        ins.add_used(a)
+                        i += 1
+                i += 1
 
     def update_liveliness(self):
         """Loop through all instructions and update their in and out sets.
         Calculate how many times a variable is used.
 
         """
-        if len(self.instructions) == 0:
-            return
-        # Clear up outs and ins
-        for ins in self.instructions:
-            ins.liveliness['out'] = set()
-            ins.liveliness['int'] = set()
-        # Keep looping while one of the sets has changed
+        for block in self.blocks:
+            for ins in block.instructions:
+                # Clear up outs and ins
+                ins.liveliness['out'] = set()
+                ins.liveliness['int'] = set()
+        # Update block liveliness
+        # Last statement of each block sets its out to union of all follows
         changed = True
         while changed:
             changed = False
-            # The last one doesn't have a next
-            changed = changed or self.instructions[-1].update_variable_sets()
-            # Bottom up, update in's and out's, using next statement
-            for i in xrange(len(self.instructions) - 2, -1, -1):
-                changed = changed or self.instructions[i].update_variable_sets(
-                    next_ic=self.instructions[i + 1])
+            for i in xrange(len(self.blocks) - 1, -1, -1):
+                changed = changed or self.blocks[i].update_liveliness()
         # Now build up a graph of which variables need to be alive at the
         # same time
         self.liveliness_graph = UndirectedGraph()
-        for ic in self.instructions:
-            # Add defined variables - will be single nodes if not conflicting
-            for i in ic.liveliness['defined']:
-                self.liveliness_graph.add_node(i)
-            # All the in variables that conflict with each other
-            for i in ic.liveliness['in']:
-                self.liveliness_graph.add_node(i)
-                for j in ic.liveliness['in']:
-                    if i != j:
-                        self.liveliness_graph.add_edge(i, j)
+        for block in self.blocks:
+            for ins in block.instructions:
+                # Add defined variables - will be single nodes if not conflicting
+                for i in ins.liveliness['defined']:
+                    self.liveliness_graph.add_node(i)
+                # All the in variables that conflict with each other
+                for i in ins.liveliness['in']:
+                    self.liveliness_graph.add_node(i)
+                    for j in ins.liveliness['in']:
+                        if i != j:
+                            self.liveliness_graph.add_edge(i, j)
         # Calculate how many times each variable is used
+        # doesn't take any consideration of ifs nor whiles
         self.variable_usage = {}
-        for ins in self.instructions:
-            for v in ins.liveliness['used']:
-                if v not in self.variable_usage:
-                    self.variable_usage[v] = 1
-                else:
-                    self.variable_usage[v] += 1
+        for block in self.blocks:
+            for ins in block.instructions:
+                for v in ins.liveliness['used']:
+                    if v not in self.variable_usage:
+                        self.variable_usage[v] = 1
+                    else:
+                        self.variable_usage[v] += 1
 
     def allocate_registers(self):
         """Allocate registers by coloring in a graph of liveliness
@@ -706,15 +744,9 @@ class ICContext(object):
             graph.colorize(node,
                 ICContext.TEMP_REGS[graph.color(node)])
         # Rename all variables
-        for ic in self.instructions:
-            ic.set_register_map(var_map)
-            # ic.rename_variables_to_registers(var_map)
-            # if ta.op == 'load':
-            #     ta.rename_dest(var_map[ta.dest])
-            # elif ta.op == 'store':
-            #     ta.rename_arg1(var_map[ta.arg1])
-            # else:
-                # ta.rename_variables_to_registers(var_map)
+        for block in self.blocks:
+            for ic in block.instructions:
+                ic.set_register_map(var_map)
         return True
 
     def spill_variable(self, var):
