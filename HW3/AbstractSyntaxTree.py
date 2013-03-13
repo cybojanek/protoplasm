@@ -478,19 +478,29 @@ class ASTIf(ASTNode):
         self.p = p
         self.if_part = if_part
         self.then_part = then_part
+        self.else_part = else_part
 
     def wellformed(self, astc):
         # Then part can only check for usage, and not defined new variables
         # because its path is uncertain
-        if_well = self.if_part.wellformed(astc)
-        if not if_well:
+        if not self.if_part.wellformed(astc):
             return False
         then_astc = astc.clone()
-        return self.then_part.wellformed(then_astc)
+        if not self.then_part.wellformed(then_astc):
+            return False
+        if self.else_part is not None:
+            else_astc = astc.clone()
+            if not self.else_part.wellformed(else_astc):
+                return False
+            # Add only those which are defined in both paths
+            for x in then_astc.defined.intersection(else_astc.defined):
+                astc.defined.add(x)
+        return True
 
     def gencode(self, icc):
         if_condition = icc.pop_var()
         current_block = icc.get_current_block()
+        else_block = None
         # then_part -> to_stack, make extra block, after then_part finishes
         # get next block which will be the follow
         then_block = icc.new_block()
@@ -498,10 +508,16 @@ class ASTIf(ASTNode):
         while len(then_stack) != 0:
             s = then_stack.pop()
             s.gencode(icc)
+        if self.else_part is not None:
+            else_block = icc.new_block()
+            else_stack = self.else_part.to_stack()
+            while len(else_stack) != 0:
+                s = else_stack.pop()
+                s.gencode(icc)
         end_if_block = icc.new_block()
-        # Then can go to either, so lets add the end_if follow
+        # Add to follow and make ICIf adding it to the proper block
         current_block.add_follow(end_if_block)
-        icc.add_instruction(ICIf(if_condition), current_block)
+        icc.add_instruction(ICIf(if_condition, then_block, else_block, end_if_block), current_block)
 
     def to_stack(self):
         # Let the if part happen before, so we can get the final result

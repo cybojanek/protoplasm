@@ -60,9 +60,9 @@ def p_block(p):
     p[0] = ASTBlock(p, p[2])
 
 
-# def p_if_then_else(p):
-#     '''if : IF ae THEN stmt ELSE stmt'''
-#     print 'IF', p
+def p_if_then_else(p):
+    '''if : IF ae THEN stmt ELSE stmt'''
+    p[0] = ASTIf(p, p[2], p[4], else_part=p[6])
 
 
 def p_if_then(p):

@@ -394,12 +394,15 @@ class ICInput(IC):
 class ICIf(IC):
     """Assign variable to variable, or Integer to variable
     """
-    def __init__(self, if_part):
+    def __init__(self, if_part, then_block, else_block, end_if_block):
         super(ICIf, self).__init__()
         if not(isinstance(if_part, Variable) or isinstance(if_part, Integer)):
             raise ValueError("Unsupported if statement")
         self.if_part = if_part
         self.add_used(if_part)
+        self.then_block = then_block
+        self.else_block = else_block
+        self.end_if_block = end_if_block
 
     def rename_used(self, old, new):
         if self.if_part == old:
@@ -411,14 +414,27 @@ class ICIf(IC):
         pass
 
     def generate_assembly(self):
+        # Get the condition register
         arg1 = self.get_register_or_value(self.if_part)
-        end_if = self.context.new_label(suffix='end_if')
-        self.block.follow[1].add_start_label(end_if)
-        return [AsmInstruction('beqz', arg1, end_if)]
+        # Make a label for the end block
+        end_if_label = self.context.new_label(suffix='end_if')
+        # Add the label to the start of that block
+        self.end_if_block.add_start_label(end_if_label)
+        if self.else_block is None:
+            # If false, then branch to next end if block
+            return [AsmInstruction('beqz', arg1, end_if_label, comment=str(self))]
+        # Make a label for the else block
+        else_label = self.context.new_label(suffix='else')
+        # Add the else label to the else block
+        self.else_block.add_start_label(else_label)
+        # Tell the then_block to branch to end_if_block (to skip else block)
+        self.then_block.add_end_branch(end_if_label)
+        # If false, then branch to the else_block
+        return [AsmInstruction('beqz', arg1, else_label, comment=str(self))]
 
     def __str__(self):
         # return "if %s then... [%s]" % (self.if_part, self.then_part.statements.value.statements[0])
-        return "if %s then..." % (self.if_part)
+        return "if %s then...%s" % (self.if_part, '' if self.else_block is None else 'else...')
 
 
 class ICContextBasicBlock(object):
@@ -428,6 +444,7 @@ class ICContextBasicBlock(object):
 
         """
         self.start_label = None
+        self.branch_label = None
         self.instructions = []
         self.follow = []
 
@@ -437,9 +454,17 @@ class ICContextBasicBlock(object):
     def add_start_label(self, name):
         self.start_label = name
 
-    def generate_assembly(self):
+    def add_end_branch(self, name):
+        self.branch_label = name
+
+    def generate_start_assembly(self):
         if self.start_label is not None:
             return [AsmInstruction('%s:' % self.start_label)]
+        return []
+
+    def generate_end_assembly(self):
+        if self.branch_label is not None:
+            return [AsmInstruction('b', self.branch_label)]
         return []
 
     def update_liveliness(self):
@@ -549,7 +574,7 @@ class ICContext(object):
         Autoincremented.
 
         """
-        name = 'label_%s_%s' % (self.counter, suffix)
+        name = 'l_%s_%s' % (self.counter, suffix)
         self.counter += 1
         return name
 
@@ -577,9 +602,10 @@ class ICContext(object):
         """
         asm = []
         for block in self.blocks:
-            asm = asm + block.generate_assembly()
+            asm = asm + block.generate_start_assembly()
             for ins in block.instructions:
                 asm = asm + ins.generate_assembly()
+            asm = asm + block.generate_end_assembly()
         return asm
 
     def registerize(self, ssa=False):
