@@ -11,6 +11,7 @@ import proto1lexer
 import proto1parser
 
 from AbstractSyntaxTree import ASTProgram
+from ASMCode import write_asm_to_file
 
 
 def main(args):
@@ -24,38 +25,44 @@ def main(args):
     parser = yacc.yacc(module=proto1parser)
     # Parse program
     program = ASTProgram(parser.parse(open(args.file, 'r').read()))
+    # print 'FIX WELLFORMED'
     if not program.wellformed():
         print 'Program not well formed!'
         sys.exit(1)
     # Generate three address code
     tac = program.gencode()
+    # print tac
+    # for block in tac.blocks:
+    #     print '----------\n'
+    #     print 'MASTER:\n%s' % block
+    #     for follow in block.follow:
+    #         print 'FOLLOW:\n%s' % follow
+    # sys.exit(0)
     # Optimize and assign registers
-    tac.registerize(flatten_temp=not(args.noflatten), ssa=not(args.nossa),
-        propagate_variables=args.pv, propagate_constants=args.pc,
-        eliminate_dead_code=args.dc)
+    tac.registerize(ssa=not(args.nossa))
+    # for block in tac.blocks:
+    #     print '----------\n'
+    #     print 'MASTER:\n%s' % block
+    #     for follow in block.follow:
+    #         print 'FOLLOW:\n%s' % follow
+    # sys.exit(0)
     # Generate assembly
     asm = tac.gencode()
+    # for a in asm:
+    #     print a
     if args.graphs:
         # Output program abstract syntax tree as png
         program.to_png(program_name)
         # Output liveliness coloring of
         tac.liveliness_graph.to_png(program_name)
-    asm.write_to_file(program_name)
+    write_asm_to_file(program_name, asm)
     sys.exit(0)
 
 if __name__ == '__main__':
     if argparse is not None:
         parser = argparse.ArgumentParser(description='Proto1 Compiler')
-        parser.add_argument('-pc', action='store_true', default=False,
-            help='Propagate constants')
-        parser.add_argument('-pv', action='store_true', default=False,
-            help='Propagate variables')
-        parser.add_argument('-dc', action='store_true', default=False,
-            help='Eliminate dead code')
         parser.add_argument('-nossa', action='store_true', default=False,
             help='Do NOT use SSA')
-        parser.add_argument('-noflatten', action='store_true', default=False,
-            help='Do NOT flatten temporary variables')
         parser.add_argument('-graphs', action='store_true', default=False,
             help='Generate png graphs for AST and liveliness')
         parser.add_argument('file', type=str, help='File to compile')

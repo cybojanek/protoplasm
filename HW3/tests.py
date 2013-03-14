@@ -20,12 +20,15 @@ def test_proto_files():
         ['rem', ['4', '4', '7890', '-7890', '4', '4',
                  '7890', '-7890', '0', '0', '7890', '-7890',
                  '0', '0', '0', '0', '0']],
-        ['spill_one', ['66']],
-        ['spill_five', ['120']],
-        ['spill_many', ['681']],
+        ['equals', ['1', '1', '1', '0', '0', '0', '0', '0', '0', '1', '1', '1']],
+        ['comparison', ['0', '0', '1', '1', '0', '1', '0', '1']],
+        ['negation', ['0', '0', '0', '1']],
+        ['and_or', ['0', '0', '1', '0', '1', '0', '1', '0', '1', '1', '1', '0', '1', '1', '1', '1', '1']],
+        #['spill_one', ['66']],
+        #['spill_five', ['120']],
+        #['spill_many', ['681']],
     ]
     for test, results in tests:
-        test_result = ''.join(results)
         # Call compiler to compile program
         subprocess.call(['/usr/local/bin/python', 'proplasm1.py',
             'tests/%s.proto' % test])
@@ -33,6 +36,6 @@ def test_proto_files():
         p = Popen(['/Users/cybojanek/sources/spimsimulator/spim/spim', '-file',
             'tests/%s.asm' % test],
             stdout=PIPE, stdin=PIPE, stderr=PIPE)
-        header, result = p.stdout.readline(), p.stdout.readline()
-        eq_(result, test_result)
+        header, spim_result = p.stdout.readline(), [x.rstrip() for x in p.stdout.readlines()]
+        eq_(spim_result, results)
         # eq_(p.returncode, 0)

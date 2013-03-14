@@ -76,12 +76,12 @@ class ASTProgram(ASTNode):
             counter = s.add_edges_to_graph(graph, name, counter)
         return counter
 
-    def to_png(self, file_name):
-        """Output an AST using graphviz
+    def to_png(self, program_name):
+        """Output an AST using graphviz to a file called
+        program_name.ast.png
 
         Arguments:
-        program - ASTProgram
-        file_name - output name for file
+        program_name - name of program
 
         """
         # Only try if pygraphviz is available
@@ -93,7 +93,7 @@ class ASTProgram(ASTNode):
         graph.node_attr['style'] = 'filled'
         counter = 0
         self.add_edges_to_graph(graph, None, counter + 1)
-        graph.draw(file_name, prog='dot')
+        graph.draw('%s.ast.png' % program_name, prog='dot')
 
 
 class ASTStatement(ASTNode):
@@ -284,8 +284,7 @@ class ASTInteger(ASTNode):
         self.value = value
 
     def wellformed(self):
-        # Only check for positive, since negative is a unrary op above us
-        if isinstance(self.value, int) and (0 <= self.value <= (2 ** 31 - 1)):
+        if isinstance(self.value, int) and ((2 ** 31) <= self.value <= (2 ** 31 - 1)):
             return True
         else:
             raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
@@ -327,13 +326,7 @@ class ASTUnaryOp(ASTNode):
             raise TypeError('Unary operation: %r not supported')
 
     def wellformed(self):
-        # Ugly hack - check if child is integer for bounds
-        if isinstance(self.value, ASTInteger):
-            if(0 <= self.value.value <= (2 ** 31)):
-                return True
-            raise ValueError('-%s is out of bounds for 32 bit integer value' % self.value.value)
-        else:
-            return self.value.wellformed()
+        return self.value.wellformed()
 
     def gencode(self, tac):
         var = tac.new_var()

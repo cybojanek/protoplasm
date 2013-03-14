@@ -26,17 +26,17 @@ class AsmInstruction(object):
         # to add the comments aligned correctly
         comment = lambda s: s + (" " * (30 - len(s))) + "# " + self.comment
 
-        if self.arg1 and self.arg2 and self.arg3:
+        if self.arg1 is not None and self.arg2 is not None and self.arg3 is not None:
             return comment("%s %s, %s, %s" % (self.op, self.arg1, self.arg2, self.arg3))
-        elif self.arg1 and self.arg2:
+        elif self.arg1 is not None and self.arg2 is not None:
             return comment("%s %s, %s" % (self.op, self.arg1, self.arg2))
-        elif self.arg1:
+        elif self.arg1 is not None:
             return comment("%s %s" % (self.op, self.arg1))
         else:
             return comment(self.op)
 
 
-def asm_assign(ins):
+def asm_assign(ins, aic):
     if is_int(ins.arg1):
         # li Rd, Imm    Rd = Imm
         return [AsmInstruction('li', ins.dest, ins.arg1, comment=str(ins))]
@@ -45,7 +45,7 @@ def asm_assign(ins):
         return [AsmInstruction('move', ins.dest, ins.arg1)]
 
 
-def asm_add(ins):
+def asm_add(ins, aic):
     if ins.op != '+':
         raise TypeError('Instruction is not an addition operation!')
     if is_int(ins.arg1) or is_int(ins.arg2):
@@ -94,7 +94,7 @@ def asm_add(ins):
     # return asm
 
 
-def asm_div(ins):
+def asm_div(ins, aic):
     if ins.op != '/':
         raise TypeError('Instruction is not a division operation!')
     if is_int(ins.arg1) or is_int(ins.arg2):
@@ -104,7 +104,7 @@ def asm_div(ins):
         comment=str(ins))]
 
 
-def asm_mod(ins):
+def asm_mod(ins, aic):
     if ins.op != '%':
         raise TypeError('Instruction is not a modulus operation!')
     if is_int(ins.arg1) or is_int(ins.arg2):
@@ -114,7 +114,7 @@ def asm_mod(ins):
         comment=str(ins))]
 
 
-def asm_sub(ins):
+def asm_sub(ins, aic):
     if ins.op != '-':
         raise TypeError('Instruction is not a subtraction operation!')
     if is_int(ins.arg1) or is_int(ins.arg2):
@@ -124,7 +124,7 @@ def asm_sub(ins):
         comment=str(ins))]
 
 
-def asm_mul(ins):
+def asm_mul(ins, aic):
     if ins.op != '*':
         raise TypeError('Instruction is not a multiplication operation!')
     if is_int(ins.arg1) or is_int(ins.arg2):
@@ -134,7 +134,7 @@ def asm_mul(ins):
         comment=str(ins))]
 
 
-def asm_neg(ins):
+def asm_neg(ins, aic):
     if ins.op != '-':
         raise TypeError('Instruction is not a negation operation!')
     asm = []
@@ -149,7 +149,7 @@ def asm_neg(ins):
     return asm
 
 
-def asm_print(ins):
+def asm_print(ins, aic):
     if ins.op != 'print':
         raise TypeError('Instruction is not a print operation!')
     # Sycall for print integer: $v0 = 1, $a0 = int
@@ -167,7 +167,7 @@ def asm_print(ins):
     return asm
 
 
-def asm_input(ins):
+def asm_input(ins, aic):
     if ins.op != 'input':
         raise TypeError('Instruction is not an input operation!')
     # Syscall for read integer: $v0 = 5, $v0 = read int
@@ -179,6 +179,23 @@ def asm_input(ins):
     asm.append(AsmInstruction('syscall'))
     asm.append(AsmInstruction('move', ins.dest, '$v0'))
     return asm
+
+
+def asm_store(ins, aic):
+    if ins.op != 'store':
+        raise TypeError('Instruction is not a store operations!')
+    aic.data.append(ins.dest)
+    # sw Rt, Address(Rs)    Word at M[Address + Rs] = Rt
+    return [AsmInstruction('sw', ins.arg1, ins.dest,
+        comment='label %s = %s' % (ins.dest, ins.arg1))]
+
+
+def asm_load(ins, aic):
+    if ins.op != 'load':
+        raise TypeError('Instruction is not a load operation!')
+    # lw Rt, Address(Rs)    Rt = Word at M[Address + Rs]
+    return [AsmInstruction('lw', ins.dest, ins.arg1,
+        comment='%s = label %s' % (ins.dest, ins.arg1))]
 
 
 class AsmInstructionContext(object):
@@ -196,26 +213,35 @@ class AsmInstructionContext(object):
         }
         other_ops = {
             'input': asm_input,
-            'print': asm_print
+            'print': asm_print,
+            'store': asm_store,
+            'load': asm_load
         }
         if ins.is_binary_op():
-            asm = binary_ops[ins.op](ins)
+            asm = binary_ops[ins.op](ins, self)
         elif ins.is_unary_op():
-            asm = unary_ops[ins.op](ins)
+            asm = unary_ops[ins.op](ins, self)
         elif ins.is_assignment():
-            asm = asm_assign(ins)
+            asm = asm_assign(ins, self)
         else:
-            asm = other_ops[ins.op](ins)
+            asm = other_ops[ins.op](ins, self)
         self.instructions = self.instructions + asm
 
-    def write_to_file(self, file_name):
-        out = open(file_name, 'w')
+    def write_to_file(self, program_name):
+        """Write out program to a file called
+        program_name.asm
+
+        Arguments:
+        program_name - name of program
+
+        """
+        out = open('%s.asm' % program_name, 'w')
         out.write('.data\n')
         for x in self.data:
-            out.write('%s\n' % x)
+            out.write('%s:    .word 1\n' % x)
         out.write('.text\n')
         out.write('main:\n')
         for x in self.instructions:
             out.write('%s\n' % x)
         # Exit gracefully
-        out.write('li $v0, 10\nsyscall\n')
+        out.write('# Exit gracefully\nli $v0, 10\nsyscall\n')

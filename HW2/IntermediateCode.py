@@ -29,13 +29,20 @@ class ThreeAddress(object):
             'used': set(),
             'defined': set()
         }
-        if dest:
+        if dest is not None:
             self.variables['defined'].add(dest)
         # TODO: make this nicer
-        if arg1 and not str(arg1).isdigit():
+        if arg1 is not None and not str(arg1).isdigit():
             self.variables['used'].add(arg1)
-        if arg2 and not str(arg2).isdigit():
+        if arg2 is not None and not str(arg2).isdigit():
             self.variables['used'].add(arg2)
+        # Load and store use memory addresses and not variables
+        if op == 'load':
+            self.variables['defined'] = set([self.dest])
+            self.variables['used'] = set()
+        elif op == 'store':
+            self.variables['used'] = set([self.arg1])
+            self.variables['defined'] = set()
 
     def rename_dest(self, dest):
         """Rename destination variable.
@@ -50,6 +57,12 @@ class ThreeAddress(object):
         if dest is not None:
             self.variables['defined'].add(dest)
         self.dest = dest
+        if self.op == 'load':
+            self.variables['defined'] = set([self.dest])
+            self.variables['used'] = set()
+        elif self.op == 'store':
+            self.variables['used'] = set([self.arg1])
+            self.variables['defined'] = set()
 
     def rename_arg1(self, arg1):
         """Rename arg1 variable.
@@ -65,6 +78,12 @@ class ThreeAddress(object):
         if isinstance(arg1, str):
             self.variables['used'].add(arg1)
         self.arg1 = arg1
+        if self.op == 'load':
+            self.variables['defined'] = set([self.dest])
+            self.variables['used'] = set()
+        elif self.op == 'store':
+            self.variables['used'] = set([self.arg1])
+            self.variables['defined'] = set()
 
     def rename_arg2(self, arg2):
         """Rename arg2 variable.
@@ -115,32 +134,32 @@ class ThreeAddress(object):
         """
         if self.dest:
             self.dest = variable_map[self.dest]
-        if self.arg1 and isinstance(self.arg1, str):
+        if self.arg1 is not None and isinstance(self.arg1, str):
             self.arg1 = variable_map[self.arg1]
-        if self.arg2 and isinstance(self.arg2, str):
+        if self.arg2 is not None and isinstance(self.arg2, str):
             self.arg2 = variable_map[self.arg2]
 
     def is_binary_op(self):
-        return self.dest and self.arg1 and self.arg2 and self.op
+        return self.dest is not None and self.arg1 is not None and self.arg2 is not None and self.op is not None
 
     def is_assignment(self):
-        return self.dest and self.arg1 and self.arg2 is None and self.op is None
+        return self.dest is not None and self.arg1 is not None and self.arg2 is None and self.op is None
 
     def is_unary_op(self):
-        return self.dest and self.arg1 and self.arg2 is None and self.op
+        return self.dest is not None and self.arg1 is not None and self.arg2 is None and self.op in ['-']
 
     def __str__(self):
-        if self.dest and self.arg1 and self.arg2 and self.op:
+        if self.dest and self.arg1 is not None and self.arg2 is not None and self.op:
             return '%s = %s %s %s' % (self.dest, self.arg1, self.op, self.arg2)
-        elif self.dest and self.arg1 and self.op:
+        elif self.dest and self.arg1 is not None and self.op:
             return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1 and self.op:
+        elif self.dest and self.arg1 is not None and self.op:
             return '%s = %s %s' % (self.dest, self.op, self.arg1)
-        elif self.dest and self.arg1:
+        elif self.dest and self.arg1 is not None:
             return '%s = %s' % (self.dest, self.arg1)
         elif self.dest and self.op:
             return '%s = %s' % (self.dest, self.op)
-        elif self.arg1 and self.op:
+        elif self.arg1 is not None and self.op:
             return '%s %s' % (self.op, self.arg1)
 
 
@@ -167,6 +186,7 @@ class ThreeAddressContext(object):
         self.variables = []
         self.counter = 0
         self.liveliness_graph = UndirectedGraph()
+        self.variable_usage = {}
 
     def add_instruction(self, ins):
         """Add a ThreeAddress to the instruction list
@@ -183,6 +203,15 @@ class ThreeAddressContext(object):
 
         """
         name = '@%s' % self.counter
+        self.counter += 1
+        return name
+
+    def new_label(self):
+        """Create a new label name
+        Autoincremented.
+
+        """
+        name = 'label_%s' % self.counter
         self.counter += 1
         return name
 
@@ -235,8 +264,13 @@ class ThreeAddressContext(object):
         if eliminate_dead_code:
             self.eliminate_dead_code()
         self.mipsify()
-        self.update_liveliness()
-        self.allocate_registers()
+        # Keep looping until we allocated
+        # will loop multiple times if not enough registers and we spill
+        allocated = False
+        while not allocated:
+            self.update_liveliness()
+            allocated = self.allocate_registers()
+        # Remove self assignments
         self.eliminate_self_assignment()
 
     def flatten_temporary_assignments(self):
@@ -414,10 +448,14 @@ class ThreeAddressContext(object):
 
     def update_liveliness(self):
         """Loop through all instructions and update their in and out sets.
+        Calculate how many times a variable is used.
 
         """
         if len(self.instructions) == 0:
             return
+        for ins in self.instructions:
+            ins.variables['out'] = set()
+            ins.variables['int'] = set()
         # Keep looping while one of the sets has changed
         changed = True
         while changed:
@@ -430,6 +468,7 @@ class ThreeAddressContext(object):
                     next_ta=self.instructions[i + 1])
         # Now build up a graph of which variables need to be alive at the
         # same time
+        self.liveliness_graph = UndirectedGraph()
         for ta in self.instructions:
             # Add defined variables - will be single nodes if not conflicting
             for i in ta.variables['defined']:
@@ -440,6 +479,14 @@ class ThreeAddressContext(object):
                 for j in ta.variables['in']:
                     if i != j:
                         self.liveliness_graph.add_edge(i, j)
+        # Calculate how many times each variable is used
+        self.variable_usage = {}
+        for ins in self.instructions:
+            for v in ins.variables['used']:
+                if v not in self.variable_usage:
+                    self.variable_usage[v] = 1
+                else:
+                    self.variable_usage[v] += 1
 
     def allocate_registers(self):
         """Allocate registers by coloring in a graph of liveliness
@@ -449,13 +496,22 @@ class ThreeAddressContext(object):
         stack = []
         # Build up graph
         graph = self.liveliness_graph
-        # Remove all nodes with degree < registers
-        for node in graph.nodes():
+        # Loop through all nodes
+        while len(graph.nodes()) > 0:
+            # Get the smallest degree node
+            node = graph.smallest_degree_node()
+            # If its less than amount of registers: we're okay
             if graph.degree(node) < len(ThreeAddressContext.TEMP_REGS):
                 # node, set of edges
                 stack.append((node, graph.remove_node(node)))
-        if len(graph.nodes()) != 0:
-            raise ValueError('Not enough registers!')
+            # Else we need to look through and find a good candidate
+            else:
+                # Find the node which has the
+                # highest degree - amount of times used
+                node = max(graph.nodes(),
+                    key=lambda x: graph.degree(x) - self.variable_usage[x])
+                stack.append((node, graph.remove_node(node)))
+        # Now add back the nodes
         while len(stack) != 0:
             # Remove a node, edges from stack
             node, edges = stack.pop()
@@ -465,6 +521,11 @@ class ThreeAddressContext(object):
             # Calculate all possible colors
             possible_regs = ThreeAddressContext.ALL_TEMP_REGS.difference(
                 neighbor_regs)
+            # If we don't have something to color with, then spill
+            # return false, and wait to be called again
+            if len(possible_regs) == 0:
+                self.spill_variable(node)
+                return False
             # Get one
             reg = possible_regs.pop()
             # Set the color
@@ -477,7 +538,74 @@ class ThreeAddressContext(object):
                 ThreeAddressContext.TEMP_REGS[graph.color(node)])
         # Rename all variables
         for ta in self.instructions:
-            ta.rename_variables_to_registers(var_map)
+            if ta.op == 'load':
+                ta.rename_dest(var_map[ta.dest])
+            elif ta.op == 'store':
+                ta.rename_arg1(var_map[ta.arg1])
+            else:
+                ta.rename_variables_to_registers(var_map)
+        return True
+
+    def spill_variable(self, var):
+        """Spill a variable, and store it to a memory location
+
+        Arguments:
+        var - variable to be spilled
+
+        """
+        i = 0
+        first_assign = True
+        new_var = var
+        label = self.new_label()
+        while i < len(self.instructions):
+            ins = self.instructions[i]
+            if ins.dest == var and first_assign:
+                self.instructions.insert(i + 1, ThreeAddress(
+                    dest=label, arg1=new_var, op='store'))
+                first_assign = False
+                i += 2
+                continue
+            # If we're writing to the variable
+            if ins.is_assignment() and ins.dest == var:
+                new_var = self.new_var()
+                ins.rename_dest(new_var)
+                if ins.arg1 == var:
+                    ins.rename_arg1(new_var)
+                # Insert a store after this statement
+                self.instructions.insert(i + 1, ThreeAddress(
+                    dest=label, arg1=new_var, op='store'))
+                i += 2
+                continue
+            # If the spill variable is used, restore before, rename
+            # and store afterwards
+            if var in ins.variables['used']:
+                new_var = self.new_var()
+                self.instructions.insert(i, ThreeAddress(
+                    dest=new_var, arg1=label, op='load'))
+                if ins.arg1 == var:
+                    ins.rename_arg1(new_var)
+                if ins.arg2 == var:
+                    ins.rename_arg2(new_var)
+                if ins.dest == var:
+                    ins.rename_dest(new_var)
+                    self.instructions.insert(i + 2, ThreeAddress(
+                        dest=label, arg1=new_var, op='store'))
+                    i += 1
+                i += 2
+                continue
+            i += 1
+        # print "#" * 80
+        # print 'spill: %s' % var
+        # for x in self.instructions:
+        #     print x, x.variables['out']
+        # print "#" * 80
+        # self.update_liveliness()
+        # print "#" * 80
+        # print 'spill: %s' % var
+        # for x in self.instructions:
+        #     print x, x.variables['out']
+        # print "#" * 80
+        # sys.exit(1)
 
     def __str__(self):
         s = ''
