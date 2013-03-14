@@ -1,3 +1,17 @@
+"""
+From PLY documentation:
+ - All tokens defined by functions are added in the same order as they
+   appear in the lexer file.
+
+ - Tokens defined by strings are added next by sorting them in order of
+   decreasing regular expression length (longer expressions are added first).
+
+ - For example, if you wanted to have separate tokens for "=" and "==", you
+   need to make sure that "==" is checked first. By sorting regular expressions
+   in order of decreasing length, this problem is solved for rules defined
+   as strings
+"""
+
 import ply.lex as lex
 
 # Reserved words
