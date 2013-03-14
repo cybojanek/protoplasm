@@ -508,15 +508,32 @@ class ASTIf(ASTNode):
         while len(then_stack) != 0:
             s = then_stack.pop()
             s.gencode(icc)
-        if self.else_part is not None:
-            else_block = icc.new_block()
+        if self.else_part is None:
+            end_if_block = icc.new_block()
+            # Add to follow and make ICIf adding it to the proper block
+            current_block.add_follow(end_if_block)
+        else:
+            # What's happening here you might ask...
+            # If the then block had other statements inside of it that
+            # created a new block...then our then block (which we care about
+            # only for the purpose of putting in the unconditional branch)
+            # is now something new. Because its part of the same scope,
+            # it logically follows, so thats why we add the follow
+            # and change the then_block pointer
+            # The then_block refers to the block we're jumping OUT OF
+            # and NOT the block we're jumping INTO (bc we never do)
+            if icc.get_current_block() != then_block:
+                then_block.add_follow(icc.get_current_block())
+                then_block = icc.get_current_block()
+            else_block = icc.new_block(auto_follow=False)
             else_stack = self.else_part.to_stack()
             while len(else_stack) != 0:
                 s = else_stack.pop()
                 s.gencode(icc)
-        end_if_block = icc.new_block()
-        # Add to follow and make ICIf adding it to the proper block
-        current_block.add_follow(end_if_block)
+
+            end_if_block = icc.new_block()
+            then_block.add_follow(end_if_block)
+            current_block.add_follow(else_block)
         icc.add_instruction(ICIf(if_condition, then_block, else_block, end_if_block), current_block)
 
     def to_stack(self):

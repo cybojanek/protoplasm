@@ -523,7 +523,7 @@ class ICContext(object):
         self.liveliness_graph = UndirectedGraph()
         self.variable_usage = {}
 
-    def new_block(self):
+    def new_block(self, auto_follow=True):
         """Create a new instruction block
         Instructions pushed after this will be pushed onto this list
 
@@ -533,7 +533,8 @@ class ICContext(object):
         # Make new block
         a = ICContextBasicBlock()
         # Add it as a follow of previous
-        self.blocks[-1].add_follow(a)
+        if auto_follow:
+            self.blocks[-1].add_follow(a)
         # Add it as the current block
         self.blocks.append(a)
         return a
