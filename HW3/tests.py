@@ -24,9 +24,9 @@ def test_proto_files():
         ['comparison', ['0', '0', '1', '1', '0', '1', '0', '1']],
         ['negation', ['0', '0', '0', '1']],
         ['and_or', ['0', '0', '1', '0', '1', '0', '1', '0', '1', '1', '1', '0', '1', '1', '1', '1', '1']],
-        #['spill_one', ['66']],
-        #['spill_five', ['120']],
-        #['spill_many', ['681']],
+        ['spill_one', ['66']],
+        ['spill_five', ['120']],
+        ['spill_many', ['681']],
     ]
     for test, results in tests:
         # Call compiler to compile program
