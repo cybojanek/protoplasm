@@ -25,7 +25,7 @@ def main(args):
     parser = yacc.yacc(module=proto1parser)
     # Parse program
     program = ASTProgram(parser.parse(open(args.file, 'r').read()))
-    print 'FIX WELLFORMED'
+    # print 'FIX WELLFORMED'
     if not program.wellformed():
         print 'Program not well formed!'
         sys.exit(1)
@@ -40,11 +40,11 @@ def main(args):
     # sys.exit(0)
     # Optimize and assign registers
     tac.registerize(ssa=not(args.nossa))
-    for block in tac.blocks:
-        print '----------\n'
-        print 'MASTER:\n%s' % block
-        for follow in block.follow:
-            print 'FOLLOW:\n%s' % follow
+    # for block in tac.blocks:
+    #     print '----------\n'
+    #     print 'MASTER:\n%s' % block
+    #     for follow in block.follow:
+    #         print 'FOLLOW:\n%s' % follow
     # sys.exit(0)
     # Generate assembly
     asm = tac.gencode()
