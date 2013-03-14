@@ -138,6 +138,9 @@ class IC(object):
         else:
             return self.register_map[variable]
 
+    def first_pass(self):
+        pass
+
     def generate_assembly(self):
         raise NotImplemented()
 
@@ -437,6 +440,51 @@ class ICIf(IC):
         return "if %s then...%s" % (self.if_part, '' if self.else_block is None else 'else...')
 
 
+class ICWhile(IC):
+    """Assign variable to variable, or Integer to variable
+    """
+    def __init__(self, if_part, condition_block, stmt_block, next_block):
+        super(ICWhile, self).__init__()
+        if not(isinstance(if_part, Variable) or isinstance(if_part, Integer)):
+            raise ValueError("Unsupported if statement")
+        self.if_part = if_part
+        self.add_used(if_part)
+        self.condition_block = condition_block
+        self.stmt_block = stmt_block
+        self.next_block = next_block
+
+    def rename_used(self, old, new):
+        if self.if_part == old:
+            self.remove_used(self.if_part)
+            self.if_part = new
+            self.add_used(new)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def first_pass(self):
+        # Make a label for the condition block
+        self.condition_label = self.context.new_label(suffix='while')
+        self.condition_block.add_start_label(self.condition_label)
+
+    def generate_assembly(self):
+        # Get the condition register
+        arg1 = self.get_register_or_value(self.if_part)
+
+        # At end of statements, jump back to condition checking
+        self.stmt_block.add_end_branch(self.condition_label)
+
+        # Make a label for the end block
+        end_while_label = self.context.new_label(suffix='end_while')
+        self.next_block.add_start_label(end_while_label)
+
+        return [AsmInstruction('beqz', arg1, end_while_label, comment=str(self))]
+
+    def __str__(self):
+        # return "if %s then... [%s]" % (self.if_part, self.then_part.statements.value.statements[0])
+        return "while %s do..." % (self.if_part)
+
+
 class ICContextBasicBlock(object):
 
     def __init__(self):
@@ -601,6 +649,9 @@ class ICContext(object):
         """Converts the list of IC objects to ASMInstruction Objects,
            Returns AsmInstructionContext
         """
+        for block in self.blocks:
+            for ins in block.instructions:
+                ins.first_pass()
         asm = []
         for block in self.blocks:
             asm = asm + block.generate_start_assembly()
@@ -675,6 +726,12 @@ class ICContext(object):
                         ins.add_used(a)
                         i += 1
                 if isinstance(ins, ICIf) and isinstance(ins.if_part, Integer):
+                    a = self.new_var()
+                    block.instructions.insert(i, ICAssign(a, ins.if_part))
+                    ins.if_part = a
+                    ins.add_used(a)
+                    i += 1
+                if isinstance(ins, ICWhile) and isinstance(ins.if_part, Integer):
                     a = self.new_var()
                     block.instructions.insert(i, ICAssign(a, ins.if_part))
                     ins.if_part = a

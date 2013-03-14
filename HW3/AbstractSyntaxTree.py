@@ -553,3 +553,67 @@ class ASTIf(ASTNode):
 
     def __str__(self):
         return 'IF: [%s] THEN [%s]' % (self.if_part, self.then_part)
+
+class ASTWhile(ASTNode):
+    COLOR = '#009999'
+
+    def __init__(self, p, condition, statement):
+        """AST if statements
+
+        Arguments:
+        p = pyl object
+        condition - condition while the loop runs
+        statement - statement to execute in while loop
+
+        """
+        self.p = p
+        self.condition = condition
+        self.statement = statement
+
+    def wellformed(self, astc):
+        # Then part can only check for usage, and not defined new variables
+        # because its path is uncertain
+        if not self.condition.wellformed(astc):
+            return False
+        stmt_astc = astc.clone()
+        if not self.statement.wellformed(stmt_astc):
+            return False
+        return True
+
+    def gencode(self, icc):
+        # Don't lose current block
+        current_block = icc.get_current_block()
+        # Build up condition
+        condition_block = icc.new_block()
+        condition_stack = self.condition.to_stack()
+        while len(condition_stack) != 0:
+            s = condition_stack.pop()
+            s.gencode(icc)
+        # The AE was just parsed and stored here
+        condition_variable = icc.pop_var()
+        # Statement block
+        statement_block = icc.new_block()
+        statement_stack = self.statement.to_stack()
+        while len(statement_stack) != 0:
+            s = statement_stack.pop()
+            s.gencode(icc)
+        end_statement_block = icc.get_current_block()
+        next_block = icc.new_block(auto_follow=False)
+        condition_block.add_follow(next_block)
+        statement_block.add_follow(condition_block)
+        icc.add_instruction(ICWhile(condition_variable, condition_block, end_statement_block, next_block), condition_block)
+
+    def to_stack(self):
+        # Self will handle other statements
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'while')
+        graph.add_node(name, fillcolor=ASTIf.COLOR)
+        graph.add_edge(parent, name)
+        counter = self.condition.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.statement.add_edges_to_graph(graph, name, counter + 1)
+        return counter
+
+    def __str__(self):
+        return 'IF: [%s] THEN [%s]' % (self.if_part, self.then_part)

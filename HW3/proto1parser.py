@@ -72,7 +72,7 @@ def p_if_then(p):
 
 def p_while(p):
     '''while : WHILE ae DO stmt'''
-    print 'WHILE', p
+    p[0] = ASTWhile(p, p[2], p[4])
 
 
 def p_rhs(p):
