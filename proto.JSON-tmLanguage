@@ -1,0 +1,39 @@
+{ "name": "Proto",
+  "scopeName": "source.proto",
+  "fileTypes": ["proto"],
+  "patterns": [
+    { "match": "//.*$\\n?",
+      "name": "comment.line.double-slash",
+      "comment": "Single line comments"
+    },
+    { "match": "\\b(if|then|else|while|do)\\b",
+      "name": "keyword.control.flow",
+      "comment": "Control keywords"
+    },
+    { "match": "\\b(print|input)\\b",
+      "name": "keyword.other",
+      "comment": "Built in functions"
+    },
+    { "match": "\\d+",
+      "name": "constant.numeric.integer",
+      "comment": "Integers" 
+    },
+    { "match": "(!|&&|\\|\\|)",
+      "name": "keyword.operator.logical",
+      "comment": "Logic operators"
+    },
+    { "match": "(==|>=|<=|>|<|!=)",
+      "name": "keyword.operator.comparison",
+      "comment": "Comparison operators"
+    },
+    { "match": "(\\+|\\*|-|%|/)",
+      "name": "keyword.operator.arithmetic",
+      "comment": "Arithmetic operators"
+    },
+    { "match": "=",
+      "name": "keyword.operator.assignment",
+      "comment": "Assignment operator"
+    }
+  ],
+  "uuid": "284b6004-1d26-42d2-9ab1-5d8b75b058e7"
+}
