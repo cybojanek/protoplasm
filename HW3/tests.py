@@ -27,6 +27,8 @@ def test_proto_files():
         ['spill_one', [66]],
         ['spill_five', [120]],
         ['spill_many', [681]],
+        ['if', [1,1,1,2,2,0,1,1,1,1,2,2]],
+        ['while', [10, 10, 11, 3,6,9,12,15,18,21,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987]]
     ]
     for test, results in tests:
         results = [str(x) for x in results]
@@ -34,7 +36,7 @@ def test_proto_files():
         subprocess.call(['/usr/local/bin/python', 'proplasm1.py',
             'tests/%s.proto' % test])
         # Call spim to run it
-        p = Popen(['/Users/cybojanek/sources/spimsimulator/spim/spim', '-file',
+        p = Popen(['spim', '-file',
             'tests/%s.asm' % test],
             stdout=PIPE, stdin=PIPE, stderr=PIPE)
         header, spim_result = p.stdout.readline(), [x.rstrip() for x in p.stdout.readlines()]
