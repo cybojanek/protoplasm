@@ -1,4 +1,5 @@
 .DS_Store
 *.pyc
-HW2/parser.out
-HW2/parsetab.py
+*/parser.out
+*/parsetab.py
+*/tests/*.asm

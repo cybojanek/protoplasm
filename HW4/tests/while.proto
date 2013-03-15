@@ -1,0 +1,37 @@
+x = 0;
+
+// print 10
+while x != 10 do x = x+1;
+print(x);
+
+// print 10
+x = 0;
+while x < 10 do x = x+1;
+print(x);
+
+// print 11
+x = 0;
+while x <= 10 do x = x+1;
+print(x);
+
+// print 3,6,9,12,15,18,21;
+x = 0;
+while x<= 20 do
+    {
+        x = x + 1; 
+        if x % 3 == 0 then print(x);
+    }
+
+
+// print 1,2,3,5,8,13,21,34,55,89,144,233,377,610,987 (fibonacci numbers)
+a = 0;
+b = 1;
+while b<=800 do
+    {
+        c = b+a;
+        a = b;
+        b = c;
+        print(c);
+    }
+
+
