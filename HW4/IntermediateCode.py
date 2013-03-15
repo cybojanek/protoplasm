@@ -31,15 +31,6 @@ class Integer(object):
         return hash(self.value)
 
 
-class Label(object):
-
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return "%s:"
-
-
 class IC(object):
     def __init__(self):
         """Intermediate Code object
@@ -51,8 +42,64 @@ class IC(object):
         self.context = None
 
     def set_context(self, context, block):
+        """Set the context and block of this instruction
+
+        Arguments:
+        context - ICContext
+        block - ICContextBasicBlock
+
+        """
         self.context = context
         self.block = block
+
+    def set_register_map(self, reg_map):
+        """Set the register mapping
+
+        Arguments:
+        reg_map - dictionary of Variable -> register string
+
+        """
+        self.register_map = reg_map
+
+    def update_variable_sets(self, next_ic=None):
+        """Update in and out sets.
+
+        Keyword Arguments:
+        next_ic - the intermediate code after this one (used to update out set)
+            if None given, then Out not updated (good for last statement)
+
+        Return:
+        boolean of whether something was changed or not
+
+        """
+        changed = False
+        if next_ic:
+            # Out(n) = U In(n + 1)
+            old_out = self.liveliness['out']
+            self.liveliness['out'] = self.liveliness['out'].union(next_ic.liveliness['in'])
+            changed = changed or not(old_out == self.liveliness['out'])
+        # In(n) = Used(n) U (Out(n) - Defined(n))
+        new_in = self.liveliness['used'].union(
+            self.liveliness['out'].difference(self.liveliness['defined']))
+        changed, self.liveliness['in'] = (
+            (changed or not(self.liveliness['in'] == new_in)), new_in)
+        return changed
+
+
+    def get_register_or_value(self, variable):
+        """Get the register or Integer value of a variable
+
+        Arguments:
+        variable - Integer/Variable object
+
+        Return:
+        Integer.value or register string name from register_map
+
+        """
+        if isinstance(variable, Integer):
+            return variable.value
+        else:
+            return self.register_map[variable]
 
     def add_used(self, variable):
         """Add a variable that is used. Automatically filters out Integers
@@ -96,58 +143,26 @@ class IC(object):
         if dest in self.liveliness['defined']:
             self.liveliness['defined'].remove(dest)
 
-    def update_variable_sets(self, next_ic=None):
-        """Update in and out sets.
-
-        Keyword Arguments:
-        next_ic - the intermediate code after this one (used to update out set)
-            if None given, then Out not updated (good for last statement)
-
-        Return:
-        boolean of whether something was changed or not
-
-        """
-        changed = False
-        if next_ic:
-            # Out(n) = U In(n + 1)
-            old_out = self.liveliness['out']
-            self.liveliness['out'] = self.liveliness['out'].union(next_ic.liveliness['in'])
-            changed = changed or not(old_out == self.liveliness['out'])
-        # In(n) = Used(n) U (Out(n) - Defined(n))
-        new_in = self.liveliness['used'].union(
-            self.liveliness['out'].difference(self.liveliness['defined']))
-        changed, self.liveliness['in'] = (
-            (changed or not(self.liveliness['in'] == new_in)), new_in)
-        return changed
-
-    def set_register_map(self, reg_map):
-        self.register_map = reg_map
-
-    def get_register_or_value(self, variable):
-        """Get the register or Integer value of a variable
-
-        Arguments:
-        variable - Integer/Variable object
-
-        Return:
-        Integer.value or register string name from register_map
-
-        """
-        if isinstance(variable, Integer):
-            return variable.value
-        else:
-            return self.register_map[variable]
-
-    def first_pass(self):
-        pass
-
-    def generate_assembly(self):
-        raise NotImplemented()
-
     def rename_used(self, old, new):
+        """Rename a used variable. Should check for existance,
+        and update used liveliness set
+        """
         raise NotImplemented()
 
     def rename_defined(self, old, new):
+        """Rename a defined variable. Should check for existance,
+        and update defined liveliness set
+        """
+        raise NotImplemented()
+
+    def first_pass(self):
+        """First compiler pass. Good for setting some labels
+        """
+        pass
+
+    def generate_assembly(self):
+        """Return a list of AsmInstruction
+        """
         raise NotImplemented()
 
 
@@ -191,7 +206,7 @@ class ICAssign(IC):
 
 
 class ICBinaryOp(IC):
-    """Do a binary operation
+    """Binary operations
     """
     ASM_OPS = {'+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '%': 'rem',
                '&&': None, '||': None, '==': 'seq', '!=': 'sne', '<': 'slt',
@@ -199,6 +214,7 @@ class ICBinaryOp(IC):
 
     def __init__(self, dest, arg1, arg2, op):
         super(ICBinaryOp, self).__init__()
+        # Check that both arg1 and arg2 are variables or integers
         if not(isinstance(dest, Variable)
            and (isinstance(arg1, Variable) or isinstance(arg1, Integer))
            and (isinstance(arg2, Variable) or isinstance(arg2, Integer))
@@ -229,8 +245,11 @@ class ICBinaryOp(IC):
             self.add_defined(self.dest)
 
     def generate_assembly(self):
+        # We can accept Integer to arg1/arg2 but by here they should be moved
+        # out and only registers accepted
         if isinstance(self.arg1, Integer) or isinstance(self.arg2, Integer):
             raise ValueError("Cannot do binary operation on Integers!")
+        # Get instruction from op map
         op = ICBinaryOp.ASM_OPS[self.op]
         dest = self.get_register_or_value(self.dest)
         arg1 = self.get_register_or_value(self.arg1)
@@ -263,7 +282,7 @@ class ICBinaryOp(IC):
 
 
 class ICUnaryOp(IC):
-    """Do a unary operation
+    """Unary operations
     """
     ASM_OPS = {'-': 'neg', '!': None}
 
