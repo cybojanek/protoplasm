@@ -485,6 +485,66 @@ class ICWhile(IC):
         return "while %s do..." % (self.if_part)
 
 
+class ICStoreWord(IC):
+    """Store a word
+    """
+    def __init__(self, src, dest, offset):
+        super(ICStoreWord, self).__init__()
+        if not(isinstance(src, Variable)):
+            raise ValueError("Unsupported storage")
+        self.src = src
+        self.dest = dest
+        self.offset = offset
+        self.add_used(src)
+
+    def rename_used(self, old, new):
+        if self.src == old:
+            self.remove_used(self.src)
+            self.src = new
+            self.add_used(new)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def generate_assembly(self):
+        arg1 = self.get_register_or_value(self.src)
+        return [AsmInstruction('sw', arg1, '%s(%s)' % (self.offset, self.dest),
+                               comment=str(self))]
+
+    def __str__(self):
+        return "%s[%s] = %s" % (self.dest, self.offset, self.src)
+
+
+class ICLoadWord(IC):
+    """Load a word
+    """
+    def __init__(self, dest, src, offset):
+        super(ICLoadWord, self).__init__()
+        if not(isinstance(dest, Variable)):
+            raise ValueError("Unsupported storage")
+        self.src = src
+        self.dest = dest
+        self.offset = offset
+        self.add_defined(dest)
+
+    def rename_used(self, old, new):
+        pass
+
+    def rename_defined(self, old, new):
+        if self.dest == old:
+            self.remove_defined(self.dest)
+            self.dest = new
+            self.add_defined(new)
+
+    def generate_assembly(self):
+        arg1 = self.get_register_or_value(self.dest)
+        return [AsmInstruction('lw', arg1, '%s(%s)' % (self.offset, self.src),
+                                comment=str(self))]
+
+    def __str__(self):
+        return "%s = %s[%s]" % (self.dest, self.src, self.offset)
+
+
 class ICContextBasicBlock(object):
 
     def __init__(self):
@@ -546,6 +606,7 @@ class ICContextBasicBlock(object):
             #s += '%s\t%s\n' % (x, x.liveliness['out'])
         return s
 
+
 class ICContext(object):
     TEMP_REGS = {
         '$t0': '#FF7400',
@@ -570,6 +631,7 @@ class ICContext(object):
         self.counter = 0
         self.liveliness_graph = UndirectedGraph()
         self.variable_usage = {}
+        self.stack_pointer = 0
 
     def new_block(self, auto_follow=True):
         """Create a new instruction block
@@ -618,6 +680,15 @@ class ICContext(object):
         self.counter += 1
         return Variable(name)
 
+    def new_stack_var(self):
+        """Return the next available stack location: rounded to 4
+        Autoincremented.
+
+        """
+        s = self.stack_pointer
+        self.stack_pointer += 4
+        return s
+
     def new_label(self, suffix=''):
         """Create a new label name
         Autoincremented.
@@ -653,6 +724,8 @@ class ICContext(object):
             for ins in block.instructions:
                 ins.first_pass()
         asm = []
+        if self.stack_pointer > 0:
+            asm.append(AsmInstruction('addi', '$sp', '$sp', -self.stack_pointer))
         for block in self.blocks:
             asm = asm + block.generate_start_assembly()
             for ins in block.instructions:
@@ -669,8 +742,8 @@ class ICContext(object):
         ssa - look @ICContext.update_ssa
 
         """
-        if ssa:
-            self.update_ssa()
+        # if ssa:
+            # self.update_ssa()
         self.mipsify()
         self.update_liveliness()
         # Keep looping until we allocated
@@ -817,7 +890,7 @@ class ICContext(object):
             # If we don't have something to color with, then spill
             # return false, and wait to be called again
             if len(possible_regs) == 0:
-                raise ValueError("NOT ENOUGH REGISTERS")
+                # raise ValueError("NOT ENOUGH REGISTERS")
                 self.spill_variable(node)
                 return False
             # Get one
@@ -843,59 +916,32 @@ class ICContext(object):
         var - variable to be spilled
 
         """
-        i = 0
+        # print "SPILL: %s" % var
         first_assign = True
-        new_var = var
-        label = self.new_label()
-        while i < len(self.instructions):
-            ins = self.instructions[i]
-            if ins.dest == var and first_assign:
-                self.instructions.insert(i + 1, ThreeAddress(
-                    dest=label, arg1=new_var, op='store'))
-                first_assign = False
-                i += 2
-                continue
-            # If we're writing to the variable
-            if ins.is_assignment() and ins.dest == var:
-                new_var = self.new_var()
-                ins.rename_dest(new_var)
-                if ins.arg1 == var:
-                    ins.rename_arg1(new_var)
-                # Insert a store after this statement
-                self.instructions.insert(i + 1, ThreeAddress(
-                    dest=label, arg1=new_var, op='store'))
-                i += 2
-                continue
-            # If the spill variable is used, restore before, rename
-            # and store afterwards
-            if var in ins.variables['used']:
-                new_var = self.new_var()
-                self.instructions.insert(i, ThreeAddress(
-                    dest=new_var, arg1=label, op='load'))
-                if ins.arg1 == var:
-                    ins.rename_arg1(new_var)
-                if ins.arg2 == var:
-                    ins.rename_arg2(new_var)
-                if ins.dest == var:
-                    ins.rename_dest(new_var)
-                    self.instructions.insert(i + 2, ThreeAddress(
-                        dest=label, arg1=new_var, op='store'))
+        stack_counter = self.new_stack_var()
+        for block in self.blocks:
+            i = 0
+            while i < len(block.instructions):
+                ins = block.instructions[i]
+                if isinstance(ins, ICAssign) and var in ins.liveliness['defined']:
+                    if var in ins.liveliness['used']:
+                        # Restore before instruction
+                        block.instructions.insert(i, ICLoadWord(
+                            var, '$sp', stack_counter))
+                        i += 1
+                    block.instructions.insert(i + 1, ICStoreWord(
+                        var, '$sp', stack_counter))
+                    i += 2
+                    continue
+                elif var in ins.liveliness['used']:
+                    # Restore before instruction
+                    block.instructions.insert(i, ICLoadWord(
+                        var, '$sp', stack_counter))
+                    i += 2
+                    continue
+                else:
                     i += 1
-                i += 2
-                continue
-            i += 1
-        # print "#" * 80
-        # print 'spill: %s' % var
-        # for x in self.instructions:
-        #     print x, x.variables['out']
-        # print "#" * 80
-        # self.update_liveliness()
-        # print "#" * 80
-        # print 'spill: %s' % var
-        # for x in self.instructions:
-        #     print x, x.variables['out']
-        # print "#" * 80
-        # sys.exit(1)
+
 
     def __str__(self):
         s = ''
