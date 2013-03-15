@@ -33,8 +33,7 @@ def test_proto_files():
     for test, results in tests:
         results = [str(x) for x in results]
         # Call compiler to compile program
-        subprocess.call(['/usr/local/bin/python', 'proplasm1.py',
-            'tests/%s.proto' % test])
+        subprocess.call(['python', 'proplasm1.py', 'tests/%s.proto' % test])
         # Call spim to run it
         p = Popen(['spim', '-file',
             'tests/%s.asm' % test],
