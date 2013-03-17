@@ -30,7 +30,24 @@ class Integer(object):
         return hash(self.value)
 
 
+class Label(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+
 class IC(object):
+    # Constant registers
+    REGISTER_CONSTANTS = {Variable('@stack'): '$sp'}
+
     def __init__(self):
         """Intermediate Code object
 
@@ -84,7 +101,6 @@ class IC(object):
             (changed or not(self.liveliness['in'] == new_in)), new_in)
         return changed
 
-
     def get_register_or_value(self, variable):
         """Get the register or Integer value of a variable
 
@@ -97,17 +113,20 @@ class IC(object):
         """
         if isinstance(variable, Integer):
             return variable.value
+        elif variable in IC.REGISTER_CONSTANTS:
+            return IC.REGISTER_CONSTANTS[variable]
         else:
             return self.register_map[variable]
 
     def add_used(self, variable):
         """Add a variable that is used. Automatically filters out Integers
+        and compiler constants defined in REGISTER_CONSTANTS
 
         Arguments:
         variable - Variable object, others passed up on
 
         """
-        if isinstance(variable, Variable):
+        if isinstance(variable, Variable) and variable not in IC.REGISTER_CONSTANTS:
             self.liveliness['used'].add(variable)
 
     def remove_used(self, variable):
@@ -505,12 +524,41 @@ class ICWhile(IC):
 class ICStoreWord(IC):
     """Store a word
     """
-    def __init__(self, src, dest, offset):
+    def __init__(self, src, base=None, offset=None):
+        """
+        Arguments:
+        src - variable name (register)
+        dest - variable name (register)
+
+        Keyword Arguments:
+        base - label or variable
+        offset - variable or integer
+
+        Allowable combinations:
+        label/var, var/int, label/None, None/var
+
+        """
         super(ICStoreWord, self).__init__()
         if not(isinstance(src, Variable)):
             raise ValueError("Unsupported storage")
+        # Check base
+
+        if isinstance(base, Label) and isinstance(offset, Variable):
+            # base is label and offset is register
+            self.add_used(Variable)
+        elif isinstance(base, Variable) and isinstance(offset, Integer):
+            # base is register and offset is integer
+            self.add_used(base)
+        elif isinstance(base, Label):
+            # base is label
+            pass
+        elif isinstance(offset, Variable):
+            # offset is register
+            self.add_used(offset)
+        else:
+            raise ValueError("Unsupported storage base/offset: %s, %s" % (base, offset))
         self.src = src
-        self.dest = dest
+        self.base = base
         self.offset = offset
         self.add_used(src)
 
@@ -519,33 +567,88 @@ class ICStoreWord(IC):
             self.remove_used(self.src)
             self.src = new
             self.add_used(new)
+        if self.base == old:
+            self.remove_used(self.base)
+            self.base = new
+            self.add_used(new)
+        if self.offset == old:
+            self.remove_used(self.offset)
+            self.offset = new
+            self.add_used(new)
 
     def rename_defined(self, old, new):
         pass
 
     def generate_assembly(self):
         arg1 = self.get_register_or_value(self.src)
-        return [AsmInstruction('sw', arg1, '%s(%s)' % (self.offset, self.dest),
-                               comment=str(self))]
+        arg2 = ''
+        if isinstance(self.base, Label) and isinstance(self.offset, Variable):
+            # base is label and offset is register
+            arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
+        elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
+            # base is register and offset is integer
+            arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
+        elif isinstance(self.base, Label):
+            # base is label
+            arg2 = '%s'
+        elif isinstance(self.offset, Variable):
+            # offset is register
+            arg2 = '(%s)' % (self.get_register_or_value(self.offset))
+        return [AsmInstruction('sw', arg1, arg2, comment=str(self))]
 
     def __str__(self):
-        return "%s[%s] = %s" % (self.dest, self.offset, self.src)
+        return "%s[%s] = %s" % (self.base, self.offset, self.src)
 
 
 class ICLoadWord(IC):
     """Load a word
     """
-    def __init__(self, dest, src, offset):
+    def __init__(self, dest, base=None, offset=None):
+        """
+        Arguments:
+        dest - variable name (register)
+
+        Keyword Arguments:
+        base - label or variable
+        offset - variable or integer
+
+        Allowable combinations:
+        label/var, var/int, label/None, None/var
+
+        """
         super(ICLoadWord, self).__init__()
         if not(isinstance(dest, Variable)):
-            raise ValueError("Unsupported storage")
-        self.src = src
+            raise ValueError("Unsupported load")
+        # Check base
+
+        if isinstance(base, Label) and isinstance(offset, Variable):
+            # base is label and offset is register
+            self.add_used(Variable)
+        elif isinstance(base, Variable) and isinstance(offset, Integer):
+            # base is register and offset is integer
+            self.add_used(base)
+        elif isinstance(base, Label):
+            # base is label
+            pass
+        elif isinstance(offset, Variable):
+            # offset is register
+            self.add_used(offset)
+        else:
+            raise ValueError("Unsupported load base/offset: %s, %s" % (base, offset))
         self.dest = dest
+        self.base = base
         self.offset = offset
         self.add_defined(dest)
 
     def rename_used(self, old, new):
-        pass
+        if self.base == old:
+            self.remove_used(self.base)
+            self.base = new
+            self.add_used(new)
+        if self.offset == old:
+            self.remove_used(self.offset)
+            self.offset = new
+            self.add_used(new)
 
     def rename_defined(self, old, new):
         if self.dest == old:
@@ -555,11 +658,23 @@ class ICLoadWord(IC):
 
     def generate_assembly(self):
         arg1 = self.get_register_or_value(self.dest)
-        return [AsmInstruction('lw', arg1, '%s(%s)' % (self.offset, self.src),
-                                comment=str(self))]
+        arg2 = ''
+        if isinstance(self.base, Label) and isinstance(self.offset, Variable):
+            # base is label and offset is register
+            arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
+        elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
+            # base is register and offset is integer
+            arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
+        elif isinstance(self.base, Label):
+            # base is label
+            arg2 = '%s'
+        elif isinstance(self.offset, Variable):
+            # offset is register
+            arg2 = '(%s)' % (self.get_register_or_value(self.offset))
+        return [AsmInstruction('lw', arg1, arg2, comment=str(self))]
 
     def __str__(self):
-        return "%s = %s[%s]" % (self.dest, self.src, self.offset)
+        return "%s = %s[%s]" % (self.dest, self.base, self.offset)
 
 
 class ICContextBasicBlock(object):
@@ -941,17 +1056,17 @@ class ICContext(object):
                 if isinstance(ins, ICAssign) and var in ins.liveliness['defined']:
                     if var in ins.liveliness['used']:
                         # Restore before instruction
-                        block.instructions.insert(i, ICLoadWord(
-                            var, '$sp', stack_counter))
+                        block.instructions.insert(i, ICLoadWord(var,
+                            base=Variable('@stack'), offset=Integer(stack_counter)))
                         i += 1
-                    block.instructions.insert(i + 1, ICStoreWord(
-                        var, '$sp', stack_counter))
+                    block.instructions.insert(i + 1, ICStoreWord(var,
+                        base=Variable('@stack'), offset=Integer(stack_counter)))
                     i += 2
                     continue
                 elif var in ins.liveliness['used']:
                     # Restore before instruction
-                    block.instructions.insert(i, ICLoadWord(
-                        var, '$sp', stack_counter))
+                    block.instructions.insert(i, ICLoadWord(var,
+                        base=Variable('@stack'), offset=Integer(stack_counter)))
                     i += 2
                     continue
                 else:
