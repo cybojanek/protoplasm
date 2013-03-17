@@ -4,13 +4,20 @@ from IntermediateCode import *
 class ASTContext(object):
 
     def __init__(self):
+        """AST context during parsing.
+        Keeps track of defined and used variables
+
+        """
         self.defined = set()
         self.used = set()
 
-    def get_undefined(self):
-        return self.used.difference(self.defined)
-
     def clone(self):
+        """Clone this ASTContext
+
+        Return:
+        ASTContext with the same defined and used sets
+
+        """
         a = ASTContext()
         for x in self.defined:
             a.defined.add(x)
@@ -31,15 +38,43 @@ class ASTNode(object):
         raise NotImplemented()
 
     def wellformed(self):
+        """Check language semantics.
+        Undefined variables, integers out of range.
+
+        """
         raise NotImplemented()
 
-    def gencode(self, tac):
+    def gencode(self, icc):
+        """Generate IntermediateCode
+
+        Arguments:
+        icc - IntermediateCodeContext
+
+        """
         raise NotImplemented()
 
     def to_stack(self):
+        """Convert from internal tree representation to an
+        in order stack representation
+
+        Return:
+        array of ASTNode in reverse order of operations
+
+        """
         raise NotImplemented()
 
     def add_edges_to_graph(self, graph, parent, counter):
+        """Add nodes and edges to a graph
+
+        Arguments:
+        graph - pygraphviz object
+        parent - name of parent
+        counter - unique node id counter
+
+        Return:
+        counter
+
+        """
         pass
 
 
@@ -62,27 +97,14 @@ class ASTProgram(ASTNode):
         return True
 
     def gencode(self):
-        """Translates all statements to three address form
-
-        Return:
-        ICContext
-
-        """
         icc = ICContext()
-        stack = self._to_stack()
+        stack = self.to_stack()
         while len(stack) != 0:
             s = stack.pop()
             s.gencode(icc)
         return icc
 
-    def _to_stack(self):
-        """Convert from internal tree representation to an
-        in order stack representation
-
-        Return:
-        array of ASTNode in reverse order of operations
-
-        """
+    def to_stack(self):
         stack = []
         for s in self.statements:
             stack = s.to_stack() + stack
@@ -353,10 +375,12 @@ class ASTInteger(ASTNode):
         self.value = value
 
     def wellformed(self, astc):
-        if isinstance(self.value, int) and (-(2 ** 31) <= self.value <= (2 ** 31 - 1)):
+        if isinstance(self.value, int) and \
+           (-(2 ** 31) <= self.value <= (2 ** 31 - 1)):
             return True
         else:
-            raise ValueError('%s is out of bounds for 32 bit integer value' % self.value)
+            raise ValueError('%s is out of bounds for 32 bit integer value' % (
+                self.value))
 
     def gencode(self, icc):
         icc.push_var(Integer(self.value))
@@ -481,36 +505,42 @@ class ASTIf(ASTNode):
         self.else_part = else_part
 
     def wellformed(self, astc):
-        # Then part can only check for usage, and not defined new variables
-        # because its path is uncertain
         if not self.if_part.wellformed(astc):
             return False
+        # Then part can only check for usage, and not defined new variables
+        # because its path is uncertain
         then_astc = astc.clone()
         if not self.then_part.wellformed(then_astc):
             return False
+        # If we have an else part then also make an astc clone
         if self.else_part is not None:
             else_astc = astc.clone()
             if not self.else_part.wellformed(else_astc):
                 return False
-            # Add only those which are defined in both paths
+            # Add only those which are defined in *both* paths
             for x in then_astc.defined.intersection(else_astc.defined):
                 astc.defined.add(x)
         return True
 
     def gencode(self, icc):
-        if_condition = icc.pop_var()
+        # The AE was evaluated on the stack before use so get the result var
+        if_var = icc.pop_var()
+        # Store reference to current block
         current_block = icc.get_current_block()
-        else_block = None
         # then_part -> to_stack, make extra block, after then_part finishes
         # get next block which will be the follow
+        # current_block --> then_block
         then_block = icc.new_block()
         then_stack = self.then_part.to_stack()
         while len(then_stack) != 0:
             s = then_stack.pop()
             s.gencode(icc)
         if self.else_part is None:
+            # No else block, so make a new block for ending of if
+            else_block = None
+            # last block from stack --> end_if_block
             end_if_block = icc.new_block()
-            # Add to follow and make ICIf adding it to the proper block
+            # Add to follow, bc current_block --> end_if_block
             current_block.add_follow(end_if_block)
         else:
             # What's happening here you might ask...
@@ -525,16 +555,22 @@ class ASTIf(ASTNode):
             if icc.get_current_block() != then_block:
                 then_block.add_follow(icc.get_current_block())
                 then_block = icc.get_current_block()
+            # then_block !-> else_block
             else_block = icc.new_block(auto_follow=False)
             else_stack = self.else_part.to_stack()
             while len(else_stack) != 0:
                 s = else_stack.pop()
                 s.gencode(icc)
-
+            # else_block --> end_if_block
             end_if_block = icc.new_block()
+            # then_block --> end_if_block
             then_block.add_follow(end_if_block)
+            # current_block --> else_block
             current_block.add_follow(else_block)
-        icc.add_instruction(ICIf(if_condition, then_block, else_block, end_if_block), current_block)
+        # Now add the instructions, starting with the if AE part added to the
+        # original first block
+        icc.add_instruction(ICIf(if_var, then_block, else_block, end_if_block),
+                            current_block)
 
     def to_stack(self):
         # Let the if part happen before, so we can get the final result
@@ -542,7 +578,8 @@ class ASTIf(ASTNode):
         return [self] + self.if_part.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'if then%s' % ('' if self.else_part is None else ' else'))
+        name = "%s\n%s" % (counter, 'if then%s' % (
+            '' if self.else_part is None else ' else'))
         graph.add_node(name, fillcolor=ASTIf.COLOR)
         graph.add_edge(parent, name)
         counter = self.if_part.add_edges_to_graph(graph, name, counter + 1)
@@ -554,54 +591,62 @@ class ASTIf(ASTNode):
     def __str__(self):
         return 'IF: [%s] THEN [%s]' % (self.if_part, self.then_part)
 
+
 class ASTWhile(ASTNode):
     COLOR = '#009999'
 
-    def __init__(self, p, condition, statement):
+    def __init__(self, p, while_part, do_part):
         """AST if statements
 
         Arguments:
         p = pyl object
-        condition - condition while the loop runs
-        statement - statement to execute in while loop
+        while_part - condition while the loop runs
+        do_part - do_part to execute in while loop
 
         """
         self.p = p
-        self.condition = condition
-        self.statement = statement
+        self.while_part = while_part
+        self.do_part = do_part
 
     def wellformed(self, astc):
         # Then part can only check for usage, and not defined new variables
         # because its path is uncertain
-        if not self.condition.wellformed(astc):
+        if not self.while_part.wellformed(astc):
             return False
         stmt_astc = astc.clone()
-        if not self.statement.wellformed(stmt_astc):
+        if not self.do_part.wellformed(stmt_astc):
             return False
         return True
 
     def gencode(self, icc):
-        # Don't lose current block
-        current_block = icc.get_current_block()
-        # Build up condition
-        condition_block = icc.new_block()
-        condition_stack = self.condition.to_stack()
-        while len(condition_stack) != 0:
-            s = condition_stack.pop()
+        # Build up while_part
+        while_part_block = icc.new_block()
+        while_part_stack = self.while_part.to_stack()
+        while len(while_part_stack) != 0:
+            s = while_part_stack.pop()
             s.gencode(icc)
         # The AE was just parsed and stored here
-        condition_variable = icc.pop_var()
-        # Statement block
-        statement_block = icc.new_block()
-        statement_stack = self.statement.to_stack()
-        while len(statement_stack) != 0:
-            s = statement_stack.pop()
+        while_var = icc.pop_var()
+        # while_part --> do_part
+        do_part_block = icc.new_block()
+        do_part_stack = self.do_part.to_stack()
+        while len(do_part_stack) != 0:
+            s = do_part_stack.pop()
             s.gencode(icc)
-        end_statement_block = icc.get_current_block()
+        # Block at the end of the then statement
+        # Might be different from do_part, if other blocks added
+        # Need this to tell this block to jump back to the while_part_block
+        end_if_block = icc.get_current_block()
+        # Do not auto_follow because next_block does *not* follow the
+        # statements in the while loop
         next_block = icc.new_block(auto_follow=False)
-        condition_block.add_follow(next_block)
-        statement_block.add_follow(condition_block)
-        icc.add_instruction(ICWhile(condition_variable, condition_block, end_statement_block, next_block), condition_block)
+        # while_part --> next_block
+        while_part_block.add_follow(next_block)
+        # do_part --> while_part (loop back)
+        do_part_block.add_follow(while_part_block)
+        # Add to original block
+        icc.add_instruction(ICWhile(while_var, while_part_block,
+                            end_if_block, next_block), while_part_block)
 
     def to_stack(self):
         # Self will handle other statements
@@ -611,9 +656,9 @@ class ASTWhile(ASTNode):
         name = "%s\n%s" % (counter, 'while')
         graph.add_node(name, fillcolor=ASTIf.COLOR)
         graph.add_edge(parent, name)
-        counter = self.condition.add_edges_to_graph(graph, name, counter + 1)
-        counter = self.statement.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.while_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.do_part.add_edges_to_graph(graph, name, counter + 1)
         return counter
 
     def __str__(self):
-        return 'IF: [%s] THEN [%s]' % (self.if_part, self.then_part)
+        return 'WHILE: [%s] DO [%s]' % (self.while_part, self.do_part)

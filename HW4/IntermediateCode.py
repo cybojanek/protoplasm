@@ -1,4 +1,3 @@
-from ASMCode import *
 from Graph import UndirectedGraph
 from ASMCode import AsmInstruction
 
@@ -416,20 +415,20 @@ class ICInput(IC):
 class ICIf(IC):
     """Assign variable to variable, or Integer to variable
     """
-    def __init__(self, if_part, then_block, else_block, end_if_block):
+    def __init__(self, if_var, then_block, else_block, end_if_block):
         super(ICIf, self).__init__()
-        if not(isinstance(if_part, Variable) or isinstance(if_part, Integer)):
+        if not(isinstance(if_var, Variable) or isinstance(if_var, Integer)):
             raise ValueError("Unsupported if statement")
-        self.if_part = if_part
-        self.add_used(if_part)
+        self.if_var = if_var
+        self.add_used(if_var)
         self.then_block = then_block
         self.else_block = else_block
         self.end_if_block = end_if_block
 
     def rename_used(self, old, new):
-        if self.if_part == old:
-            self.remove_used(self.if_part)
-            self.if_part = new
+        if self.if_var == old:
+            self.remove_used(self.if_var)
+            self.if_var = new
             self.add_used(new)
 
     def rename_defined(self, old, new):
@@ -437,7 +436,7 @@ class ICIf(IC):
 
     def generate_assembly(self):
         # Get the condition register
-        arg1 = self.get_register_or_value(self.if_part)
+        arg1 = self.get_register_or_value(self.if_var)
         # Make a label for the end block
         end_if_label = self.context.new_label(suffix='end_if')
         # Add the label to the start of that block
@@ -455,27 +454,27 @@ class ICIf(IC):
         return [AsmInstruction('beqz', arg1, else_label, comment=str(self))]
 
     def __str__(self):
-        # return "if %s then... [%s]" % (self.if_part, self.then_part.statements.value.statements[0])
-        return "if %s then...%s" % (self.if_part, '' if self.else_block is None else 'else...')
+        # return "if %s then... [%s]" % (self.if_var, self.then_part.statements.value.statements[0])
+        return "if %s then...%s" % (self.if_var, '' if self.else_block is None else 'else...')
 
 
 class ICWhile(IC):
     """Assign variable to variable, or Integer to variable
     """
-    def __init__(self, if_part, condition_block, stmt_block, next_block):
+    def __init__(self, while_var, while_part_block, end_if_block, next_block):
         super(ICWhile, self).__init__()
-        if not(isinstance(if_part, Variable) or isinstance(if_part, Integer)):
+        if not(isinstance(while_var, Variable) or isinstance(while_var, Integer)):
             raise ValueError("Unsupported if statement")
-        self.if_part = if_part
-        self.add_used(if_part)
-        self.condition_block = condition_block
-        self.stmt_block = stmt_block
+        self.while_var = while_var
+        self.add_used(while_var)
+        self.while_part_block = while_part_block
+        self.end_if_block = end_if_block
         self.next_block = next_block
 
     def rename_used(self, old, new):
-        if self.if_part == old:
-            self.remove_used(self.if_part)
-            self.if_part = new
+        if self.while_var == old:
+            self.remove_used(self.while_var)
+            self.while_var = new
             self.add_used(new)
 
     def rename_defined(self, old, new):
@@ -484,14 +483,14 @@ class ICWhile(IC):
     def first_pass(self):
         # Make a label for the condition block
         self.condition_label = self.context.new_label(suffix='while')
-        self.condition_block.add_start_label(self.condition_label)
+        self.while_part_block.add_start_label(self.condition_label)
 
     def generate_assembly(self):
         # Get the condition register
-        arg1 = self.get_register_or_value(self.if_part)
+        arg1 = self.get_register_or_value(self.while_var)
 
         # At end of statements, jump back to condition checking
-        self.stmt_block.add_end_branch(self.condition_label)
+        self.end_if_block.add_end_branch(self.condition_label)
 
         # Make a label for the end block
         end_while_label = self.context.new_label(suffix='end_while')
@@ -500,8 +499,7 @@ class ICWhile(IC):
         return [AsmInstruction('beqz', arg1, end_while_label, comment=str(self))]
 
     def __str__(self):
-        # return "if %s then... [%s]" % (self.if_part, self.then_part.statements.value.statements[0])
-        return "while %s do..." % (self.if_part)
+        return "while %s do..." % (self.while_var)
 
 
 class ICStoreWord(IC):
@@ -780,7 +778,7 @@ class ICContext(object):
         return
         vc = {}
         for block in self.blocks:
-            for i in block.instructions: 
+            for i in block.instructions:
                 for x in i.liveliness['used']:
                     if isinstance(x, Variable) and x in vc and vc[x] != 0:
                         i.rename_used(x, Variable('%s%s' % (x, vc[x])))
@@ -792,10 +790,11 @@ class ICContext(object):
                         vc[x] = 0
 
     def mipsify(self):
-        """Convert from generic intermediate code to mips three address compatible
-        Some operations only accept registers: such as =*/%, while others,
-        like +, cannot add two numbers > 16 bits each. This function splits up
-        such instructions into multiple register assignments and adidtion.
+        """Convert from generic intermediate code to mips three address
+        compatible. Some operations only accept registers: such as =*/%, while
+        others, like +, cannot add two numbers > 16 bits each. This function
+        splits up such instructions into multiple register assignments and
+        adidtion.
         For all binary ops, put Integers into registers
         For if statements, make sure condition is in a variable
 
@@ -817,16 +816,16 @@ class ICContext(object):
                         ins.arg2 = a
                         ins.add_used(a)
                         i += 1
-                if isinstance(ins, ICIf) and isinstance(ins.if_part, Integer):
+                if isinstance(ins, ICIf) and isinstance(ins.if_var, Integer):
                     a = self.new_var()
-                    block.instructions.insert(i, ICAssign(a, ins.if_part))
-                    ins.if_part = a
+                    block.instructions.insert(i, ICAssign(a, ins.if_var))
+                    ins.if_var = a
                     ins.add_used(a)
                     i += 1
-                if isinstance(ins, ICWhile) and isinstance(ins.if_part, Integer):
+                if isinstance(ins, ICWhile) and isinstance(ins.while_var, Integer):
                     a = self.new_var()
-                    block.instructions.insert(i, ICAssign(a, ins.if_part))
-                    ins.if_part = a
+                    block.instructions.insert(i, ICAssign(a, ins.while_var))
+                    ins.while_var = a
                     ins.add_used(a)
                     i += 1
                 i += 1
@@ -853,7 +852,7 @@ class ICContext(object):
         self.liveliness_graph = UndirectedGraph()
         for block in self.blocks:
             for ins in block.instructions:
-                # Add defined variables - will be single nodes if not conflicting
+                # Add defined variables
                 for i in ins.liveliness['defined']:
                     self.liveliness_graph.add_node(i)
                 # All the in variables that conflict with each other
@@ -920,8 +919,7 @@ class ICContext(object):
         # and store variable to register mapping
         for node in graph.nodes():
             var_map[node] = graph.color(node)
-            graph.colorize(node,
-                ICContext.TEMP_REGS[graph.color(node)])
+            graph.colorize(node, ICContext.TEMP_REGS[graph.color(node)])
         # Rename all variables
         for block in self.blocks:
             for ic in block.instructions:
@@ -935,8 +933,6 @@ class ICContext(object):
         var - variable to be spilled
 
         """
-        # print "SPILL: %s" % var
-        first_assign = True
         stack_counter = self.new_stack_var()
         for block in self.blocks:
             i = 0
@@ -960,7 +956,6 @@ class ICContext(object):
                     continue
                 else:
                     i += 1
-
 
     def __str__(self):
         s = ''
