@@ -1,0 +1,30 @@
+t1: Correct, answer was 52
+t2: Correct, answer was not well-formed
+t3: Correct, answer was  52 42
+t4: Correct, answer was syntax error
+t5: Correct, answer was 0 -420
+t6: Correct, answer was 5 0
+t7: Correct, answer was -18 -330
+t8: Correct, answer was 70
+t9: Correct, answer was syntax error
+t10: Correct, answer was syntax error
+t11: Correct, answer was 528
+t12: Correct, answer was 1
+t13: Correct, answer was 11
+t14: Correct, answer was not well-formed
+t15: Correct, answer was 10
+t16: Correct, answer was 0
+t17: Correct, answer was 42 0
+t18: Correct, answer was 1
+t19: Correct, answer was -30
+
+
+Syntax Checking  :  8/8
+Static Semantics :  6/6
+Instruction Selection : 30/8
+Liveness Analysis : 6/6
+Register Allocation : 2/2
+Total : 30/30
+
+Comments:
+Truly *excellent* work!
