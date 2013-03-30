@@ -6,13 +6,17 @@
       "name": "comment.line.double-slash",
       "comment": "Single line comments"
     },
-    { "match": "\\b(if|then|else|while|do)\\b",
+    { "match": "\\b(if|then|else|while|do|for)\\b",
       "name": "keyword.control.flow",
       "comment": "Control keywords"
     },
     { "match": "\\b(print|input)\\b",
       "name": "keyword.other",
       "comment": "Built in functions"
+    },
+    { "match": "\\b(int|bool)\\b",
+      "name": "storage.type",
+      "comment": "Built in types"
     },
     { "match": "\\d+",
       "name": "constant.numeric.integer",

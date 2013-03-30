@@ -24,7 +24,8 @@ def main(args):
     # Load parser
     parser = yacc.yacc(module=proto1parser)
     # Parse program
-    program = ASTProgram(parser.parse(open(args.file, 'r').read()))
+    program = parser.parse(open(args.file, 'r').read())
+    # print program
     # print 'FIX WELLFORMED'
     if not program.wellformed():
         print 'Program not well formed!'

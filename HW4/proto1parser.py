@@ -22,67 +22,135 @@ defined = set()
 
 
 def p_pgm(p):
-    '''pgm : stmtseq'''
-    p[0] = p[1]
+    '''pgm : declseq stmtseq'''
+    p[0] = ASTProgram(p[1], p[2])
 
 
 def p_stmtseq(p):
     '''stmtseq : stmt stmtseq
-               | stmt'''
+               | empty'''
     if len(p) == 3:
         p[0] = [p[1]] + p[2]
+    else:
+        p[0] = []
+
+
+def p_stmt(p):
+    '''stmt : se SEMICOLON'''
+    p[0] = ASTStatement(p, p[1])
+
+
+def p_stmt_print(p):
+    '''stmt : PRINT LPAREN ae RPAREN SEMICOLON'''
+    p[0] = ASTStatement(p, ASTPrint(p, p[3]))
+
+
+def p_stmt_block(p):
+    '''stmt : LCURLY declseq stmtseq RCURLY'''
+    p[0] = ASTStatement(p, ASTBlock(p, p[2], p[3]))
+
+
+def p_stmt_if_then_else(p):
+    '''stmt : IF ae THEN stmt ELSE stmt'''
+    p[0] = ASTStatement(p, ASTIf(p, p[2], p[4], p[6]))
+
+
+def p_stmt_if_then(p):
+    '''stmt : IF ae THEN stmt'''
+    p[0] = ASTStatement(p, ASTIf(p, p[2], p[4]))
+
+
+def p_stmt_while_do(p):
+    '''stmt : WHILE ae DO stmt'''
+    p[0] = ASTStatement(p, ASTWhile(p, p[2], p[4]))
+
+
+def p_stmt_for(p):
+    ''' stmt : FOR LPAREN seopt SEMICOLON aeopt SEMICOLON seopt RPAREN stmt'''
+    raise NotImplemented('Fix this')
+
+
+def p_stmt_do_while(p):
+    '''stmt : DO stmt WHILE ae SEMICOLON'''
+    raise NotImplemented('Fix this')
+
+
+def p_seopt_se(p):
+    '''seopt : se'''
+    p[0] = p[1]
+
+
+def p_seopt_e(p):
+    '''seopt : empty'''
+    pass
+
+
+def p_aeopt_ae(p):
+    '''aeopt : ae'''
+    p[0] = p[1]
+
+
+def p_aeopt_e(p):
+    '''aeopt : empty'''
+    pass
+
+
+def p_declseq_d(p):
+    '''declseq : decl declseq
+               | empty'''
+    if len(p) == 3:
+        p[0] = [p[1]] + p[2]
+    else:
+        p[0] = []
+
+
+def p_decl(p):
+    '''decl : type varlist SEMICOLON'''
+    p[0] = ASTDeclareList(p, p[1], p[2])
+
+
+def p_type(p):
+    '''type : INT
+            | BOOL'''
+    # Not needed for homework 4
+    p[0] = p[1]
+
+
+def p_varlist(p):
+    '''varlist : var COMMA varlist
+               | var'''
+    if len(p) == 4:
+        p[0] = [p[1]] + p[3]
     else:
         p[0] = [p[1]]
 
 
-def p_stmt(p):
-    '''stmt : assign
-            | print
-            | block
-            | if
-            | while'''
-    p[0] = ASTStatement(p, p[1])
+def p_var(p):
+    '''var : ID dimstar'''
+    # For now ignore brackets in dimstar
+    p[0] = ASTDeclareVariable(p, p[1])
 
 
-def p_assign(p):
-    '''assign : ID EQUALS rhs SEMICOLON'''
+def p_se_assign(p):
+    '''se : lhs EQUALS ae'''
     p[0] = ASTAssign(p, p[1], p[3])
-    defined.add(p[1])
 
 
-def p_print(p):
-    '''print : PRINT LPAREN ae RPAREN SEMICOLON'''
-    p[0] = ASTPrint(p, p[3])
+def p_se_increment(p):
+    '''se : lhs PLUSPLUS
+          | lhs MINUSMINUS
+          | PLUSPLUS lhs
+          | MINUSMINUS lhs'''
+    raise NotImplemented("Fix it")
 
 
-def p_block(p):
-    '''block : LBRACKET stmtseq RBRACKET'''
-    p[0] = ASTBlock(p, p[2])
-
-
-def p_if_then_else(p):
-    '''if : IF ae THEN stmt ELSE stmt'''
-    p[0] = ASTIf(p, p[2], p[4], else_part=p[6])
-
-
-def p_if_then(p):
-    '''if : IF ae THEN stmt'''
-    p[0] = ASTIf(p, p[2], p[4])
-
-
-def p_while(p):
-    '''while : WHILE ae DO stmt'''
-    p[0] = ASTWhile(p, p[2], p[4])
-
-
-def p_rhs(p):
-    '''rhs : INPUT LPAREN RPAREN'''
-    p[0] = ASTInput(p)
-
-
-def p_rhs_ae(p):
-    '''rhs : ae'''
-    p[0] = p[1]
+def p_lhs(p):
+    '''lhs : ID
+           | lhs LBRACE ae RBRACE'''
+    if len(p) == 2:
+        p[0] = ASTVariable(p, p[1])
+    else:
+        raise NotImplemented("Fix it")
 
 
 def p_ae_bin(p):
@@ -116,9 +184,20 @@ def p_ae_un_not(p):
     p[0] = ASTUnaryOp(p, p[2], p[1])
 
 
+def p_ae_lhs(p):
+    '''ae : lhs
+          | se'''
+    p[0] = p[1]
+
+
 def p_ae_paren(p):
     '''ae : LPAREN ae RPAREN'''
     p[0] = p[2]
+
+
+def p_ae_input(p):
+    '''ae : INPUT LPAREN RPAREN'''
+    p[0] = ASTInput(p)
 
 
 def p_ae_intconst(p):
@@ -128,12 +207,47 @@ def p_ae_intconst(p):
     p[0] = ASTInteger(p, p[1])
 
 
-def p_f_id(p):
-    '''ae : ID'''
-    # Simple checking only, because this does not follow all paths
-    if not p[1] in defined:
-        raise NameError('%r is not defined at line: ??' % p[1])
-    p[0] = ASTVariable(p, p[1])
+def p_ae_true(p):
+    '''ae : TRUE'''
+    raise NotImplemented("Fix it")
+
+
+def p_ae_false(p):
+    '''ae : FALSE'''
+    raise NotImplemented("Fix it")
+
+
+def p_ae_array(p):
+    '''ae : NEW type dimexpr dimstar'''
+    raise NotImplemented("Fix it")
+
+
+def p_dimexpr(p):
+    '''dimexpr : LBRACE ae RBRACE'''
+    raise NotImplemented("Fix it")
+
+
+def p_dimstar_d(p):
+    '''dimstar : LBRACE RBRACE dimstar
+               | empty'''
+    if len(p) == 4:
+        raise NotImplemented("Fix it")
+    else:
+        pass
+
+
+# def p_f_id(p):
+#     '''ae : ID'''
+#     # Simple checking only, because this does not follow all paths
+#     if not p[1] in defined:
+#         raise NameError('%r is not defined at line: ??' % p[1])
+#     p[0] = ASTVariable(p, p[1])
+
+
+# Empty productions
+def p_empty(p):
+    '''empty :'''
+    pass
 
 
 # Syntax errors

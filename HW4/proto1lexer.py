@@ -8,19 +8,29 @@ reserved = {
     'then': 'THEN',
     'else': 'ELSE',
     'while': 'WHILE',
-    'do': 'DO'
+    'do': 'DO',
+    'for': 'FOR',
+    'new': 'NEW',
+    'int': 'INT',
+    'bool': 'BOOL',
+    'true': 'TRUE',
+    'false': 'FALSE'
 }
 
 # List of token names
-tokens = ['EQUALS', 'PLUS', 'MINUS', 'TIMES', 'DIVIDE', 'MODULUS',
+tokens = ['EQUALS', 'PLUSPLUS', 'PLUS', 'MINUSMINUS', 'MINUS',
+          'TIMES', 'DIVIDE', 'MODULUS',
           'AND', 'OR', 'EQUALEQUAL', 'NOTEQUAL', 'NOT',
           'LESSTHAN', 'LESSTHANEQUAL', 'GREATERTHAN', 'GREATERTHANEQUAL',
-          'LPAREN', 'RPAREN', 'LBRACKET', 'RBRACKET', 'SEMICOLON',
+          'LPAREN', 'RPAREN', 'LCURLY', 'RCURLY', 'SEMICOLON',
+          'LBRACE', 'RBRACE', 'COMMA',
           'ID', 'NUMBER'] + list(reserved.values())
 
 # Tokens without actions
 t_EQUALS = r'='
+t_PLUSPLUS = r'\+\+'
 t_PLUS = r'\+'
+t_MINUSMINUS = r'--'
 t_MINUS = r'-'
 t_TIMES = r'\*'
 t_DIVIDE = r'/'
@@ -36,9 +46,12 @@ t_GREATERTHAN = r'>'
 t_GREATERTHANEQUAL = r'>='
 t_LPAREN = r'\('
 t_RPAREN = r'\)'
-t_LBRACKET = r'{'
-t_RBRACKET = r'}'
+t_LCURLY = r'{'
+t_RCURLY = r'}'
 t_SEMICOLON = r';'
+t_LBRACE = r'\['
+t_RBRACE = r'\]'
+t_COMMA = r','
 
 
 # Tokens with actions

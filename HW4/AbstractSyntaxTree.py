@@ -9,6 +9,7 @@ class ASTContext(object):
 
         """
         self.defined = set()
+        self.declared = set()
         self.used = set()
 
     def clone(self):
@@ -23,7 +24,12 @@ class ASTContext(object):
             a.defined.add(x)
         for x in self.used:
             a.used.add(x)
+        for x in self.declared:
+            a.declared.add(x)
         return a
+
+    def __str__(self):
+        return 'Declared: [%s], Defined: [%s]' % (','.join([repr(x) for x in self.declared]), ','.join([repr(x) for x in self.defined]))
 
 
 class ASTNode(object):
@@ -80,17 +86,22 @@ class ASTNode(object):
 
 class ASTProgram(ASTNode):
 
-    def __init__(self, statements):
+    def __init__(self, declarations, statements):
         """Encapsulates ASTStatements
 
         Arguments:
+        declarations - array of ASTDeclare
         statements - array of ASTStatement
 
         """
+        self.declarations = declarations
         self.statements = statements
 
     def wellformed(self):
         astc = ASTContext()
+        for d in self.declarations:
+            if not d.wellformed(astc):
+                return False
         for s in self.statements:
             if not s.wellformed(astc):
                 return False
@@ -136,22 +147,30 @@ class ASTProgram(ASTNode):
         self.add_edges_to_graph(graph, None, counter + 1)
         graph.draw('%s.ast.png' % program_name, prog='dot')
 
+    def __str__(self):
+        return 'PROGRAM:\n%s\n%s' % ('\n'.join([str(x) for x in self.declarations]), '\n'.join([str(x) for x in self.statements]))
+
 
 class ASTBlock(ASTNode):
     COLOR = "#FF7400"
 
-    def __init__(self, p, statements):
+    def __init__(self, p, declarations, statements):
         """AST block
 
         Arguments:
         p - pyl parser object
+        declarations - declarations
         statements - block statements
 
         """
         self.p = p
+        self.declarations = declarations
         self.statements = statements
 
     def wellformed(self, astc):
+        for d in self.declarations:
+            if not d.wellformed(astc):
+                return False
         for s in self.statements:
             if not s.wellformed(astc):
                 return False
@@ -176,6 +195,74 @@ class ASTBlock(ASTNode):
 
     def __str__(self):
         return 'BLOCK: %s' % self.statements
+
+
+class ASTDeclareList(ASTNode):
+    COLOR = ASTNode.COLOR
+
+    def __init__(self, p, dec_type, declarations):
+        """AST Declaration list
+
+        Arguments:
+        p - pyl parser object
+        dec_type - declaration type (ignored for now)
+        declarations - array of variable names
+        """
+        self.p = p
+        self.dec_type = dec_type
+        self.declarations = declarations
+
+    def wellformed(self, astc):
+        for d in self.declarations:
+            if not d.wellformed(astc):
+                return False
+        return True
+
+    def gencode(self, icc):
+        pass
+
+    def to_stack(self):
+        stack = []
+        for s in self.declarations:
+            stack = s.to_stack() + stack
+        return stack
+
+    def __str__(self):
+        return 'DECLARE: %s %s' % (self.dec_type, ','.join([str(x) for x in self.declarations]))
+
+
+class ASTDeclareVariable(ASTNode):
+    COLOR = '#4380D3'
+
+    def __init__(self, p, value):
+        """AST variable
+
+        Arguments:
+        p - pyl parser object
+        value - name of variable
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        astc.declared.add(self.value)
+        return True
+
+    def gencode(self, icc):
+        pass
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.value)
+        graph.add_node(name, fillcolor=ASTDeclareVariable.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return '%s' % self.value
 
 
 class ASTStatement(ASTNode):
@@ -231,11 +318,15 @@ class ASTAssign(ASTNode):
         right_well = self.right.wellformed(astc)
         if not right_well:
             return False
-        astc.defined.add(self.left)
+        if self.left.value not in astc.declared:
+            print astc
+            print "%s assigned but not declared!" % self.left.value
+            return False
+        astc.defined.add(self.left.value)
         return True
 
     def gencode(self, icc):
-        dest = Variable(self.left)
+        dest = Variable(self.left.value)
         icc.add_instruction(ICAssign(dest, icc.pop_var()))
         icc.push_var(dest)
 
@@ -272,8 +363,14 @@ class ASTVariable(ASTNode):
         self.value = value
 
     def wellformed(self, astc):
-        if self.value not in astc.defined:
-            print 'UNDEFINED VARIABLE: %s' % self
+        if self.value in astc.declared and self.value not in astc.defined:
+            print '%s declared but used before definition!' % (self.value)
+            return False
+        elif self.value not in astc.declared:
+            print '%s not declared!' % (self.value)
+            return False
+        elif self.value not in astc.defined:
+            print '%s declared but not defined!' % (self.value)
             return False
         astc.used.add(self.value)
         return True
@@ -520,6 +617,8 @@ class ASTIf(ASTNode):
             # Add only those which are defined in *both* paths
             for x in then_astc.defined.intersection(else_astc.defined):
                 astc.defined.add(x)
+            for x in then_astc.declared.intersection(else_astc.declared):
+                astc.declared.add(x)
         return True
 
     def gencode(self, icc):
