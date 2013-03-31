@@ -1,0 +1,9 @@
+bool a, b;
+a = true;
+b = false;
+if(a == 1) then
+    print(1);
+if(b == 0) then
+    print(0);
+if(a && !b) then
+    print(2);

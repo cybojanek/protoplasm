@@ -457,6 +457,42 @@ class ASTInput(ASTNode):
         return 'INPUT'
 
 
+class ASTBoolean(ASTNode):
+    COLOR = "#C0C0C0"
+
+    def __init__(self, p, value):
+        """AST integer
+
+        Argumets:
+        p - pyl parser object
+        value - python boolean value
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        return True
+
+    def gencode(self, icc):
+        if self.value:
+            icc.push_var(Integer(1))
+        else:
+            icc.push_var(Integer(0))
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.value)
+        graph.add_node(name, fillcolor=ASTBoolean.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'BOOLEAN: %s' % self.value
+
+
 class ASTInteger(ASTNode):
     COLOR = "#C0C0C0"
 

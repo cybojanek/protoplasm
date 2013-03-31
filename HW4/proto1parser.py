@@ -209,12 +209,12 @@ def p_ae_intconst(p):
 
 def p_ae_true(p):
     '''ae : TRUE'''
-    raise NotImplemented("Fix it")
+    p[0] = ASTBoolean(p, True)
 
 
 def p_ae_false(p):
     '''ae : FALSE'''
-    raise NotImplemented("Fix it")
+    p[0] = ASTBoolean(p, False)
 
 
 def p_ae_array(p):

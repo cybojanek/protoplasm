@@ -18,6 +18,10 @@
       "name": "storage.type",
       "comment": "Built in types"
     },
+    { "match": "\\b(true|false)\\b",
+      "name": "constant.language",
+      "comment": "Built in constants"
+    },
     { "match": "\\d+",
       "name": "constant.numeric.integer",
       "comment": "Integers" 
