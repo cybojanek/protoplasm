@@ -8,6 +8,10 @@
     },
     { "match": "\\b(if|then|else|while|do|for)\\b",
       "name": "keyword.control.flow",
+      "comment": "Control flow keywords"
+    },
+    { "match": "\\b(new)\\b",
+      "name": "keyword.control",
       "comment": "Control keywords"
     },
     { "match": "\\b(print|input)\\b",
@@ -34,7 +38,7 @@
       "name": "keyword.operator.comparison",
       "comment": "Comparison operators"
     },
-    { "match": "(\\+|\\*|-|%|/)",
+    { "match": "(\\+|\\*|-|%|/|\\+\\+|--)",
       "name": "keyword.operator.arithmetic",
       "comment": "Arithmetic operators"
     },

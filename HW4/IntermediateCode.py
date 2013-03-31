@@ -477,11 +477,11 @@ class ICIf(IC):
         return "if %s then...%s" % (self.if_var, '' if self.else_block is None else 'else...')
 
 
-class ICWhile(IC):
+class ICWhileDo(IC):
     """Assign variable to variable, or Integer to variable
     """
     def __init__(self, while_var, while_part_block, end_if_block, next_block):
-        super(ICWhile, self).__init__()
+        super(ICWhileDo, self).__init__()
         if not(isinstance(while_var, Variable) or isinstance(while_var, Integer)):
             raise ValueError("Unsupported if statement")
         self.while_var = while_var
@@ -519,6 +519,51 @@ class ICWhile(IC):
 
     def __str__(self):
         return "while %s do..." % (self.while_var)
+
+
+class ICDoWhile(IC):
+    """Assign variable to variable, or Integer to variable
+    """
+    def __init__(self, do_part_block, while_var, while_part_block, next_block):
+        super(ICDoWhile, self).__init__()
+        if not(isinstance(while_var, Variable) or isinstance(while_var, Integer)):
+            raise ValueError("Unsupported if statement")
+        self.do_part_block = do_part_block
+        self.while_var = while_var
+        self.add_used(while_var)
+        self.while_part_block = while_part_block
+        self.next_block = next_block
+
+    def rename_used(self, old, new):
+        if self.while_var == old:
+            self.remove_used(self.while_var)
+            self.while_var = new
+            self.add_used(new)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def first_pass(self):
+        # Make a label for the do block
+        self.do_label = self.context.new_label(suffix='do')
+        self.do_part_block.add_start_label(self.do_label)
+
+    def generate_assembly(self):
+        # Get the condition register
+        arg1 = self.get_register_or_value(self.while_var)
+
+        # At end of statements, jump back to condition checking
+        #self.end_if_block.add_end_branch(self.condition_label)
+
+        # Make a label for the end block
+        next_block_label = self.context.new_label(suffix='end_while')
+        self.next_block.add_start_label(next_block_label)
+
+        return [AsmInstruction('beqz', arg1, next_block_label, comment=str(self)),
+                AsmInstruction('b', self.do_label, comment='do again')]
+
+    def __str__(self):
+        return "do...while %s" % (self.while_var)
 
 
 class ICStoreWord(IC):
@@ -687,6 +732,7 @@ class ICContextBasicBlock(object):
         self.branch_label = None
         self.instructions = []
         self.follow = []
+        self.liveliness = {'in': set(), 'out': set()}
 
     def add_follow(self, block):
         self.follow.append(block)
@@ -717,22 +763,56 @@ class ICContextBasicBlock(object):
             changed = False
             # The last one might not have a next so we have to do this first
             changed = changed or self.instructions[-1].update_variable_sets()
+
+            # Get all followers and loop through empty's
+            # Should not loop indefinitely...in case of two emptys in a loop
+            follower_blocks = []
+            candidates = [x for x in self.follow]
+            visited = set()
+            while len(candidates) != 0:
+                c = candidates.pop()
+                if c not in visited:
+                    visited.add(c)
+                else:
+                    continue
+                if len(c.instructions) < 1:
+                    for x in c.follow:
+                        if x not in visited:
+                            candidates.append(c)
+                else:
+                    follower_blocks.append(c)
+
             # Then loop through its follows
-            for follow in self.follow:
+            for follow in follower_blocks:
                 if len(follow.instructions) >= 1:
-                    changed = changed or self.instructions[-1].update_variable_sets(follow.instructions[0])
+                    changed = changed or self.instructions[-1].update_variable_sets(next_ic=follow.instructions[0])
+                    # old = self.livelines['out']
+                    # self.livelines['out'] = self.livelines['out'].union(follow.livelines['in'])
+                    # changed = changed or old == self.livelines['out']
             # Bottom up, update in's and out's, using next statement
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
                     next_ic=self.instructions[i + 1])
+            # old = self.livelines['in']
+            # self.livelines['in'] = self.livelines['in'].union()
             block_changed = block_changed or changed
         return block_changed
+
+    def graph_label(self):
+        s = ''
+        for x in self.instructions:
+            line = '%s' % x
+            line = '%s%s\l' % (line, ' ' * (15 - len(line)))
+            # line = '%sOut: %s  In: %s\l' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            s += line
+            #s += '%s\t%s\n' % (x, x.liveliness['out'])
+        return s
 
     def __str__(self):
         s = ''
         for x in self.instructions:
             line = '%s' % x
-            line = '%s%s' % (line, ' ' * (15 - len(line)))
+            line = '%s%s\n' % (line, ' ' * (15 - len(line)))
             line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
             s += line
             #s += '%s\t%s\n' % (x, x.liveliness['out'])
@@ -937,7 +1017,13 @@ class ICContext(object):
                     ins.if_var = a
                     ins.add_used(a)
                     i += 1
-                if isinstance(ins, ICWhile) and isinstance(ins.while_var, Integer):
+                if isinstance(ins, ICWhileDo) and isinstance(ins.while_var, Integer):
+                    a = self.new_var()
+                    block.instructions.insert(i, ICAssign(a, ins.while_var))
+                    ins.while_var = a
+                    ins.add_used(a)
+                    i += 1
+                if isinstance(ins, ICDoWhile) and isinstance(ins.while_var, Integer):
                     a = self.new_var()
                     block.instructions.insert(i, ICAssign(a, ins.while_var))
                     ins.while_var = a
@@ -951,6 +1037,8 @@ class ICContext(object):
 
         """
         for block in self.blocks:
+            block.liveliness['out'] = set()
+            block.liveliness['in'] = set()
             for ins in block.instructions:
                 # Clear up outs and ins
                 ins.liveliness['out'] = set()
@@ -1071,6 +1159,34 @@ class ICContext(object):
                     continue
                 else:
                     i += 1
+
+    def basic_blocks_to_png(self, program_name):
+        """Output a graph of basic bocks to a file called
+        program_name_basic_blocks.png
+
+        Arguments:
+        program_name - name of program
+
+        """
+        # Only try if pygraphviz is available
+        try:
+            import pygraphviz as pgz
+        except ImportError:
+            return
+        graph = pgz.AGraph(directed=True)
+        graph.node_attr['shape']='rectangle'
+        for i in range(len(self.blocks)):
+            a = "%s\n%s" % (i, self.blocks[i].graph_label())
+            graph.add_node(a)
+            for follow in self.blocks[i].follow:
+                graph.add_edge(a, "%s\n%s" % (self.blocks.index(follow), follow.graph_label()))
+        # graph.node_attr['style'] = 'filled'
+        # for node in self.nodes():
+            # graph.add_node(node, fillcolor=self.node_colors[node])
+        # for nodeA in self.edges:
+            # for nodeB in self.edges[nodeA]:
+                # graph.add_edge(nodeA, nodeB)
+        graph.draw('%s_basic_blocks.png' % program_name, prog='dot')
 
     def __str__(self):
         s = ''

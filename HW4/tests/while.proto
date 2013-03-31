@@ -32,3 +32,32 @@ while b<=800 do {
     b = c;
     print(c);
 }
+
+// Run a do while at least once
+a = 0;
+// 0
+do {
+    print(a);
+} while(a != 0);
+
+// Check exit
+// 1 2 3 4 5 6 7 8 9 10
+do {
+    a = a + 1;
+    print(a);
+} while(a < 10);
+
+// Check nested
+a = 0;
+b = 3;
+// 0 1 2 3 4 1 2 3 4 2 3 4
+do {
+    b = a;
+    a = a + 1;
+    while(b < 5) do {
+        print(b);
+        b = b + 1;
+    }
+} while(a < 3);
+// 5
+print(b);

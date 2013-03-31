@@ -1,5 +1,24 @@
 from IntermediateCode import *
 
+NODE_COLORS = {
+    'ASTAssign': '#269926',
+    'ASTBinaryOp': '#009999',
+    'ASTBlock': '#FF7400',
+    'ASTBoolean': '#C0C0C0',
+    'ASTDeclareList': '#FFFFFF',
+    'ASTDeclareVariable': '#4380D3',
+    'ASTDoWhile': '#009999',
+    'ASTIf': '#009999',
+    'ASTInput': '#BF7130',
+    'ASTInteger': '#C0C0C0',
+    'ASTNode': '#FFFFFF',
+    'ASTPrint': '#FFBF00',
+    'ASTStatement': '#FF7400',
+    'ASTUnaryOp': '#FFFFFF',
+    'ASTVariable': '#4380D3',
+    'ASTWhileDo': '#009999',
+}
+
 
 class ASTContext(object):
 
@@ -38,7 +57,7 @@ class ASTNode(object):
     add_edges_to_graph is optional for graph pygraphviz graph generation
     The default COLOR attribute is white
     """
-    COLOR = "#FFFFFF"
+    COLOR = NODE_COLORS['ASTNode']
 
     def __init__(self):
         raise NotImplemented()
@@ -124,6 +143,8 @@ class ASTProgram(ASTNode):
     def add_edges_to_graph(self, graph, parent, counter):
         name = "program"
         graph.add_node(name, fillcolor=ASTProgram.COLOR)
+        for d in self.declarations:
+            counter = d.add_edges_to_graph(graph, name, counter)
         for s in self.statements:
             counter = s.add_edges_to_graph(graph, name, counter)
         return counter
@@ -152,7 +173,7 @@ class ASTProgram(ASTNode):
 
 
 class ASTBlock(ASTNode):
-    COLOR = "#FF7400"
+    COLOR = NODE_COLORS['ASTBlock']
 
     def __init__(self, p, declarations, statements):
         """AST block
@@ -187,8 +208,11 @@ class ASTBlock(ASTNode):
         return stack
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "block"
+        name = "%s\nBLOCK" % (counter)
         graph.add_node(name, fillcolor=ASTBlock.COLOR)
+        graph.add_edge(parent, name)
+        for d in self.declarations:
+            counter = d.add_edges_to_graph(graph, name, counter)
         for s in self.statements:
             counter = s.add_edges_to_graph(graph, name, counter)
         return counter
@@ -198,7 +222,7 @@ class ASTBlock(ASTNode):
 
 
 class ASTDeclareList(ASTNode):
-    COLOR = ASTNode.COLOR
+    COLOR = NODE_COLORS['ASTDeclareList']
 
     def __init__(self, p, dec_type, declarations):
         """AST Declaration list
@@ -227,12 +251,20 @@ class ASTDeclareList(ASTNode):
             stack = s.to_stack() + stack
         return stack
 
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.dec_type)
+        graph.add_node(name, fillcolor=ASTDeclareList.COLOR)
+        graph.add_edge(parent, name)
+        for d in self.declarations:
+            counter = d.add_edges_to_graph(graph, name, counter)
+        return counter
+
     def __str__(self):
         return 'DECLARE: %s %s' % (self.dec_type, ','.join([str(x) for x in self.declarations]))
 
 
 class ASTDeclareVariable(ASTNode):
-    COLOR = '#4380D3'
+    COLOR = NODE_COLORS['ASTDeclareVariable']
 
     def __init__(self, p, value):
         """AST variable
@@ -266,7 +298,7 @@ class ASTDeclareVariable(ASTNode):
 
 
 class ASTStatement(ASTNode):
-    COLOR = "#FF7400"
+    COLOR = NODE_COLORS['ASTStatement']
 
     def __init__(self, p, value):
         """AST statement
@@ -299,7 +331,7 @@ class ASTStatement(ASTNode):
 
 
 class ASTAssign(ASTNode):
-    COLOR = '#269926'
+    COLOR = NODE_COLORS['ASTAssign']
 
     def __init__(self, p, left, right):
         """AST assignment operation
@@ -336,7 +368,7 @@ class ASTAssign(ASTNode):
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, '=')
         counter += 1
-        left = "%s\n%s" % (counter, self.left)
+        left = "%s\n%s" % (counter, self.left.value)
         graph.add_node(name, fillcolor=ASTAssign.COLOR)
         graph.add_edge(parent, name)
         # Left assign is always variable
@@ -349,7 +381,7 @@ class ASTAssign(ASTNode):
 
 
 class ASTVariable(ASTNode):
-    COLOR = '#4380D3'
+    COLOR = NODE_COLORS['ASTVariable']
 
     def __init__(self, p, value):
         """AST variable
@@ -388,11 +420,11 @@ class ASTVariable(ASTNode):
         return counter
 
     def __str__(self):
-        return 'ID:%s' % self.value
+        return 'ID: %s' % self.value
 
 
 class ASTPrint(ASTNode):
-    COLOR = '#FFBF00'
+    COLOR = NODE_COLORS['ASTPrint']
 
     def __init__(self, p, value):
         """AST print statement
@@ -425,7 +457,7 @@ class ASTPrint(ASTNode):
 
 
 class ASTInput(ASTNode):
-    COLOR = '#BF7130'
+    COLOR = NODE_COLORS['ASTInput']
 
     def __init__(self, p):
         """AST input
@@ -458,7 +490,7 @@ class ASTInput(ASTNode):
 
 
 class ASTBoolean(ASTNode):
-    COLOR = "#C0C0C0"
+    COLOR = NODE_COLORS['ASTBoolean']
 
     def __init__(self, p, value):
         """AST integer
@@ -494,7 +526,7 @@ class ASTBoolean(ASTNode):
 
 
 class ASTInteger(ASTNode):
-    COLOR = "#C0C0C0"
+    COLOR = NODE_COLORS['ASTInteger']
 
     def __init__(self, p, value):
         """AST integer
@@ -532,6 +564,7 @@ class ASTInteger(ASTNode):
 
 
 class ASTUnaryOp(ASTNode):
+    COLOR = NODE_COLORS['ASTUnaryOp']
     TYPES = set(['-', '!'])
 
     def __init__(self, p, value, type):
@@ -572,7 +605,7 @@ class ASTUnaryOp(ASTNode):
 
 
 class ASTBinaryOp(ASTNode):
-    COLOR = '#009999'
+    COLOR = NODE_COLORS['ASTBinaryOp']
     TYPES = set(['+', '-', '*', '/', '%', '&&', '||', '==', '!=', '<', '<=',
                  '>', '>='])
 
@@ -618,7 +651,7 @@ class ASTBinaryOp(ASTNode):
 
 
 class ASTIf(ASTNode):
-    COLOR = '#009999'
+    COLOR = NODE_COLORS['ASTIf']
 
     def __init__(self, p, if_part, then_part, else_part=None):
         """AST if statements
@@ -727,8 +760,8 @@ class ASTIf(ASTNode):
         return 'IF: [%s] THEN [%s]' % (self.if_part, self.then_part)
 
 
-class ASTWhile(ASTNode):
-    COLOR = '#009999'
+class ASTWhileDo(ASTNode):
+    COLOR = NODE_COLORS['ASTWhileDo']
 
     def __init__(self, p, while_part, do_part):
         """AST if statements
@@ -780,7 +813,7 @@ class ASTWhile(ASTNode):
         # do_part --> while_part (loop back)
         do_part_block.add_follow(while_part_block)
         # Add to original block
-        icc.add_instruction(ICWhile(while_var, while_part_block,
+        icc.add_instruction(ICWhileDo(while_var, while_part_block,
                             end_if_block, next_block), while_part_block)
 
     def to_stack(self):
@@ -788,11 +821,75 @@ class ASTWhile(ASTNode):
         return [self]
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'while')
-        graph.add_node(name, fillcolor=ASTIf.COLOR)
+        name = "%s\n%s" % (counter, 'while...do')
+        graph.add_node(name, fillcolor=ASTWhileDo.COLOR)
         graph.add_edge(parent, name)
         counter = self.while_part.add_edges_to_graph(graph, name, counter + 1)
         counter = self.do_part.add_edges_to_graph(graph, name, counter + 1)
+        return counter
+
+    def __str__(self):
+        return 'WHILE: [%s] DO [%s]' % (self.while_part, self.do_part)
+
+class ASTDoWhile(ASTNode):
+    COLOR = NODE_COLORS['ASTDoWhile']
+
+    def __init__(self, p, do_part, while_part):
+        """AST if statements
+
+        Arguments:
+        p = pyl object
+        do_part - do_part to execute in while loop
+        while_part - condition while the loop runs
+
+        """
+        self.p = p
+        self.do_part = do_part
+        self.while_part = while_part
+
+    def wellformed(self, astc):
+        # Can do part variables be used in while part?
+        # This assumes so
+        stmt_astc = astc.clone()
+        if not self.do_part.wellformed(stmt_astc):
+            return False
+        if not self.while_part.wellformed(stmt_astc):
+            return False
+        return True
+
+    def gencode(self, icc):
+        # Build up do part
+        do_part_block = icc.new_block()
+        do_part_stack = self.do_part.to_stack()
+        while len(do_part_stack) != 0:
+            s = do_part_stack.pop()
+            s.gencode(icc)
+        # Build up while_part
+        while_part_block = icc.new_block()
+        while_part_stack = self.while_part.to_stack()
+        while len(while_part_stack) != 0:
+            s = while_part_stack.pop()
+            s.gencode(icc)
+        # The AE was just parsed and stored here
+        while_var = icc.pop_var()
+        # Next block after while loop
+        next_block = icc.new_block()
+        # while_part --> do_part
+        while_part_block.add_follow(do_part_block)
+        # Add to original block
+        icc.add_instruction(ICDoWhile(do_part_block, while_var, while_part_block,
+                            next_block), while_part_block)
+
+    def to_stack(self):
+        # Self will handle other statements
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'do...while')
+        graph.add_node(name, fillcolor=ASTDoWhile.COLOR)
+        graph.add_edge(parent, name)
+        counter = self.do_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.while_part.add_edges_to_graph(graph, name, counter + 1)
         return counter
 
     def __str__(self):

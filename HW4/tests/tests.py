@@ -22,7 +22,7 @@ def compile_and_run(file_prefix, expected_output):
     expected_output = [str(x) for x in expected_output]
     # Call compiler to compile program
     print 'tests/%s.proto' % file_prefix
-    subprocess.call(['python', 'proplasm1.py', 'tests/%s.proto' % file_prefix])
+    subprocess.call(['python', 'proplasm3.py', 'tests/%s.proto' % file_prefix])
     # Call spim to run it
     p = Popen(['spim', '-file', 'tests/%s.asm' % file_prefix], stdout=PIPE,
               stdin=PIPE, stderr=PIPE)
@@ -76,7 +76,9 @@ def test_if():
 def test_while():
     """while do"""
     compile_and_run('while', [10, 10, 11, 3, 6, 9, 12, 15, 18, 21, 1, 2, 3, 5,
-                    8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987])
+                    8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 0, 1, 2, 3,
+                    4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3, 4, 1, 2, 3, 4, 2, 3, 4,
+                    5])
 
 @pre_entry
 def test_spilling():

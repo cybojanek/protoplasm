@@ -1,7 +1,7 @@
 import ply.yacc as yacc
 
 # Get tokens from lexer
-from proto1lexer import tokens
+from proto3lexer import tokens
 from AbstractSyntaxTree import *
 
 # Precedence ordering lowest to highest
@@ -62,7 +62,7 @@ def p_stmt_if_then(p):
 
 def p_stmt_while_do(p):
     '''stmt : WHILE ae DO stmt'''
-    p[0] = ASTStatement(p, ASTWhile(p, p[2], p[4]))
+    p[0] = ASTStatement(p, ASTWhileDo(p, p[2], p[4]))
 
 
 def p_stmt_for(p):
@@ -72,7 +72,7 @@ def p_stmt_for(p):
 
 def p_stmt_do_while(p):
     '''stmt : DO stmt WHILE ae SEMICOLON'''
-    raise NotImplemented('Fix this')
+    p[0] = ASTStatement(p, ASTDoWhile(p, p[2], p[4]))
 
 
 def p_seopt_se(p):
