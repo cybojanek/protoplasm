@@ -86,3 +86,9 @@ def test_spilling():
     compile_and_run('spill_one', [66])
     compile_and_run('spill_five', [120])
     compile_and_run('spill_many', [681])
+
+
+@pre_entry
+def test_cascade():
+    """cascade"""
+    compile_and_run('cascade', [64, 64, 2])
