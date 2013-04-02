@@ -67,7 +67,7 @@ def p_stmt_while_do(p):
 
 def p_stmt_for(p):
     ''' stmt : FOR LPAREN seopt SEMICOLON aeopt SEMICOLON seopt RPAREN stmt'''
-    raise NotImplemented('Fix this')
+    p[0] = ASTFor(p, p[3], p[5], p[7], p[9])
 
 
 def p_stmt_do_while(p):

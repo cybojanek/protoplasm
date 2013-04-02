@@ -17,6 +17,7 @@ NODE_COLORS = {
     'ASTUnaryOp': '#FFFFFF',
     'ASTVariable': '#4380D3',
     'ASTWhileDo': '#009999',
+    'ASTFor': '#009999',
 }
 
 
@@ -893,4 +894,90 @@ class ASTDoWhile(ASTNode):
         return counter
 
     def __str__(self):
-        return 'WHILE: [%s] DO [%s]' % (self.while_part, self.do_part)
+        return 'DO: [%s] WHILE [%s]' % (self.do_part, self.while_part)
+
+
+class ASTFor(ASTNode):
+    COLOR = NODE_COLORS['ASTFor']
+
+    def __init__(self, p, init_part, cond_part, incr_part, stmt_part):
+        """AST if statements
+
+        Arguments:
+        p = pyl object
+        init_part - expression run on start of for loop
+        cond_part - condition check of for loop
+        incr_part - expression run on every loop
+        stmt_part - statement in for loop
+
+        """
+        self.p = p
+        self.init_part = init_part
+        self.cond_part = cond_part
+        self.incr_part = incr_part
+        self.stmt_part = stmt_part
+
+    def wellformed(self, astc):
+        if not self.init_part.wellformed(astc):
+            return False
+        if not self.cond_part.wellformed(astc):
+            return False
+        if not self.incr_part.wellformed(astc):
+            return False
+        if not self.stmt_part.wellformed(astc):
+            return False
+        return True
+
+    def gencode(self, icc):
+        # Build up while_part
+        cond_part_block = icc.new_block()
+        cond_part_stack = self.cond_part.to_stack()
+        while len(cond_part_stack) != 0:
+            s = cond_part_stack.pop()
+            s.gencode(icc)
+        # The AE was just parsed and stored here
+        cond_var = icc.pop_var()
+        # cond_part --> stmt_part
+        stmt_part_block = icc.new_block()
+        stmt_part_stack = self.stmt_part.to_stack()
+        while len(stmt_part_stack) != 0:
+            s = stmt_part_stack.pop()
+            s.gencode(icc)
+        # stmt_part --> incr_part
+        incr_part_block = icc.new_block()
+        incr_part_stack = self.incr_part.to_stack()
+        while len(incr_part_stack) != 0:
+            s = incr_part_stack.pop()
+            s.gencode(icc)
+        # Block at the end of the stmt part
+        # Might be different from incr_part, if other blocks added
+        # Need this to tell this block to jump back to the cond_part
+        end_for_block = icc.get_current_block()
+        # Do not auto_follow because next_block does *not* follow the
+        # statements in the while loop
+        next_block = icc.new_block(auto_follow=False)
+        # cond_part --> next_block
+        cond_part_block.add_follow(next_block)
+        # end_for --> cond_part (loop back)
+        end_for_block.add_follow(cond_part_block)
+        # Add to original block
+        icc.add_instruction(ICFor(cond_var, cond_part_block, end_for_block,
+                            next_block), cond_part_block)
+
+    def to_stack(self):
+        # Self will handle other statements
+        return [self] + self.init_part.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'for...')
+        graph.add_node(name, fillcolor=ASTFor.COLOR)
+        graph.add_edge(parent, name)
+        counter = self.init_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.cond_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.incr_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.stmt_part.add_edges_to_graph(graph, name, counter + 1)
+        return counter
+
+    def __str__(self):
+        return 'for [%s; %s; %s] do...' % (self.init_part, self.cond_part,
+                                           self.incr_part)

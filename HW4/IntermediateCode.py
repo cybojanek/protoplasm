@@ -566,6 +566,49 @@ class ICDoWhile(IC):
         return "do...while %s" % (self.while_var)
 
 
+class ICFor(IC):
+    """Assign variable to variable, or Integer to variable
+    """
+    def __init__(self, cond_var, cond_part_block, end_for_block, next_block):
+        super(ICFor, self).__init__()
+        if not(isinstance(cond_var, Variable) or isinstance(cond_var, Integer)):
+            raise ValueError("Unsupported for statement")
+        self.cond_var = cond_var
+        self.add_used(cond_var)
+        self.cond_part_block = cond_part_block
+        self.end_for_block = end_for_block
+        self.next_block = next_block
+
+    def rename_used(self, old, new):
+        if self.cond_var == old:
+            self.remove_used(self.cond_var)
+            self.cond_var = new
+            self.add_used(new)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def first_pass(self):
+        # Make a label for the do block
+        self.cond_label = self.context.new_label(suffix='for_cond')
+        self.cond_part_block.add_start_label(self.cond_label)
+        # At end of statements, jump back to condition checking
+        self.end_for_block.add_end_branch(self.cond_label)
+
+    def generate_assembly(self):
+        # Get the condition register
+        arg1 = self.get_register_or_value(self.cond_var)
+
+        # Make a label for the end block
+        next_block_label = self.context.new_label(suffix='end_for')
+        self.next_block.add_start_label(next_block_label)
+
+        return [AsmInstruction('beqz', arg1, next_block_label, comment=str(self))]
+
+    def __str__(self):
+        return "for... %s" % (self.cond_var)
+
+
 class ICStoreWord(IC):
     """Store a word
     """
@@ -765,6 +808,7 @@ class ICContextBasicBlock(object):
             changed = changed or self.instructions[-1].update_variable_sets()
 
             # Get all followers and loop through empty's
+            # BFS like traversal
             # Should not loop indefinitely...in case of two emptys in a loop
             follower_blocks = []
             candidates = [x for x in self.follow]
@@ -778,7 +822,7 @@ class ICContextBasicBlock(object):
                 if len(c.instructions) < 1:
                     for x in c.follow:
                         if x not in visited:
-                            candidates.append(c)
+                            candidates.append(x)
                 else:
                     follower_blocks.append(c)
 
@@ -1029,6 +1073,12 @@ class ICContext(object):
                     ins.while_var = a
                     ins.add_used(a)
                     i += 1
+                if isinstance(ins, ICFor) and isinstance(ins.cond_var, Integer):
+                    a = self.new_var()
+                    block.instructions.insert(i, ICAssign(a, ins.cond_var))
+                    ins.cond_var = a
+                    ins.add_used(a)
+                    i += 1
                 i += 1
 
     def update_liveliness(self):
@@ -1175,11 +1225,20 @@ class ICContext(object):
             return
         graph = pgz.AGraph(directed=True)
         graph.node_attr['shape']='rectangle'
+        if len(self.blocks) >= 1:
+            graph.add_node("%s\n%s" % (0, self.blocks[0].graph_label()), style='filled', color='#458B00')
         for i in range(len(self.blocks)):
             a = "%s\n%s" % (i, self.blocks[i].graph_label())
-            graph.add_node(a)
+            if len(self.blocks[i].follow) == 0:
+                graph.add_node(a, style='filled', color='#DB2929')
+            else:
+                graph.add_node(a)
             for follow in self.blocks[i].follow:
-                graph.add_edge(a, "%s\n%s" % (self.blocks.index(follow), follow.graph_label()))
+                b = "%s\n%s" % (self.blocks.index(follow), follow.graph_label())
+                if len(follow.follow) == 0:
+                    graph.add_node(b, style='filled', color='#DB2929')
+                graph.add_edge(a, b)
+
         # graph.node_attr['style'] = 'filled'
         # for node in self.nodes():
             # graph.add_node(node, fillcolor=self.node_colors[node])

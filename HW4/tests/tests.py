@@ -80,6 +80,13 @@ def test_while():
     compile_and_run('do_while', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3, 4,
                     1, 2, 3, 4, 2, 3, 4, 5])
 
+
+@pre_entry
+def test_for():
+    """for"""
+    compile_and_run('for', [120, 5, 5, 5])
+
+
 @pre_entry
 def test_spilling():
     """spill"""
