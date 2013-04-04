@@ -1,0 +1,11 @@
+int a;
+a = true;
+if(a) then {
+    int b;
+    b = 1;
+} else {
+    int b;
+    b = 0;
+}
+print(b);
+

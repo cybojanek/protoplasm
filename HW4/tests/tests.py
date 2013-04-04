@@ -18,17 +18,55 @@ def pre_entry(f):
     return new_f
 
 
-def compile_and_run(file_prefix, expected_output):
+def compile_and_run(file_prefix, expected_output, input_lines=None):
     expected_output = [str(x) for x in expected_output]
     # Call compiler to compile program
     print 'tests/%s.proto' % file_prefix
-    subprocess.call(['python', 'proplasm3.py', 'tests/%s.proto' % file_prefix])
+    p = Popen(['python', 'proplasm3.py', 'tests/%s.proto' % file_prefix],
+              stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    # Wait for compiler to finish compiling
+    retcode = p.wait()
+    # Check that there were no compile errors
+    eq_(retcode, 0, 'Failed to compile: %s.proto:\nSTDOUT:\n%s\nSTDERR:\n%s' % (
+        file_prefix, ''.join(p.stdout.readlines()),
+        ''.join(p.stderr.readlines())))
     # Call spim to run it
     p = Popen(['spim', '-file', 'tests/%s.asm' % file_prefix], stdout=PIPE,
               stdin=PIPE, stderr=PIPE)
-    # Ignore first readline of header
-    spim_result = [x.rstrip() for x in p.stdout.readlines()[1:]]
+    # Send input
+    if input_lines is not None:
+        [p.stdin.write('%s\n' % line) for line in input_lines]
+    # Wait for program to finish running
+    retcode = p.wait()
+    eq_(retcode, 0)
+    # Ignore first readline of header and strip any > from input requests
+    spim_result = [x.rstrip().lstrip('>') for x in p.stdout.readlines()[1:]]
     eq_(spim_result, expected_output)
+
+
+def compile_and_fail(file_prefix):
+    print 'tests/%s.proto' % file_prefix
+    p = Popen(['python', 'proplasm3.py', 'tests/%s.proto' % file_prefix],
+              stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    retcode = p.wait()
+    eq_(retcode, 1, 'tests/%s.proto: %s != 1\n%s' % (file_prefix, retcode,
+        'It compiled, but it should not have!'))
+
+
+@pre_entry
+def test_compile_errors():
+    """compile errors"""
+    compile_and_fail('fail_declare_global')
+    compile_and_fail('fail_use_before_define')
+    compile_and_fail('fail_int_too_big')
+    compile_and_fail('fail_int_too_small')
+    compile_and_fail('fail_declare_block_var')
+
+
+@pre_entry
+def test_input():
+    """input"""
+    compile_and_run('input', [-15, -27], [5, -3, -9, 3])
 
 
 @pre_entry

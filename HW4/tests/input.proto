@@ -2,3 +2,4 @@ int a, b;
 a = input();
 b = input();
 print(a * b);
+print(input() * input());
