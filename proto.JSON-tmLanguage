@@ -3,47 +3,47 @@
   "fileTypes": ["proto"],
   "patterns": [
     { "match": "//.*$\\n?",
-      "name": "comment.line.double-slash",
+      "name": "comment.line.double-slash.proto",
       "comment": "Single line comments"
     },
     { "match": "\\b(if|then|else|while|do|for)\\b",
-      "name": "keyword.control.flow",
+      "name": "keyword.control.flow.proto",
       "comment": "Control flow keywords"
     },
     { "match": "\\b(new)\\b",
-      "name": "keyword.control",
+      "name": "keyword.control.proto",
       "comment": "Control keywords"
     },
     { "match": "\\b(print|input)\\b",
-      "name": "keyword.other",
+      "name": "support.function.proto",
       "comment": "Built in functions"
     },
     { "match": "\\b(int|bool)\\b",
-      "name": "storage.type",
+      "name": "storage.type.proto",
       "comment": "Built in types"
     },
     { "match": "\\b(true|false)\\b",
-      "name": "constant.language",
+      "name": "constant.language.proto",
       "comment": "Built in constants"
     },
     { "match": "\\d+",
-      "name": "constant.numeric.integer",
+      "name": "constant.numeric.integer.proto",
       "comment": "Integers" 
     },
     { "match": "(!|&&|\\|\\|)",
-      "name": "keyword.operator.logical",
+      "name": "keyword.operator.logical.proto",
       "comment": "Logic operators"
     },
     { "match": "(==|>=|<=|>|<|!=)",
-      "name": "keyword.operator.comparison",
+      "name": "keyword.operator.comparison.proto",
       "comment": "Comparison operators"
     },
     { "match": "(\\+|\\*|-|%|/|\\+\\+|--)",
-      "name": "keyword.operator.arithmetic",
+      "name": "keyword.operator.arithmetic.proto",
       "comment": "Arithmetic operators"
     },
     { "match": "=",
-      "name": "keyword.operator.assignment",
+      "name": "keyword.operator.assignment.proto",
       "comment": "Assignment operator"
     }
   ],

@@ -684,11 +684,12 @@ class ASTIf(ASTNode):
             else_astc = astc.clone()
             if not self.else_part.wellformed(else_astc):
                 return False
+            # According to new spec, don't do this
             # Add only those which are defined in *both* paths
-            for x in then_astc.defined.intersection(else_astc.defined):
-                astc.defined.add(x)
-            for x in then_astc.declared.intersection(else_astc.declared):
-                astc.declared.add(x)
+            # for x in then_astc.defined.intersection(else_astc.defined):
+            #     astc.defined.add(x)
+            # for x in then_astc.declared.intersection(else_astc.declared):
+            #     astc.declared.add(x)
         return True
 
     def gencode(self, icc):
