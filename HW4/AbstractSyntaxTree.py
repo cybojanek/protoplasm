@@ -31,6 +31,13 @@ class ASTContext(object):
         self.defined = set()
         self.declared = set()
         self.used = set()
+        self.rename = dict()
+        self.counter = 0
+
+    def get_new_var_name(self, name):
+        n = '&%s%s' % (name, self.counter)
+        self.counter += 1
+        return n
 
     def clone(self):
         """Clone this ASTContext
@@ -46,6 +53,9 @@ class ASTContext(object):
             a.used.add(x)
         for x in self.declared:
             a.declared.add(x)
+        for k, v in self.rename.iteritems():
+            a.rename[k] = v
+        a.counter = self.counter
         return a
 
     def __str__(self):
@@ -279,7 +289,13 @@ class ASTDeclareVariable(ASTNode):
         self.value = value
 
     def wellformed(self, astc):
-        astc.declared.add(self.value)
+        if self.value not in astc.declared:
+            astc.declared.add(self.value)
+        else:
+            new_name = astc.get_new_var_name(self.value)
+            astc.rename[self.value] = new_name
+            self.value = new_name
+            astc.declared.add(self.value)
         return True
 
     def gencode(self, icc):
@@ -348,9 +364,10 @@ class ASTAssign(ASTNode):
         self.right = right
 
     def wellformed(self, astc):
-        right_well = self.right.wellformed(astc)
-        if not right_well:
+        if not self.right.wellformed(astc):
             return False
+        if self.left.value in astc.rename:
+            self.left.value = astc.rename[self.left.value]
         if self.left.value not in astc.declared:
             print astc
             print "%s assigned but not declared!" % self.left.value
@@ -396,6 +413,8 @@ class ASTVariable(ASTNode):
         self.value = value
 
     def wellformed(self, astc):
+        if self.value in astc.rename:
+            self.value = astc.rename[self.value]
         if self.value in astc.declared and self.value not in astc.defined:
             print '%s declared but used before definition!' % (self.value)
             return False
@@ -679,11 +698,13 @@ class ASTIf(ASTNode):
         then_astc = astc.clone()
         if not self.then_part.wellformed(then_astc):
             return False
+        astc.counter = then_astc.counter
         # If we have an else part then also make an astc clone
         if self.else_part is not None:
             else_astc = astc.clone()
             if not self.else_part.wellformed(else_astc):
                 return False
+            astc.counter = else_astc.counter
             # According to new spec, don't do this
             # Add only those which are defined in *both* paths
             # for x in then_astc.defined.intersection(else_astc.defined):
@@ -786,6 +807,7 @@ class ASTWhileDo(ASTNode):
         stmt_astc = astc.clone()
         if not self.do_part.wellformed(stmt_astc):
             return False
+        astc.counter = stmt_astc.counter
         return True
 
     def gencode(self, icc):
@@ -857,6 +879,7 @@ class ASTDoWhile(ASTNode):
             return False
         if not self.while_part.wellformed(stmt_astc):
             return False
+        astc.counter = stmt_astc.counter
         return True
 
     def gencode(self, icc):

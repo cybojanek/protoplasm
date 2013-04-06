@@ -137,3 +137,9 @@ def test_spilling():
 def test_cascade():
     """cascade"""
     compile_and_run('cascade', [64, 64, 2])
+
+
+@pre_entry
+def test_scope():
+    """variable scope"""
+    compile_and_run('scope', [1, 3, 1, 0])
