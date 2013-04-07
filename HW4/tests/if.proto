@@ -2,7 +2,6 @@ int a, b, c, d;
 a = 0;
 b = 1;
 c = 2;
-d = 1;
 // print nothing
 if a then print(a);
 
@@ -45,6 +44,8 @@ if (b && c) then print(b);
 // print nothing
 if (a > 0 || b> 1 || c > 2) then print(c);
 
+if a then d = 0; else d = 1;
+// print 1
 if d then print(d);
 
 // print 2

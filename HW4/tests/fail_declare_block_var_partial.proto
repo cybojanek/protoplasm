@@ -1,0 +1,12 @@
+int a, b;
+a = true;
+if(a) then {
+    b = 1;
+} else {
+    int b;
+    b = 0;
+}
+// b is set in only one control flow
+// and redeclared as local in the other
+// so it should not be defined
+print(b);

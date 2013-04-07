@@ -56,11 +56,12 @@ def compile_and_fail(file_prefix):
 @pre_entry
 def test_compile_errors():
     """compile errors"""
+    compile_and_fail('fail_declare_block_var')
+    compile_and_fail('fail_declare_block_var_partial')
     compile_and_fail('fail_declare_global')
-    compile_and_fail('fail_use_before_define')
     compile_and_fail('fail_int_too_big')
     compile_and_fail('fail_int_too_small')
-    compile_and_fail('fail_declare_block_var')
+    compile_and_fail('fail_use_before_define')
 
 
 @pre_entry

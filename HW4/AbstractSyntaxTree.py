@@ -705,10 +705,11 @@ class ASTIf(ASTNode):
             if not self.else_part.wellformed(else_astc):
                 return False
             astc.counter = else_astc.counter
-            # According to new spec, don't do this
             # Add only those which are defined in *both* paths
-            # for x in then_astc.defined.intersection(else_astc.defined):
-            #     astc.defined.add(x)
+            for x in then_astc.defined.intersection(else_astc.defined):
+                # And make sure they weren't redefined
+                if x not in then_astc.rename and x not in else_astc.rename:
+                    astc.defined.add(x)
             # for x in then_astc.declared.intersection(else_astc.declared):
             #     astc.declared.add(x)
         return True
