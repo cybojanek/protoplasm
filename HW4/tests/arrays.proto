@@ -1,0 +1,38 @@
+int a[], b[][], i, j;
+a = new int [5];
+b = new int [2][2];
+for(i = 0; i < 5; i++) {
+    a[0] = i;
+}
+
+// 0 1 2 3 4
+for(i = 0; i < 5; i++) {
+    print(a[i]);
+}
+
+for(i = 0; i < 2; i++) {
+    for(j = 0; j < 2; j++) {
+        b[i][j] = i + j;
+    }
+}
+
+// 0 1 1 2
+for(i = 0; i < 2; i++) {
+    for(j = 0; j < 2; j++) {
+        print(b[i][j]);
+    }
+}
+
+// Now write out these numbers again
+// and check the next array
+// to make sure we're ok with memory
+for(i = 0; i < 5; i++) {
+    a[0] = i;
+}
+
+// 0 1 1 2
+for(i = 0; i < 2; i++) {
+    for(j = 0; j < 2; j++) {
+        print(b[i][j]);
+    }
+}

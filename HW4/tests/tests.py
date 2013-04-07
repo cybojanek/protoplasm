@@ -1,5 +1,4 @@
 from nose.tools import *
-import subprocess
 from subprocess import Popen, PIPE
 
 
@@ -27,7 +26,8 @@ def compile_and_run(file_prefix, expected_output, input_lines=None):
     # Wait for compiler to finish compiling
     retcode = p.wait()
     # Check that there were no compile errors
-    eq_(retcode, 0, 'Failed to compile: %s.proto:\nSTDOUT:\n%s\nSTDERR:\n%s' % (
+    eq_(retcode, 0,
+        'Failed to compile: %s.proto:\nSTDOUT:\n%s\nSTDERR:\n%s' % (
         file_prefix, ''.join(p.stdout.readlines()),
         ''.join(p.stderr.readlines())))
     # Call spim to run it
@@ -114,10 +114,10 @@ def test_if():
 @pre_entry
 def test_while():
     """while"""
-    compile_and_run('while_do', [10, 10, 11, 3, 6, 9, 12, 15, 18, 21, 1, 2, 3, 5,
-                    8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987])
-    compile_and_run('do_while', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3, 4,
-                    1, 2, 3, 4, 2, 3, 4, 5])
+    compile_and_run('while_do', [10, 10, 11, 3, 6, 9, 12, 15, 18, 21, 1, 2, 3,
+                    5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987])
+    compile_and_run('do_while', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3,
+                    4, 1, 2, 3, 4, 2, 3, 4, 5])
 
 
 @pre_entry
@@ -144,3 +144,17 @@ def test_cascade():
 def test_scope():
     """variable scope"""
     compile_and_run('scope', [1, 3, 1, 0])
+
+
+@pre_entry
+def test_array():
+    """arrays"""
+    compile_and_run('arrays', [0, 1, 2, 3, 4, 0, 1, 1, 2, 0, 1, 1, 2])
+
+
+@pre_entry
+def test_increment():
+    """++ --"""
+    compile_and_run('pre_post_increment', [1, 0, 0, 0, 2, 2, 0, 1, 0, 1, 0, 0,
+                    1, 0, 1, 0, 0, 1, 1, 1])
+    compile_and_run('pre_post_array', [1, 1, 1, 3, 8, 1, 1, 2, 3])
