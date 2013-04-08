@@ -8,6 +8,7 @@ NODE_COLORS = {
     'ASTDeclareList': '#FFFFFF',
     'ASTDeclareVariable': '#4380D3',
     'ASTDoWhile': '#009999',
+    'ASTFor': '#009999',
     'ASTIf': '#009999',
     'ASTInput': '#BF7130',
     'ASTInteger': '#C0C0C0',
@@ -17,7 +18,6 @@ NODE_COLORS = {
     'ASTUnaryOp': '#FFFFFF',
     'ASTVariable': '#4380D3',
     'ASTWhileDo': '#009999',
-    'ASTFor': '#009999',
 }
 
 
@@ -59,7 +59,9 @@ class ASTContext(object):
         return a
 
     def __str__(self):
-        return 'Declared: [%s], Defined: [%s]' % (','.join([repr(x) for x in self.declared]), ','.join([repr(x) for x in self.defined]))
+        return 'Declared: [%s], Defined: [%s]' % (
+               ','.join([repr(x) for x in self.declared]),
+               ','.join([repr(x) for x in self.defined]))
 
 
 class ASTNode(object):
@@ -183,6 +185,103 @@ class ASTProgram(ASTNode):
         return 'PROGRAM:\n%s\n%s' % ('\n'.join([str(x) for x in self.declarations]), '\n'.join([str(x) for x in self.statements]))
 
 
+class ASTAssign(ASTNode):
+    COLOR = NODE_COLORS['ASTAssign']
+
+    def __init__(self, p, left, right):
+        """AST assignment operation
+
+        Arguments:
+        p - pyl parser object
+        left - variable being assigned to
+        right - stuff being assigned to variable
+
+        """
+        self.p = p
+        self.left = left
+        self.right = right
+
+    def wellformed(self, astc):
+        if not self.right.wellformed(astc):
+            return False
+        if self.left.value in astc.rename:
+            self.left.value = astc.rename[self.left.value]
+        if self.left.value not in astc.declared:
+            print astc
+            print "%s assigned but not declared!" % self.left.value
+            return False
+        astc.defined.add(self.left.value)
+        return True
+
+    def gencode(self, icc):
+        dest = Variable(self.left.value)
+        icc.add_instruction(ICAssign(dest, icc.pop_var()))
+        icc.push_var(dest)
+
+    def to_stack(self):
+        return [self] + self.right.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, '=')
+        counter += 1
+        left = "%s\n%s" % (counter, self.left.value)
+        graph.add_node(name, fillcolor=ASTAssign.COLOR)
+        graph.add_edge(parent, name)
+        # Left assign is always variable
+        graph.add_node(left, fillcolor=ASTVariable.COLOR)
+        graph.add_edge(name, left)
+        return self.right.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'ASSIGN: %s = %s' % (self.left, self.right)
+
+
+class ASTBinaryOp(ASTNode):
+    COLOR = NODE_COLORS['ASTBinaryOp']
+    TYPES = set(['+', '-', '*', '/', '%', '&&', '||', '==', '!=', '<', '<=',
+                 '>', '>='])
+
+    def __init__(self, p, left, right, type):
+        """AST binary operator (ie, +, -, *).
+        Throws TypeError if type not in ASTBinaryOp.TYPES
+
+        Arguments:
+        p - pyl object
+        left - left side
+        right - right side
+        type - one of ASTBinaryOp.TYPES
+
+        """
+        self.p = p
+        self.left, self.right = left, right
+        self.type = type
+        if self.type not in ASTBinaryOp.TYPES:
+            raise TypeError('Binary operation: %r not supported')
+
+    def wellformed(self, astc):
+        return self.left.wellformed(astc) and self.right.wellformed(astc)
+
+    def gencode(self, icc):
+        var = icc.new_var()
+        arg2 = icc.pop_var()
+        arg1 = icc.pop_var()
+        icc.add_instruction(ICBinaryOp(var, arg1, arg2, self.type))
+        icc.push_var(var)
+
+    def to_stack(self):
+        return [self] + self.right.to_stack() + self.left.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.type)
+        graph.add_node(name, fillcolor=ASTBinaryOp.COLOR)
+        graph.add_edge(parent, name)
+        counter = self.left.add_edges_to_graph(graph, name, counter + 1)
+        return self.right.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)
+
+
 class ASTBlock(ASTNode):
     COLOR = NODE_COLORS['ASTBlock']
 
@@ -230,6 +329,42 @@ class ASTBlock(ASTNode):
 
     def __str__(self):
         return 'BLOCK: %s' % self.statements
+
+
+class ASTBoolean(ASTNode):
+    COLOR = NODE_COLORS['ASTBoolean']
+
+    def __init__(self, p, value):
+        """AST integer
+
+        Argumets:
+        p - pyl parser object
+        value - python boolean value
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        return True
+
+    def gencode(self, icc):
+        if self.value:
+            icc.push_var(Integer(1))
+        else:
+            icc.push_var(Integer(0))
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.value)
+        graph.add_node(name, fillcolor=ASTBoolean.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'BOOLEAN: %s' % self.value
 
 
 class ASTDeclareList(ASTNode):
@@ -314,360 +449,157 @@ class ASTDeclareVariable(ASTNode):
         return '%s' % self.value
 
 
-class ASTStatement(ASTNode):
-    COLOR = NODE_COLORS['ASTStatement']
+class ASTDoWhile(ASTNode):
+    COLOR = NODE_COLORS['ASTDoWhile']
 
-    def __init__(self, p, value):
-        """AST statement
+    def __init__(self, p, do_part, while_part):
+        """AST if statements
 
         Arguments:
-        p - pyl parser object
-        value - things this statement does
+        p = pyl object
+        do_part - do_part to execute in while loop
+        while_part - condition while the loop runs
 
         """
         self.p = p
-        self.value = value
+        self.do_part = do_part
+        self.while_part = while_part
 
     def wellformed(self, astc):
-        return self.value.wellformed(astc)
-
-    def gencode(self, icc):
-        self.value.gencode(icc)
-
-    def to_stack(self):
-        return self.value.to_stack()
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'STMT')
-        graph.add_node(name, fillcolor=ASTStatement.COLOR)
-        graph.add_edge(parent, name)
-        return self.value.add_edges_to_graph(graph, name, counter + 1)
-
-    def __str__(self):
-        return 'STMT: %s' % self.value
-
-
-class ASTAssign(ASTNode):
-    COLOR = NODE_COLORS['ASTAssign']
-
-    def __init__(self, p, left, right):
-        """AST assignment operation
-
-        Arguments:
-        p - pyl parser object
-        left - variable being assigned to
-        right - stuff being assigned to variable
-
-        """
-        self.p = p
-        self.left = left
-        self.right = right
-
-    def wellformed(self, astc):
-        if not self.right.wellformed(astc):
+        # Can do part variables be used in while part?
+        # This assumes so
+        stmt_astc = astc.clone()
+        if not self.do_part.wellformed(stmt_astc):
             return False
-        if self.left.value in astc.rename:
-            self.left.value = astc.rename[self.left.value]
-        if self.left.value not in astc.declared:
-            print astc
-            print "%s assigned but not declared!" % self.left.value
+        if not self.while_part.wellformed(stmt_astc):
             return False
-        astc.defined.add(self.left.value)
+        astc.counter = stmt_astc.counter
         return True
 
     def gencode(self, icc):
-        dest = Variable(self.left.value)
-        icc.add_instruction(ICAssign(dest, icc.pop_var()))
-        icc.push_var(dest)
+        # Build up do part
+        do_part_block = icc.new_block()
+        do_part_stack = self.do_part.to_stack()
+        while len(do_part_stack) != 0:
+            s = do_part_stack.pop()
+            s.gencode(icc)
+        # Build up while_part
+        while_part_block = icc.new_block()
+        while_part_stack = self.while_part.to_stack()
+        while len(while_part_stack) != 0:
+            s = while_part_stack.pop()
+            s.gencode(icc)
+        # The AE was just parsed and stored here
+        while_var = icc.pop_var()
+        # Next block after while loop
+        next_block = icc.new_block()
+        # while_part --> do_part
+        while_part_block.add_follow(do_part_block)
+        # Add to original block
+        icc.add_instruction(ICDoWhile(do_part_block, while_var,
+                            while_part_block, next_block),
+                            while_part_block)
 
     def to_stack(self):
-        return [self] + self.right.to_stack()
+        # Self will handle other statements
+        return [self]
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, '=')
-        counter += 1
-        left = "%s\n%s" % (counter, self.left.value)
-        graph.add_node(name, fillcolor=ASTAssign.COLOR)
+        name = "%s\n%s" % (counter, 'do...while')
+        graph.add_node(name, fillcolor=ASTDoWhile.COLOR)
         graph.add_edge(parent, name)
-        # Left assign is always variable
-        graph.add_node(left, fillcolor=ASTVariable.COLOR)
-        graph.add_edge(name, left)
-        return self.right.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.do_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.while_part.add_edges_to_graph(graph, name, counter + 1)
+        return counter
 
     def __str__(self):
-        return 'ASSIGN: %s = %s' % (self.left, self.right)
+        return 'DO: [%s] WHILE [%s]' % (self.do_part, self.while_part)
 
 
-class ASTVariable(ASTNode):
-    COLOR = NODE_COLORS['ASTVariable']
+class ASTFor(ASTNode):
+    COLOR = NODE_COLORS['ASTFor']
 
-    def __init__(self, p, value):
-        """AST variable
+    def __init__(self, p, init_part, cond_part, incr_part, stmt_part):
+        """AST if statements
 
         Arguments:
-        p - pyl parser object
-        value - name of variable
+        p = pyl object
+        init_part - expression run on start of for loop
+        cond_part - condition check of for loop
+        incr_part - expression run on every loop
+        stmt_part - statement in for loop
 
         """
         self.p = p
-        self.value = value
+        self.init_part = init_part
+        self.cond_part = cond_part
+        self.incr_part = incr_part
+        self.stmt_part = stmt_part
 
     def wellformed(self, astc):
-        if self.value in astc.rename:
-            self.value = astc.rename[self.value]
-        if self.value in astc.declared and self.value not in astc.defined:
-            print '%s declared but used before definition!' % (self.value)
+        if not self.init_part.wellformed(astc):
             return False
-        elif self.value not in astc.declared:
-            print '%s not declared!' % (self.value)
+        if not self.cond_part.wellformed(astc):
             return False
-        elif self.value not in astc.defined:
-            print '%s declared but not defined!' % (self.value)
+        if not self.incr_part.wellformed(astc):
             return False
-        astc.used.add(self.value)
+        if not self.stmt_part.wellformed(astc):
+            return False
         return True
 
     def gencode(self, icc):
-        icc.push_var(Variable(self.value))
+        # Build up while_part
+        cond_part_block = icc.new_block()
+        cond_part_stack = self.cond_part.to_stack()
+        while len(cond_part_stack) != 0:
+            s = cond_part_stack.pop()
+            s.gencode(icc)
+        # The AE was just parsed and stored here
+        cond_var = icc.pop_var()
+        # cond_part --> stmt_part
+        stmt_part_block = icc.new_block()
+        stmt_part_stack = self.stmt_part.to_stack()
+        while len(stmt_part_stack) != 0:
+            s = stmt_part_stack.pop()
+            s.gencode(icc)
+        # stmt_part --> incr_part
+        incr_part_block = icc.new_block()
+        incr_part_stack = self.incr_part.to_stack()
+        while len(incr_part_stack) != 0:
+            s = incr_part_stack.pop()
+            s.gencode(icc)
+        # Block at the end of the stmt part
+        # Might be different from incr_part, if other blocks added
+        # Need this to tell this block to jump back to the cond_part
+        end_for_block = icc.get_current_block()
+        # Do not auto_follow because next_block does *not* follow the
+        # statements in the while loop
+        next_block = icc.new_block(auto_follow=False)
+        # cond_part --> next_block
+        cond_part_block.add_follow(next_block)
+        # end_for --> cond_part (loop back)
+        end_for_block.add_follow(cond_part_block)
+        # Add to original block
+        icc.add_instruction(ICFor(cond_var, cond_part_block, end_for_block,
+                            next_block), cond_part_block)
 
     def to_stack(self):
-        return [self]
+        # Self will handle other statements
+        return [self] + self.init_part.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.value)
-        graph.add_node(name, fillcolor=ASTVariable.COLOR)
+        name = "%s\n%s" % (counter, 'for...')
+        graph.add_node(name, fillcolor=ASTFor.COLOR)
         graph.add_edge(parent, name)
+        counter = self.init_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.cond_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.incr_part.add_edges_to_graph(graph, name, counter + 1)
+        counter = self.stmt_part.add_edges_to_graph(graph, name, counter + 1)
         return counter
 
     def __str__(self):
-        return 'ID: %s' % self.value
-
-
-class ASTPrint(ASTNode):
-    COLOR = NODE_COLORS['ASTPrint']
-
-    def __init__(self, p, value):
-        """AST print statement
-
-        Arguments:
-        p - pyl parser object
-        value - stuff to print
-
-        """
-        self.p = p
-        self.value = value
-
-    def wellformed(self, astc):
-        return self.value.wellformed(astc)
-
-    def gencode(self, icc):
-        icc.add_instruction(ICPrint(icc.pop_var()))
-
-    def to_stack(self):
-        return [self] + self.value.to_stack()
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'print')
-        graph.add_node(name, fillcolor=ASTPrint.COLOR)
-        graph.add_edge(parent, name)
-        return self.value.add_edges_to_graph(graph, name, counter + 1)
-
-    def __str__(self):
-        return 'PRINT: %s' % self.value
-
-
-class ASTInput(ASTNode):
-    COLOR = NODE_COLORS['ASTInput']
-
-    def __init__(self, p):
-        """AST input
-
-        Arguments:
-        p - pyl parser object
-
-        """
-        self.p = p
-
-    def wellformed(self, astc):
-        return True
-
-    def gencode(self, icc):
-        var = icc.new_var()
-        icc.add_instruction(ICInput(var))
-        icc.push_var(var)
-
-    def to_stack(self):
-        return [self]
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'input')
-        graph.add_node(name, fillcolor=ASTInput.COLOR)
-        graph.add_edge(parent, name)
-        return counter
-
-    def __str__(self):
-        return 'INPUT'
-
-
-class ASTBoolean(ASTNode):
-    COLOR = NODE_COLORS['ASTBoolean']
-
-    def __init__(self, p, value):
-        """AST integer
-
-        Argumets:
-        p - pyl parser object
-        value - python boolean value
-
-        """
-        self.p = p
-        self.value = value
-
-    def wellformed(self, astc):
-        return True
-
-    def gencode(self, icc):
-        if self.value:
-            icc.push_var(Integer(1))
-        else:
-            icc.push_var(Integer(0))
-
-    def to_stack(self):
-        return [self]
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.value)
-        graph.add_node(name, fillcolor=ASTBoolean.COLOR)
-        graph.add_edge(parent, name)
-        return counter
-
-    def __str__(self):
-        return 'BOOLEAN: %s' % self.value
-
-
-class ASTInteger(ASTNode):
-    COLOR = NODE_COLORS['ASTInteger']
-
-    def __init__(self, p, value):
-        """AST integer
-
-        Argumets:
-        p - pyl parser object
-        value - python integer value
-
-        """
-        self.p = p
-        self.value = value
-
-    def wellformed(self, astc):
-        if isinstance(self.value, int) and \
-           (-(2 ** 31) <= self.value <= (2 ** 31 - 1)):
-            return True
-        else:
-            raise ValueError('%s is out of bounds for 32 bit integer value' % (
-                self.value))
-
-    def gencode(self, icc):
-        icc.push_var(Integer(self.value))
-
-    def to_stack(self):
-        return [self]
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.value)
-        graph.add_node(name, fillcolor=ASTInteger.COLOR)
-        graph.add_edge(parent, name)
-        return counter
-
-    def __str__(self):
-        return 'INTEGER: %s' % self.value
-
-
-class ASTUnaryOp(ASTNode):
-    COLOR = NODE_COLORS['ASTUnaryOp']
-    TYPES = set(['-', '!'])
-
-    def __init__(self, p, value, type):
-        """AST unary operator (ie, -, ~).
-        Throws TypeError if type not in ASTUnaryOp.TYPES
-
-        Arguments:
-        p - pyl parser object
-        value - ASTNode to use op on
-        type - one of ASTUnaryOp.TYPES
-
-        """
-        self.p = p
-        self.value = value
-        self.type = type
-        if self.type not in ASTUnaryOp.TYPES:
-            raise TypeError('Unary operation: %s not supported' % self.type)
-
-    def wellformed(self, astc):
-        return self.value.wellformed(astc)
-
-    def gencode(self, icc):
-        var = icc.new_var()
-        icc.add_instruction(ICUnaryOp(var, icc.pop_var(), self.type))
-        icc.push_var(var)
-
-    def to_stack(self):
-        return [self] + self.value.to_stack()
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.type)
-        graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
-        graph.add_edge(parent, name)
-        return self.value.add_edges_to_graph(graph, name, counter + 1)
-
-    def __str__(self):
-        return '%s: %s' % (self.type, self.value)
-
-
-class ASTBinaryOp(ASTNode):
-    COLOR = NODE_COLORS['ASTBinaryOp']
-    TYPES = set(['+', '-', '*', '/', '%', '&&', '||', '==', '!=', '<', '<=',
-                 '>', '>='])
-
-    def __init__(self, p, left, right, type):
-        """AST binary operator (ie, +, -, *).
-        Throws TypeError if type not in ASTBinaryOp.TYPES
-
-        Arguments:
-        p - pyl object
-        left - left side
-        right - right side
-        type - one of ASTBinaryOp.TYPES
-
-        """
-        self.p = p
-        self.left, self.right = left, right
-        self.type = type
-        if self.type not in ASTBinaryOp.TYPES:
-            raise TypeError('Binary operation: %r not supported')
-
-    def wellformed(self, astc):
-        return self.left.wellformed(astc) and self.right.wellformed(astc)
-
-    def gencode(self, icc):
-        var = icc.new_var()
-        arg2 = icc.pop_var()
-        arg1 = icc.pop_var()
-        icc.add_instruction(ICBinaryOp(var, arg1, arg2, self.type))
-        icc.push_var(var)
-
-    def to_stack(self):
-        return [self] + self.right.to_stack() + self.left.to_stack()
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.type)
-        graph.add_node(name, fillcolor=ASTBinaryOp.COLOR)
-        graph.add_edge(parent, name)
-        counter = self.left.add_edges_to_graph(graph, name, counter + 1)
-        return self.right.add_edges_to_graph(graph, name, counter + 1)
-
-    def __str__(self):
-        return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)
+        return 'for [%s; %s; %s] do...' % (self.init_part, self.cond_part,
+                                           self.incr_part)
 
 
 class ASTIf(ASTNode):
@@ -777,11 +709,235 @@ class ASTIf(ASTNode):
         counter = self.if_part.add_edges_to_graph(graph, name, counter + 1)
         counter = self.then_part.add_edges_to_graph(graph, name, counter + 1)
         if self.else_part is not None:
-            counter = self.else_part.add_edges_to_graph(graph, name, counter + 1)
+            counter = self.else_part.add_edges_to_graph(
+                graph, name, counter + 1)
         return counter
 
     def __str__(self):
         return 'IF: [%s] THEN [%s]' % (self.if_part, self.then_part)
+
+
+class ASTInput(ASTNode):
+    COLOR = NODE_COLORS['ASTInput']
+
+    def __init__(self, p):
+        """AST input
+
+        Arguments:
+        p - pyl parser object
+
+        """
+        self.p = p
+
+    def wellformed(self, astc):
+        return True
+
+    def gencode(self, icc):
+        var = icc.new_var()
+        icc.add_instruction(ICInput(var))
+        icc.push_var(var)
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'input')
+        graph.add_node(name, fillcolor=ASTInput.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'INPUT'
+
+
+class ASTInteger(ASTNode):
+    COLOR = NODE_COLORS['ASTInteger']
+
+    def __init__(self, p, value):
+        """AST integer
+
+        Argumets:
+        p - pyl parser object
+        value - python integer value
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        if isinstance(self.value, int) and \
+           (-(2 ** 31) <= self.value <= (2 ** 31 - 1)):
+            return True
+        else:
+            raise ValueError('%s is out of bounds for 32 bit integer value' % (
+                self.value))
+
+    def gencode(self, icc):
+        icc.push_var(Integer(self.value))
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.value)
+        graph.add_node(name, fillcolor=ASTInteger.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'INTEGER: %s' % self.value
+
+
+class ASTPrint(ASTNode):
+    COLOR = NODE_COLORS['ASTPrint']
+
+    def __init__(self, p, value):
+        """AST print statement
+
+        Arguments:
+        p - pyl parser object
+        value - stuff to print
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
+
+    def gencode(self, icc):
+        icc.add_instruction(ICPrint(icc.pop_var()))
+
+    def to_stack(self):
+        return [self] + self.value.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'print')
+        graph.add_node(name, fillcolor=ASTPrint.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'PRINT: %s' % self.value
+
+
+class ASTStatement(ASTNode):
+    COLOR = NODE_COLORS['ASTStatement']
+
+    def __init__(self, p, value):
+        """AST statement
+
+        Arguments:
+        p - pyl parser object
+        value - things this statement does
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
+
+    def gencode(self, icc):
+        self.value.gencode(icc)
+
+    def to_stack(self):
+        return self.value.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'STMT')
+        graph.add_node(name, fillcolor=ASTStatement.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'STMT: %s' % self.value
+
+
+class ASTUnaryOp(ASTNode):
+    COLOR = NODE_COLORS['ASTUnaryOp']
+    TYPES = set(['-', '!'])
+
+    def __init__(self, p, value, type):
+        """AST unary operator (ie, -, ~).
+        Throws TypeError if type not in ASTUnaryOp.TYPES
+
+        Arguments:
+        p - pyl parser object
+        value - ASTNode to use op on
+        type - one of ASTUnaryOp.TYPES
+
+        """
+        self.p = p
+        self.value = value
+        self.type = type
+        if self.type not in ASTUnaryOp.TYPES:
+            raise TypeError('Unary operation: %s not supported' % self.type)
+
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
+
+    def gencode(self, icc):
+        var = icc.new_var()
+        icc.add_instruction(ICUnaryOp(var, icc.pop_var(), self.type))
+        icc.push_var(var)
+
+    def to_stack(self):
+        return [self] + self.value.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.type)
+        graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return '%s: %s' % (self.type, self.value)
+
+
+class ASTVariable(ASTNode):
+    COLOR = NODE_COLORS['ASTVariable']
+
+    def __init__(self, p, value):
+        """AST variable
+
+        Arguments:
+        p - pyl parser object
+        value - name of variable
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        if self.value in astc.rename:
+            self.value = astc.rename[self.value]
+        if self.value in astc.declared and self.value not in astc.defined:
+            print '%s declared but used before definition!' % (self.value)
+            return False
+        elif self.value not in astc.declared:
+            print '%s not declared!' % (self.value)
+            return False
+        elif self.value not in astc.defined:
+            print '%s declared but not defined!' % (self.value)
+            return False
+        astc.used.add(self.value)
+        return True
+
+    def gencode(self, icc):
+        icc.push_var(Variable(self.value))
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.value)
+        graph.add_node(name, fillcolor=ASTVariable.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'ID: %s' % self.value
 
 
 class ASTWhileDo(ASTNode):
@@ -855,154 +1011,3 @@ class ASTWhileDo(ASTNode):
 
     def __str__(self):
         return 'WHILE: [%s] DO [%s]' % (self.while_part, self.do_part)
-
-class ASTDoWhile(ASTNode):
-    COLOR = NODE_COLORS['ASTDoWhile']
-
-    def __init__(self, p, do_part, while_part):
-        """AST if statements
-
-        Arguments:
-        p = pyl object
-        do_part - do_part to execute in while loop
-        while_part - condition while the loop runs
-
-        """
-        self.p = p
-        self.do_part = do_part
-        self.while_part = while_part
-
-    def wellformed(self, astc):
-        # Can do part variables be used in while part?
-        # This assumes so
-        stmt_astc = astc.clone()
-        if not self.do_part.wellformed(stmt_astc):
-            return False
-        if not self.while_part.wellformed(stmt_astc):
-            return False
-        astc.counter = stmt_astc.counter
-        return True
-
-    def gencode(self, icc):
-        # Build up do part
-        do_part_block = icc.new_block()
-        do_part_stack = self.do_part.to_stack()
-        while len(do_part_stack) != 0:
-            s = do_part_stack.pop()
-            s.gencode(icc)
-        # Build up while_part
-        while_part_block = icc.new_block()
-        while_part_stack = self.while_part.to_stack()
-        while len(while_part_stack) != 0:
-            s = while_part_stack.pop()
-            s.gencode(icc)
-        # The AE was just parsed and stored here
-        while_var = icc.pop_var()
-        # Next block after while loop
-        next_block = icc.new_block()
-        # while_part --> do_part
-        while_part_block.add_follow(do_part_block)
-        # Add to original block
-        icc.add_instruction(ICDoWhile(do_part_block, while_var, while_part_block,
-                            next_block), while_part_block)
-
-    def to_stack(self):
-        # Self will handle other statements
-        return [self]
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'do...while')
-        graph.add_node(name, fillcolor=ASTDoWhile.COLOR)
-        graph.add_edge(parent, name)
-        counter = self.do_part.add_edges_to_graph(graph, name, counter + 1)
-        counter = self.while_part.add_edges_to_graph(graph, name, counter + 1)
-        return counter
-
-    def __str__(self):
-        return 'DO: [%s] WHILE [%s]' % (self.do_part, self.while_part)
-
-
-class ASTFor(ASTNode):
-    COLOR = NODE_COLORS['ASTFor']
-
-    def __init__(self, p, init_part, cond_part, incr_part, stmt_part):
-        """AST if statements
-
-        Arguments:
-        p = pyl object
-        init_part - expression run on start of for loop
-        cond_part - condition check of for loop
-        incr_part - expression run on every loop
-        stmt_part - statement in for loop
-
-        """
-        self.p = p
-        self.init_part = init_part
-        self.cond_part = cond_part
-        self.incr_part = incr_part
-        self.stmt_part = stmt_part
-
-    def wellformed(self, astc):
-        if not self.init_part.wellformed(astc):
-            return False
-        if not self.cond_part.wellformed(astc):
-            return False
-        if not self.incr_part.wellformed(astc):
-            return False
-        if not self.stmt_part.wellformed(astc):
-            return False
-        return True
-
-    def gencode(self, icc):
-        # Build up while_part
-        cond_part_block = icc.new_block()
-        cond_part_stack = self.cond_part.to_stack()
-        while len(cond_part_stack) != 0:
-            s = cond_part_stack.pop()
-            s.gencode(icc)
-        # The AE was just parsed and stored here
-        cond_var = icc.pop_var()
-        # cond_part --> stmt_part
-        stmt_part_block = icc.new_block()
-        stmt_part_stack = self.stmt_part.to_stack()
-        while len(stmt_part_stack) != 0:
-            s = stmt_part_stack.pop()
-            s.gencode(icc)
-        # stmt_part --> incr_part
-        incr_part_block = icc.new_block()
-        incr_part_stack = self.incr_part.to_stack()
-        while len(incr_part_stack) != 0:
-            s = incr_part_stack.pop()
-            s.gencode(icc)
-        # Block at the end of the stmt part
-        # Might be different from incr_part, if other blocks added
-        # Need this to tell this block to jump back to the cond_part
-        end_for_block = icc.get_current_block()
-        # Do not auto_follow because next_block does *not* follow the
-        # statements in the while loop
-        next_block = icc.new_block(auto_follow=False)
-        # cond_part --> next_block
-        cond_part_block.add_follow(next_block)
-        # end_for --> cond_part (loop back)
-        end_for_block.add_follow(cond_part_block)
-        # Add to original block
-        icc.add_instruction(ICFor(cond_var, cond_part_block, end_for_block,
-                            next_block), cond_part_block)
-
-    def to_stack(self):
-        # Self will handle other statements
-        return [self] + self.init_part.to_stack()
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'for...')
-        graph.add_node(name, fillcolor=ASTFor.COLOR)
-        graph.add_edge(parent, name)
-        counter = self.init_part.add_edges_to_graph(graph, name, counter + 1)
-        counter = self.cond_part.add_edges_to_graph(graph, name, counter + 1)
-        counter = self.incr_part.add_edges_to_graph(graph, name, counter + 1)
-        counter = self.stmt_part.add_edges_to_graph(graph, name, counter + 1)
-        return counter
-
-    def __str__(self):
-        return 'for [%s; %s; %s] do...' % (self.init_part, self.cond_part,
-                                           self.incr_part)

@@ -299,234 +299,13 @@ class ICBinaryOp(IC):
         return "%s = %s %s %s" % (self.dest, self.arg1, self.op, self.arg2)
 
 
-class ICUnaryOp(IC):
-    """Unary operations
-    """
-    ASM_OPS = {'-': 'neg', '!': None}
-
-    def __init__(self, dest, arg1, op):
-        super(ICUnaryOp, self).__init__()
-        if not(isinstance(dest, Variable)
-           and (isinstance(arg1, Variable) or isinstance(arg1, Integer))
-           and (op in ICUnaryOp.ASM_OPS)):
-            raise ValueError("Unsupported unary operation")
-        self.dest = dest
-        self.arg1 = arg1
-        self.op = op
-        self.add_defined(dest)
-        self.add_used(arg1)
-
-    def rename_used(self, old, new):
-        if self.arg1 == old:
-            self.remove_used(self.arg1)
-            self.arg1 = new
-            self.add_used(self.arg1)
-
-    def rename_defined(self, old, new):
-        if self.dest == old:
-            self.remove_defined(self.dest)
-            self.dest = new
-            self.add_defined(self.dest)
-
-    def generate_assembly(self):
-        dest = self.get_register_or_value(self.dest)
-        arg1 = self.get_register_or_value(self.arg1)
-        # Negation is a bit more complicated
-        if self.op == '!':
-            if isinstance(self.arg1, Integer):
-                return [AsmInstruction('li', dest, arg1, comment=str(self)),
-                        AsmInstruction('seq', dest, dest, 0)]
-            else:
-                return [AsmInstruction('seq', dest, arg1, 0, comment=str(self))]
-        # Otherwise
-        op = ICUnaryOp.ASM_OPS[self.op]
-        # op Rd, Rs    Rd = op Rs
-        if isinstance(self.arg1, Integer):
-            return [AsmInstruction('li', dest, arg1, comment=str(self)),
-                    AsmInstruction(op, dest, dest)]
-        else:
-            return [AsmInstruction(op, dest, arg1, comment=str(self))]
-
-    def __str__(self):
-        return "%s = %s %s" % (self.dest, self.op, self.arg1)
-
-
-class ICPrint(IC):
-    """Do a print statement for an integer
-    """
-
-    def __init__(self, arg1):
-        super(ICPrint, self).__init__()
-        if not(isinstance(arg1, Variable) or isinstance(arg1, Integer)):
-            raise ValueError("Unsupported print operation")
-        self.arg1 = arg1
-        self.add_used(arg1)
-
-    def rename_used(self, old, new):
-        if self.arg1 == old:
-            self.remove_used(self.arg1)
-            self.arg1 = new
-            self.add_used(self.arg1)
-
-    def rename_defined(self, old, new):
-        pass
-
-    def generate_assembly(self):
-        arg1 = self.get_register_or_value(self.arg1)
-        asm = []
-        if isinstance(self.arg1, Integer):
-            # li Rd, Imm    Rd = Imm
-            asm.append(AsmInstruction('li', '$a0', arg1, comment=str(self)))
-        else:
-            # move Rd, Rs   Rd = Rs
-            asm.append(AsmInstruction('move', '$a0', arg1, comment=str(self)))
-        # li Rd, Imm    Rd = Imm
-        # syscall
-        asm.append(AsmInstruction('li', '$v0', 1))
-        asm.append(AsmInstruction('syscall'))
-        # Add a newline
-        asm.append(AsmInstruction('li', '$a0', ord('\n'), comment='newline'))
-        asm.append(AsmInstruction('li', '$v0', 11))
-        asm.append(AsmInstruction('syscall'))
-        return asm
-
-    def __str__(self):
-        return "print(%s)" % (self.arg1)
-
-
-class ICInput(IC):
-    """Do an input statement for an integer
-    """
-
-    def __init__(self, dest):
-        super(ICInput, self).__init__()
-        if not(isinstance(dest, Variable)):
-            raise ValueError("Unsupported input operation")
-        self.dest = dest
-
-    def rename_used(self, old, new):
-        pass
-
-    def rename_defined(self, old, new):
-        if self.dest == old:
-            self.remove_defined(self.dest)
-            self.dest = new
-            self.add_defined(self.dest)
-
-    def generate_assembly(self):
-        dest = self.get_register_or_value(self.dest)
-        asm = []
-        asm.append(AsmInstruction('li', '$a0', ord('>'), comment='prompt'))
-        asm.append(AsmInstruction('li', '$v0', 11))
-        asm.append(AsmInstruction('syscall'))
-        # li Rd, Imm    Rd = Imm
-        # syscall
-        # move Rd, Rs   Rd = Rs
-        asm.append(AsmInstruction('li', '$v0', 5, comment=str(self)))
-        asm.append(AsmInstruction('syscall'))
-        asm.append(AsmInstruction('move', dest, '$v0'))
-        return asm
-
-    def __str__(self):
-        return "%s = input()" % (self.dest)
-
-
-class ICIf(IC):
-    """Assign variable to variable, or Integer to variable
-    """
-    def __init__(self, if_var, then_block, else_block, end_if_block):
-        super(ICIf, self).__init__()
-        if not(isinstance(if_var, Variable) or isinstance(if_var, Integer)):
-            raise ValueError("Unsupported if statement")
-        self.if_var = if_var
-        self.add_used(if_var)
-        self.then_block = then_block
-        self.else_block = else_block
-        self.end_if_block = end_if_block
-
-    def rename_used(self, old, new):
-        if self.if_var == old:
-            self.remove_used(self.if_var)
-            self.if_var = new
-            self.add_used(new)
-
-    def rename_defined(self, old, new):
-        pass
-
-    def generate_assembly(self):
-        # Get the condition register
-        arg1 = self.get_register_or_value(self.if_var)
-        # Make a label for the end block
-        end_if_label = self.context.new_label(suffix='end_if')
-        # Add the label to the start of that block
-        self.end_if_block.add_start_label(end_if_label)
-        if self.else_block is None:
-            # If false, then branch to next end if block
-            return [AsmInstruction('beqz', arg1, end_if_label, comment=str(self))]
-        # Make a label for the else block
-        else_label = self.context.new_label(suffix='else')
-        # Add the else label to the else block
-        self.else_block.add_start_label(else_label)
-        # Tell the then_block to branch to end_if_block (to skip else block)
-        self.then_block.add_end_branch(end_if_label)
-        # If false, then branch to the else_block
-        return [AsmInstruction('beqz', arg1, else_label, comment=str(self))]
-
-    def __str__(self):
-        # return "if %s then... [%s]" % (self.if_var, self.then_part.statements.value.statements[0])
-        return "if %s then...%s" % (self.if_var, '' if self.else_block is None else 'else...')
-
-
-class ICWhileDo(IC):
-    """Assign variable to variable, or Integer to variable
-    """
-    def __init__(self, while_var, while_part_block, end_if_block, next_block):
-        super(ICWhileDo, self).__init__()
-        if not(isinstance(while_var, Variable) or isinstance(while_var, Integer)):
-            raise ValueError("Unsupported if statement")
-        self.while_var = while_var
-        self.add_used(while_var)
-        self.while_part_block = while_part_block
-        self.end_if_block = end_if_block
-        self.next_block = next_block
-
-    def rename_used(self, old, new):
-        if self.while_var == old:
-            self.remove_used(self.while_var)
-            self.while_var = new
-            self.add_used(new)
-
-    def rename_defined(self, old, new):
-        pass
-
-    def first_pass(self):
-        # Make a label for the condition block
-        self.condition_label = self.context.new_label(suffix='while')
-        self.while_part_block.add_start_label(self.condition_label)
-
-    def generate_assembly(self):
-        # Get the condition register
-        arg1 = self.get_register_or_value(self.while_var)
-
-        # At end of statements, jump back to condition checking
-        self.end_if_block.add_end_branch(self.condition_label)
-
-        # Make a label for the end block
-        end_while_label = self.context.new_label(suffix='end_while')
-        self.next_block.add_start_label(end_while_label)
-
-        return [AsmInstruction('beqz', arg1, end_while_label, comment=str(self))]
-
-    def __str__(self):
-        return "while %s do..." % (self.while_var)
-
-
 class ICDoWhile(IC):
     """Assign variable to variable, or Integer to variable
     """
     def __init__(self, do_part_block, while_var, while_part_block, next_block):
         super(ICDoWhile, self).__init__()
-        if not(isinstance(while_var, Variable) or isinstance(while_var, Integer)):
+        if not(isinstance(while_var, Variable) or
+               isinstance(while_var, Integer)):
             raise ValueError("Unsupported if statement")
         self.do_part_block = do_part_block
         self.while_var = while_var
@@ -571,7 +350,8 @@ class ICFor(IC):
     """
     def __init__(self, cond_var, cond_part_block, end_for_block, next_block):
         super(ICFor, self).__init__()
-        if not(isinstance(cond_var, Variable) or isinstance(cond_var, Integer)):
+        if not(isinstance(cond_var, Variable) or
+               isinstance(cond_var, Integer)):
             raise ValueError("Unsupported for statement")
         self.cond_var = cond_var
         self.add_used(cond_var)
@@ -607,6 +387,209 @@ class ICFor(IC):
 
     def __str__(self):
         return "for... %s" % (self.cond_var)
+
+
+class ICIf(IC):
+    """Assign variable to variable, or Integer to variable
+    """
+    def __init__(self, if_var, then_block, else_block, end_if_block):
+        super(ICIf, self).__init__()
+        if not(isinstance(if_var, Variable) or isinstance(if_var, Integer)):
+            raise ValueError("Unsupported if statement")
+        self.if_var = if_var
+        self.add_used(if_var)
+        self.then_block = then_block
+        self.else_block = else_block
+        self.end_if_block = end_if_block
+
+    def rename_used(self, old, new):
+        if self.if_var == old:
+            self.remove_used(self.if_var)
+            self.if_var = new
+            self.add_used(new)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def generate_assembly(self):
+        # Get the condition register
+        arg1 = self.get_register_or_value(self.if_var)
+        # Make a label for the end block
+        end_if_label = self.context.new_label(suffix='end_if')
+        # Add the label to the start of that block
+        self.end_if_block.add_start_label(end_if_label)
+        if self.else_block is None:
+            # If false, then branch to next end if block
+            return [AsmInstruction('beqz', arg1, end_if_label, comment=str(self))]
+        # Make a label for the else block
+        else_label = self.context.new_label(suffix='else')
+        # Add the else label to the else block
+        self.else_block.add_start_label(else_label)
+        # Tell the then_block to branch to end_if_block (to skip else block)
+        self.then_block.add_end_branch(end_if_label)
+        # If false, then branch to the else_block
+        return [AsmInstruction('beqz', arg1, else_label, comment=str(self))]
+
+    def __str__(self):
+        return "if %s then...%s" % (
+            self.if_var, '' if self.else_block is None else 'else...')
+
+
+class ICInput(IC):
+    """Do an input statement for an integer
+    """
+
+    def __init__(self, dest):
+        super(ICInput, self).__init__()
+        if not(isinstance(dest, Variable)):
+            raise ValueError("Unsupported input operation")
+        self.dest = dest
+
+    def rename_used(self, old, new):
+        pass
+
+    def rename_defined(self, old, new):
+        if self.dest == old:
+            self.remove_defined(self.dest)
+            self.dest = new
+            self.add_defined(self.dest)
+
+    def generate_assembly(self):
+        dest = self.get_register_or_value(self.dest)
+        asm = []
+        asm.append(AsmInstruction('li', '$a0', ord('>'), comment='prompt'))
+        asm.append(AsmInstruction('li', '$v0', 11))
+        asm.append(AsmInstruction('syscall'))
+        # li Rd, Imm    Rd = Imm
+        # syscall
+        # move Rd, Rs   Rd = Rs
+        asm.append(AsmInstruction('li', '$v0', 5, comment=str(self)))
+        asm.append(AsmInstruction('syscall'))
+        asm.append(AsmInstruction('move', dest, '$v0'))
+        return asm
+
+    def __str__(self):
+        return "%s = input()" % (self.dest)
+
+
+class ICLoadWord(IC):
+    """Load a word
+    """
+    def __init__(self, dest, base=None, offset=None):
+        """
+        Arguments:
+        dest - variable name (register)
+
+        Keyword Arguments:
+        base - label or variable
+        offset - variable or integer
+
+        Allowable combinations:
+        label/var, var/int, label/None, None/var
+
+        """
+        super(ICLoadWord, self).__init__()
+        if not(isinstance(dest, Variable)):
+            raise ValueError("Unsupported load")
+        # Check base
+
+        if isinstance(base, Label) and isinstance(offset, Variable):
+            # base is label and offset is register
+            self.add_used(Variable)
+        elif isinstance(base, Variable) and isinstance(offset, Integer):
+            # base is register and offset is integer
+            self.add_used(base)
+        elif isinstance(base, Label):
+            # base is label
+            pass
+        elif isinstance(offset, Variable):
+            # offset is register
+            self.add_used(offset)
+        else:
+            raise ValueError("Unsupported load base/offset: %s, %s" % (base, offset))
+        self.dest = dest
+        self.base = base
+        self.offset = offset
+        self.add_defined(dest)
+
+    def rename_used(self, old, new):
+        if self.base == old:
+            self.remove_used(self.base)
+            self.base = new
+            self.add_used(new)
+        if self.offset == old:
+            self.remove_used(self.offset)
+            self.offset = new
+            self.add_used(new)
+
+    def rename_defined(self, old, new):
+        if self.dest == old:
+            self.remove_defined(self.dest)
+            self.dest = new
+            self.add_defined(new)
+
+    def generate_assembly(self):
+        arg1 = self.get_register_or_value(self.dest)
+        arg2 = ''
+        if isinstance(self.base, Label) and isinstance(self.offset, Variable):
+            # base is label and offset is register
+            arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
+        elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
+            # base is register and offset is integer
+            arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
+        elif isinstance(self.base, Label):
+            # base is label
+            arg2 = '%s'
+        elif isinstance(self.offset, Variable):
+            # offset is register
+            arg2 = '(%s)' % (self.get_register_or_value(self.offset))
+        return [AsmInstruction('lw', arg1, arg2, comment=str(self))]
+
+    def __str__(self):
+        return "%s = %s[%s]" % (self.dest, self.base, self.offset)
+
+
+class ICPrint(IC):
+    """Do a print statement for an integer
+    """
+
+    def __init__(self, arg1):
+        super(ICPrint, self).__init__()
+        if not(isinstance(arg1, Variable) or isinstance(arg1, Integer)):
+            raise ValueError("Unsupported print operation")
+        self.arg1 = arg1
+        self.add_used(arg1)
+
+    def rename_used(self, old, new):
+        if self.arg1 == old:
+            self.remove_used(self.arg1)
+            self.arg1 = new
+            self.add_used(self.arg1)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def generate_assembly(self):
+        arg1 = self.get_register_or_value(self.arg1)
+        asm = []
+        if isinstance(self.arg1, Integer):
+            # li Rd, Imm    Rd = Imm
+            asm.append(AsmInstruction('li', '$a0', arg1, comment=str(self)))
+        else:
+            # move Rd, Rs   Rd = Rs
+            asm.append(AsmInstruction('move', '$a0', arg1, comment=str(self)))
+        # li Rd, Imm    Rd = Imm
+        # syscall
+        asm.append(AsmInstruction('li', '$v0', 1))
+        asm.append(AsmInstruction('syscall'))
+        # Add a newline
+        asm.append(AsmInstruction('li', '$a0', ord('\n'), comment='newline'))
+        asm.append(AsmInstruction('li', '$v0', 11))
+        asm.append(AsmInstruction('syscall'))
+        return asm
+
+    def __str__(self):
+        return "print(%s)" % (self.arg1)
 
 
 class ICStoreWord(IC):
@@ -688,81 +671,101 @@ class ICStoreWord(IC):
         return "%s[%s] = %s" % (self.base, self.offset, self.src)
 
 
-class ICLoadWord(IC):
-    """Load a word
+class ICUnaryOp(IC):
+    """Unary operations
     """
-    def __init__(self, dest, base=None, offset=None):
-        """
-        Arguments:
-        dest - variable name (register)
+    ASM_OPS = {'-': 'neg', '!': None}
 
-        Keyword Arguments:
-        base - label or variable
-        offset - variable or integer
-
-        Allowable combinations:
-        label/var, var/int, label/None, None/var
-
-        """
-        super(ICLoadWord, self).__init__()
-        if not(isinstance(dest, Variable)):
-            raise ValueError("Unsupported load")
-        # Check base
-
-        if isinstance(base, Label) and isinstance(offset, Variable):
-            # base is label and offset is register
-            self.add_used(Variable)
-        elif isinstance(base, Variable) and isinstance(offset, Integer):
-            # base is register and offset is integer
-            self.add_used(base)
-        elif isinstance(base, Label):
-            # base is label
-            pass
-        elif isinstance(offset, Variable):
-            # offset is register
-            self.add_used(offset)
-        else:
-            raise ValueError("Unsupported load base/offset: %s, %s" % (base, offset))
+    def __init__(self, dest, arg1, op):
+        super(ICUnaryOp, self).__init__()
+        if not(isinstance(dest, Variable)
+           and (isinstance(arg1, Variable) or isinstance(arg1, Integer))
+           and (op in ICUnaryOp.ASM_OPS)):
+            raise ValueError("Unsupported unary operation")
         self.dest = dest
-        self.base = base
-        self.offset = offset
+        self.arg1 = arg1
+        self.op = op
         self.add_defined(dest)
+        self.add_used(arg1)
 
     def rename_used(self, old, new):
-        if self.base == old:
-            self.remove_used(self.base)
-            self.base = new
-            self.add_used(new)
-        if self.offset == old:
-            self.remove_used(self.offset)
-            self.offset = new
-            self.add_used(new)
+        if self.arg1 == old:
+            self.remove_used(self.arg1)
+            self.arg1 = new
+            self.add_used(self.arg1)
 
     def rename_defined(self, old, new):
         if self.dest == old:
             self.remove_defined(self.dest)
             self.dest = new
-            self.add_defined(new)
+            self.add_defined(self.dest)
 
     def generate_assembly(self):
-        arg1 = self.get_register_or_value(self.dest)
-        arg2 = ''
-        if isinstance(self.base, Label) and isinstance(self.offset, Variable):
-            # base is label and offset is register
-            arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
-        elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
-            # base is register and offset is integer
-            arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
-        elif isinstance(self.base, Label):
-            # base is label
-            arg2 = '%s'
-        elif isinstance(self.offset, Variable):
-            # offset is register
-            arg2 = '(%s)' % (self.get_register_or_value(self.offset))
-        return [AsmInstruction('lw', arg1, arg2, comment=str(self))]
+        dest = self.get_register_or_value(self.dest)
+        arg1 = self.get_register_or_value(self.arg1)
+        # Negation is a bit more complicated
+        if self.op == '!':
+            if isinstance(self.arg1, Integer):
+                return [AsmInstruction('li', dest, arg1, comment=str(self)),
+                        AsmInstruction('seq', dest, dest, 0)]
+            else:
+                return [AsmInstruction('seq', dest, arg1, 0, comment=str(self))]
+        # Otherwise
+        op = ICUnaryOp.ASM_OPS[self.op]
+        # op Rd, Rs    Rd = op Rs
+        if isinstance(self.arg1, Integer):
+            return [AsmInstruction('li', dest, arg1, comment=str(self)),
+                    AsmInstruction(op, dest, dest)]
+        else:
+            return [AsmInstruction(op, dest, arg1, comment=str(self))]
 
     def __str__(self):
-        return "%s = %s[%s]" % (self.dest, self.base, self.offset)
+        return "%s = %s %s" % (self.dest, self.op, self.arg1)
+
+
+class ICWhileDo(IC):
+    """Assign variable to variable, or Integer to variable
+    """
+    def __init__(self, while_var, while_part_block, end_if_block, next_block):
+        super(ICWhileDo, self).__init__()
+        if not(isinstance(while_var, Variable) or
+               isinstance(while_var, Integer)):
+            raise ValueError("Unsupported if statement")
+        self.while_var = while_var
+        self.add_used(while_var)
+        self.while_part_block = while_part_block
+        self.end_if_block = end_if_block
+        self.next_block = next_block
+
+    def rename_used(self, old, new):
+        if self.while_var == old:
+            self.remove_used(self.while_var)
+            self.while_var = new
+            self.add_used(new)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def first_pass(self):
+        # Make a label for the condition block
+        self.condition_label = self.context.new_label(suffix='while')
+        self.while_part_block.add_start_label(self.condition_label)
+
+    def generate_assembly(self):
+        # Get the condition register
+        arg1 = self.get_register_or_value(self.while_var)
+
+        # At end of statements, jump back to condition checking
+        self.end_if_block.add_end_branch(self.condition_label)
+
+        # Make a label for the end block
+        end_while_label = self.context.new_label(suffix='end_while')
+        self.next_block.add_start_label(end_while_label)
+
+        return [AsmInstruction('beqz', arg1, end_while_label, comment=str(self))]
+
+    def __str__(self):
+        return "while %s do..." % (self.while_var)
 
 
 class ICContextBasicBlock(object):
@@ -830,15 +833,10 @@ class ICContextBasicBlock(object):
             for follow in follower_blocks:
                 if len(follow.instructions) >= 1:
                     changed = changed or self.instructions[-1].update_variable_sets(next_ic=follow.instructions[0])
-                    # old = self.livelines['out']
-                    # self.livelines['out'] = self.livelines['out'].union(follow.livelines['in'])
-                    # changed = changed or old == self.livelines['out']
             # Bottom up, update in's and out's, using next statement
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
                     next_ic=self.instructions[i + 1])
-            # old = self.livelines['in']
-            # self.livelines['in'] = self.livelines['in'].union()
             block_changed = block_changed or changed
         return block_changed
 
