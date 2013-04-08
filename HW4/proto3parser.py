@@ -141,7 +141,7 @@ def p_se_increment(p):
           | lhs MINUSMINUS
           | PLUSPLUS lhs
           | MINUSMINUS lhs'''
-    raise NotImplemented("Fix it")
+    raise NotImplementedError("Fix it")
 
 
 def p_lhs(p):
@@ -150,7 +150,7 @@ def p_lhs(p):
     if len(p) == 2:
         p[0] = ASTVariable(p, p[1])
     else:
-        raise NotImplemented("Fix it")
+        raise NotImplementedError("Fix it")
 
 
 def p_ae_bin(p):
@@ -219,19 +219,19 @@ def p_ae_false(p):
 
 def p_ae_array(p):
     '''ae : NEW type dimexpr dimstar'''
-    raise NotImplemented("Fix it")
+    raise NotImplementedError("Fix it")
 
 
 def p_dimexpr(p):
     '''dimexpr : LBRACE ae RBRACE'''
-    raise NotImplemented("Fix it")
+    raise NotImplementedError("Fix it")
 
 
 def p_dimstar_d(p):
     '''dimstar : LBRACE RBRACE dimstar
                | empty'''
     if len(p) == 4:
-        raise NotImplemented("Fix it")
+        raise NotImplementedError("Fix it")
     else:
         pass
 
