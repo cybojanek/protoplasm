@@ -149,7 +149,8 @@ def test_scope():
 @pre_entry
 def test_array():
     """arrays"""
-    compile_and_run('arrays', [0, 1, 2, 3, 4, 0, 1, 1, 2, 0, 1, 1, 2])
+    compile_and_run('arrays', [0, 1, 2, 3, 4, 0, 1, 1, 2, 0, 1, 1, 2, 0, 1, 2,
+                    3, 4])
 
 
 @pre_entry

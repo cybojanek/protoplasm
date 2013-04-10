@@ -1,6 +1,6 @@
-int a[], b[][], i, j;
+int a[], b[][], d[], i, j;
 a = new int [5];
-b = new int [2][2];
+b = new int [2][];
 for(i = 0; i < 5; i++) {
     a[0] = i;
 }
@@ -11,15 +11,20 @@ for(i = 0; i < 5; i++) {
 }
 
 for(i = 0; i < 2; i++) {
+    int c[];
+    b[i] = new int[2];
+    c = b[i];
     for(j = 0; j < 2; j++) {
-        b[i][j] = i + j;
+        c[j] = i + j;
     }
 }
 
 // 0 1 1 2
 for(i = 0; i < 2; i++) {
+    int c[];
+    c = b[i];
     for(j = 0; j < 2; j++) {
-        print(b[i][j]);
+        print(c[j]);
     }
 }
 
@@ -32,7 +37,15 @@ for(i = 0; i < 5; i++) {
 
 // 0 1 1 2
 for(i = 0; i < 2; i++) {
+    int c[];
+    c = b[i];
     for(j = 0; j < 2; j++) {
-        print(b[i][j]);
+        print(c[j]);
     }
+}
+
+// 0 1 2 3 4
+d = a;
+for(i = 0; i < 5; i++) {
+    print(d[i]);
 }
