@@ -2,14 +2,14 @@ from IntermediateCode import *
 
 NODE_COLORS = {
     'ASTAssign': '#269926',
-    'ASTBinaryOp': '#009999',
+    'ASTBinaryOp': '#CC0909',
     'ASTBlock': '#FF7400',
     'ASTBoolean': '#C0C0C0',
-    'ASTDeclareList': '#FFFFFF',
+    'ASTDeclareList': '#38a0ad',
     'ASTDeclareVariable': '#4380D3',
     'ASTDoWhile': '#009999',
     'ASTFor': '#009999',
-    'ASTIf': '#009999',
+    'ASTIf': '#FFCA7A',
     'ASTInput': '#BF7130',
     'ASTInteger': '#C0C0C0',
     'ASTNode': '#FFFFFF',

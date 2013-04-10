@@ -15,7 +15,7 @@
       "comment": "Control keywords"
     },
     { "match": "\\b(print|input)\\b",
-      "name": "support.function.proto",
+      "name": "support.function.source.proto",
       "comment": "Built in functions"
     },
     { "match": "\\b(int|bool)\\b",
