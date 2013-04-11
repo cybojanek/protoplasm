@@ -1,4 +1,4 @@
-int a[], b[][], d[], i, j;
+int a[], b[][], d[], e[], i, j;
 a = new int [5];
 b = new int [2][];
 for(i = 0; i < 5; i = i + 1) {
@@ -49,3 +49,12 @@ d = a;
 for(i = 0; i < 5; i = i + 1) {
     print(d[i]);
 }
+
+// Define with control flow
+if(true) then {
+    e = new int[10];
+} else {
+    e = new int[5];
+}
+e[0] = 1;
+print(e[0]);

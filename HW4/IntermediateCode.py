@@ -562,7 +562,7 @@ class ICAllocMemory(IC):
             raise ValueError("Bad memory allocation len")
         self.dest = dest
         self.length = length
-        self.add_used(dest)
+        self.add_defined(dest)
         self.add_used(length)
 
     def rename_used(self, old, new):
@@ -1256,7 +1256,7 @@ class ICContext(object):
             i = 0
             while i < len(block.instructions):
                 ins = block.instructions[i]
-                if isinstance(ins, ICAssign) and var in ins.liveliness['defined']:
+                if (isinstance(ins, ICAssign) or isinstance(ins, ICAllocMemory)) and var in ins.liveliness['defined']:
                     if var in ins.liveliness['used']:
                         # Restore before instruction
                         block.instructions.insert(i, ICLoadWord(var,
