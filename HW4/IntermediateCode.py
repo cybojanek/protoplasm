@@ -1179,6 +1179,10 @@ class ICContext(object):
         self.variable_usage = {}
         for block in self.blocks:
             for ins in block.instructions:
+                # TODO: why does this break liveliness, but
+                # get(x, 0) in lambda key does not?
+                #for v in ins.liveliness['defined']:
+                #    self.variable_usage[v] = 0
                 for v in ins.liveliness['used']:
                     if v not in self.variable_usage:
                         self.variable_usage[v] = 1
@@ -1205,8 +1209,9 @@ class ICContext(object):
             else:
                 # Find the node which has the
                 # highest degree - amount of times used
+                # get its value, or 0, not used
                 node = max(graph.nodes(),
-                    key=lambda x: graph.degree(x) - (self.variable_usage[x] if x in self.variable_usage else 0))
+                    key=lambda x: graph.degree(x) - self.variable_usage.get(x, 0))
                 stack.append((node, graph.remove_node(node)))
         # Now add back the nodes
         while len(stack) != 0:
