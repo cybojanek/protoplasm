@@ -667,6 +667,7 @@ class ICBoundCheck(IC):
         self.add_used(size)
         self.add_used(base)
         self.add_used(elem)
+        self.add_used(size)
 
     def rename_used(self, old, new):
         if self.size == old:
@@ -976,16 +977,16 @@ class ICContextBasicBlock(object):
 
 class ICContext(object):
     TEMP_REGS = {
-        '$t0': '#FF7400',
-        '$t1': '#009999',
-        '$t2': '#FF7373',
-        '$t3': '#BF7130',
-        '$t4': '#A60000',
-        '$t5': '#008500',
-        '$t6': '#00CC00',
-        '$t7': '#D2006B',
-        '$t8': '#574DD8',
-        '$t9': '#B7F200'
+        '$s0': '#FF7400',
+        '$s1': '#009999',
+        '$s2': '#FF7373',
+        '$s3': '#BF7130',
+        '$s4': '#A60000',
+        '$s5': '#008500',
+        '$s6': '#00CC00',
+        '$s7': '#D2006B',
+        '$s8': '#574DD8',
+        # '$s9': '#B7F200'
     }
     ALL_TEMP_REGS = set(TEMP_REGS.keys())
 
