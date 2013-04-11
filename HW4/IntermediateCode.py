@@ -1177,6 +1177,9 @@ class ICContext(object):
                 # Add defined variables
                 for i in ins.liveliness['defined']:
                     self.liveliness_graph.add_node(i)
+                    # Need to still add this
+                    for j in ins.liveliness['out']:
+                        self.liveliness_graph.add_edge(i, j)
                 # All the in variables that conflict with each other
                 for i in ins.liveliness['in']:
                     self.liveliness_graph.add_node(i)

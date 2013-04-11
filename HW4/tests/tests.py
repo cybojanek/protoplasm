@@ -65,6 +65,12 @@ def test_compile_errors():
 
 
 @pre_entry
+def test_liveliness():
+    """liveliness"""
+    compile_and_run('liveliness', [10])
+
+
+@pre_entry
 def test_input():
     """input"""
     compile_and_run('input', [-15, -27], [5, -3, -9, 3])
@@ -149,7 +155,8 @@ def test_scope():
 @pre_entry
 def test_array():
     """arrays"""
-    compile_and_run('arrays', [0, 1, 2, 3, 4, 0, 1, 1, 2, 0, 1, 1, 2])
+    compile_and_run('arrays', [0, 1, 2, 3, 4, 0, 1, 1, 2, 0, 1, 1, 2, 0, 1, 2,
+                    3, 4])
 
 
 @pre_entry
