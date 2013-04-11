@@ -65,6 +65,12 @@ def test_compile_errors():
 
 
 @pre_entry
+def test_liveliness():
+    """liveliness"""
+    compile_and_run('liveliness', [10])
+
+
+@pre_entry
 def test_input():
     """input"""
     compile_and_run('input', [-15, -27], [5, -3, -9, 3])
