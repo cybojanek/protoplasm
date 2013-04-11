@@ -225,34 +225,12 @@ class ASTAssign(ASTNode):
             icc.add_instruction(ICAssign(dest, src))
             icc.push_var(dest)
         elif isinstance(self.left, ASTArray):
-            #lvalue = icc.pop_var()
-
             src = icc.pop_var()      # value to put into array
             rvalue = icc.pop_var()   # pop the rvalue off the stack
-            #base = icc.pop_var()     # destination base addr
-            #elem = icc.pop_var()     # array element number
 
-            tmpaddress = icc.new_var()
-            icc.add_instruction(ICAssign(tmpaddress, rvalue._elem))
-            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
-            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
-            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, rvalue._base, "+"))
+            icc.add_instruction(ICStoreWord(src, rvalue._base, Integer(0), rvalue._elem))
+            icc.push_var(src)
 
-            if not isinstance(src, ASTVariable):
-                val = icc.new_var()
-                icc.add_instruction(ICAssign(val, src))
-                icc.add_instruction(ICStoreWord(val, tmpaddress, Integer(0)))
-                icc.push_var(val)
-            else: 
-                icc.add_instruction(ICStoreWord(src, tmpaddress, Integer(0)))
-                icc.push_var(src)
-
-
-            #icc.push_var(dest)
-            #dest = Variable(self.left.value)
-            #tmp = icc.new_var()
-            #icc.add_instruction(ICAssign(tmp, self.left.offset))
-            #icc.push_var(dest)
 
 
     def to_stack(self):
@@ -849,12 +827,8 @@ class ASTAlloc(ASTNode):
         size = icc.pop_var();
         
         icc.add_instruction(ICAllocMemory(var, size))
-        if isinstance(size, Variable):
-           icc.add_instruction(ICStoreWord(size, var, Integer(0)))
-        else:
-            tmp = icc.new_var()
-            icc.add_instruction(ICAssign(tmp, size))
-            icc.add_instruction(ICStoreWord(tmp, var, Integer(0)))
+
+        icc.add_instruction(ICStoreWord(size, var, Integer(0)))
 
         icc.push_var(var);
 
@@ -889,33 +863,18 @@ class ASTArray(ASTNode):
         return self.value.wellformed(astc);
 
     def gencode(self, icc):
+
         base = icc.pop_var()     # destination base addr
         elem = icc.pop_var()     # array element number
-        print base,elem
-
-        tmpaddress = icc.new_var()
-        array_size = icc.new_var()
-
-        if isinstance(elem, Variable):
-           icc.add_instruction(ICBoundCheck(array_size, base, elem))
-        else:
-           req_elem = icc.new_var()
-           icc.add_instruction(ICAssign(req_elem, elem))
-           icc.add_instruction(ICBoundCheck(array_size, base, req_elem))
-
-        icc.add_instruction(ICAssign(tmpaddress, elem))
-        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
-        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
-        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, base, "+"))
 
         val = icc.new_var()
+        icc.add_instruction(ICBoundCheck(base, elem))
 
-        icc.add_instruction(ICLoadWord(val, tmpaddress, Integer(0)))
+        icc.add_instruction(ICLoadWord(val, base, Integer(0), elem))
 
         val.is_pointer = True;
         val._elem = elem;
         val._base = base; 
-        val._size = array_size;     
         icc.push_var(val);
 
     def to_stack(self):
@@ -1037,6 +996,62 @@ class ASTUnaryOp(ASTNode):
 
     def __str__(self):
         return '%s: %s' % (self.type, self.value)
+
+
+
+class ASTPrePostIncrement(ASTNode):
+    COLOR = NODE_COLORS['ASTUnaryOp']
+    PRE = 0
+    POST = 1
+
+    def __init__(self, p, value, mytype, direction):
+        """AST unary operator (ie, -, ~).
+        Throws TypeError if type not in ASTUnaryOp.TYPES
+
+        Arguments:
+        p - pyl parser object
+        value - ASTNode to use op on
+        type - ++ or --
+        direction - 0 = pre (++i);
+                    1 = post (i++);
+        """
+        self.p = p
+        self.value = value
+        self.type = mytype[0]
+        self.direction = direction
+
+        if self.type not in ("+", "-"):
+            raise TypeError('Increment operation: %s not supported' % self.type)
+        if self.direction not in (self.PRE, self.POST):
+            raise TypeError('Increment operation: %s not supported' % self.type)
+
+
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
+
+    def gencode(self, icc):
+        new_var = icc.new_var()
+        orig_var = icc.pop_var();
+
+        icc.add_instruction(ICAssign(new_var, orig_var))
+        icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.type))
+
+        if self.direction == self.PRE:
+            icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.type))
+
+        icc.push_var(new_var)
+
+    def to_stack(self):
+        return [self] + self.value.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.type)
+        graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return '%s%s' % (self.value, self.type)
 
 
 class ASTVariable(ASTNode):
