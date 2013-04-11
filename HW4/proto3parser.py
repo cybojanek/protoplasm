@@ -150,9 +150,10 @@ def p_lhs(p):
     if len(p) == 2:
         p[0] = ASTVariable(p, p[1])
     elif len(p) == 5:
-        p[0] = ASTArrayLValue(p, p[1].value, p[3])
+        p[0] = ASTArray(p, p[1], p[3])
     else:
         raise NotImplementedError("Fix it")
+
 
 
 def p_ae_bin(p):

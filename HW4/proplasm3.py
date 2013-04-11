@@ -32,6 +32,7 @@ def main(args):
         sys.exit(1)
     # Generate three address code
     tac = program.gencode()
+    print tac
     #print tac
     # for block in tac.blocks:
     #     print '----------\n'
@@ -41,7 +42,6 @@ def main(args):
     # sys.exit(0)
     # Optimize and assign registers
     tac.registerize(ssa=not(args.nossa))
-    for i in tac.blocks: print i;
     # for block in tac.blocks:
     #     print '----------\n'
     #     print 'MASTER:\n%s' % block

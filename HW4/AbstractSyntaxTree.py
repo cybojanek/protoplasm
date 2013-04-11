@@ -1,4 +1,5 @@
 from IntermediateCode import *
+import inspect
 
 NODE_COLORS = {
     'ASTAssign': '#269926',
@@ -205,28 +206,57 @@ class ASTAssign(ASTNode):
     def wellformed(self, astc):
         if not self.right.wellformed(astc):
            return False
-        if self.left.value in astc.rename:
-            self.left.value = astc.rename[self.left.value]
-        if self.left.value not in astc.declared:
-            print astc
-            print "%s assigned but not declared!" % self.left.value
-            return False
-        astc.defined.add(self.left.value)
+        if not isinstance(self.left, ASTArray):
+            if self.left.value in astc.rename:
+                self.left.value = astc.rename[self.left.value]
+            if self.left.value not in astc.declared:
+                print astc
+                print "%s assigned but not declared!" % self.left.value
+                return False
+            astc.defined.add(self.left.value)
         return True
 
+
     def gencode(self, icc):
-        if isinstance(self.left, ASTVariable):
-            dest = Variable(self.left.value)
-            icc.add_instruction(ICAssign(dest, icc.pop_var()))
+        if not isinstance(self.left, ASTArray):
+            src = icc.pop_var()
+            dest = icc.pop_var()
+
+            icc.add_instruction(ICAssign(dest, src))
             icc.push_var(dest)
-        else:
-            dest = Variable(self.left.value)
-            icc.add_instruction(ICAssign(dest, icc.pop_var()))
-            icc.push_var(dest)
+        elif isinstance(self.left, ASTArray):
+            #lvalue = icc.pop_var()
+
+            src = icc.pop_var()      # value to put into array
+            rvalue = icc.pop_var()   # pop the rvalue off the stack
+            #base = icc.pop_var()     # destination base addr
+            #elem = icc.pop_var()     # array element number
+
+            tmpaddress = icc.new_var()
+            icc.add_instruction(ICAssign(tmpaddress, rvalue._elem))
+            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
+            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
+            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, rvalue._base, "+"))
+
+            if not isinstance(src, ASTVariable):
+                val = icc.new_var()
+                icc.add_instruction(ICAssign(val, src))
+                icc.add_instruction(ICStoreWord(val, tmpaddress, Integer(0)))
+                icc.push_var(val)
+            else: 
+                icc.add_instruction(ICStoreWord(src, tmpaddress, Integer(0)))
+                icc.push_var(src)
+
+
+            #icc.push_var(dest)
+            #dest = Variable(self.left.value)
+            #tmp = icc.new_var()
+            #icc.add_instruction(ICAssign(tmp, self.left.offset))
+            #icc.push_var(dest)
 
 
     def to_stack(self):
-        return [self] + self.right.to_stack()
+        return [self] + self.right.to_stack() + self.left.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, '=')
@@ -817,9 +847,9 @@ class ASTAlloc(ASTNode):
     def gencode(self, icc):
         var = icc.new_var();
         size = icc.pop_var();
-
+        
         icc.add_instruction(ICAllocMemory(var, size))
-        icc.add_instruction(ICStoreWord(size, var, Integer(0)))
+        #icc.add_instruction(ICStoreWord(size, var, Integer(0)))
         icc.push_var(var);
 
     def to_stack(self):
@@ -834,7 +864,7 @@ class ASTAlloc(ASTNode):
     def __str__(self):
         return 'ALLOC: %s' % self.size
 
-class ASTArrayLValue(ASTNode):
+class ASTArray(ASTNode):
     COLOR = NODE_COLORS['ASTVariable']
 
     def __init__(self, p, value, element):
@@ -850,25 +880,28 @@ class ASTArrayLValue(ASTNode):
         self.element = element
 
     def wellformed(self, astc):
-        if self.value in astc.rename:
-            self.value = astc.rename[self.value]
-        if self.value in astc.declared and self.value not in astc.defined:
-            print '%s declared but used before definition!' % (self.value)
-            return False
-        elif self.value not in astc.declared:
-            print '%s not declared!' % (self.value)
-            return False
-        elif self.value not in astc.defined:
-            print '%s declared but not defined!' % (self.value)
-            return False
-        astc.used.add(self.value)
-        return True
+        return self.value.wellformed(astc);
 
     def gencode(self, icc):
-        icc.push_var(Variable(self.value))
+        base = icc.pop_var()     # destination base addr
+        elem = icc.pop_var()     # array element number
+        print base,elem
+
+        tmpaddress = icc.new_var()
+        icc.add_instruction(ICAssign(tmpaddress, elem))
+        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
+        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
+        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, base, "+"))
+
+        val = icc.new_var()
+        icc.add_instruction(ICLoadWord(val, tmpaddress, Integer(0)))
+
+        val._elem = elem;
+        val._base = base;      
+        icc.push_var(val);
 
     def to_stack(self):
-        return [self]
+        return [self] + self.value.to_stack() + self.element.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s[%s]" % (counter, self.value, self.element)
@@ -877,7 +910,7 @@ class ASTArrayLValue(ASTNode):
         return counter
 
     def __str__(self):
-        return 'LVALUE: %s[%s]' % self.value, self.element
+        return 'ARRAY: %s[%s]' % (self.value, self.element)
 
 
 
@@ -1022,7 +1055,7 @@ class ASTVariable(ASTNode):
         icc.push_var(Variable(self.value))
 
     def to_stack(self):
-        return [self]
+        return [self] + ( self.value.to_stack() if isinstance(self.value, ASTArray) else [] )
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.value)

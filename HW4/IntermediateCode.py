@@ -3,33 +3,21 @@ from ASMCode import AsmInstruction
 
 
 class Variable(object):
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, value):
+        self.value = value
 
     def __str__(self):
-        return self.name
+        return self.value
 
     def __eq__(self, other):
-        return self.name == other.name
+        return self.value == other.value
 
     def __hash__(self):
-        return hash(self.name)
+        return hash(self.value)
 
     def as_pointer(self):
-        return PointerVar(self.name)
+        return PointerVar(self.value)
 
-class PointerVar(object):
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return self.name
-
-    def __eq__(self, other):
-        return self.name == other.name
-
-    def __hash__(self):
-        return hash(self.name)
 
 class Integer(object):
     def __init__(self, value):
@@ -203,8 +191,8 @@ class ICAssign(IC):
     """
     def __init__(self, dest, arg1):
         super(ICAssign, self).__init__()
-        if not(isinstance(dest, Variable)and (isinstance(arg1, Variable) or
-               isinstance(arg1, Integer) or isinstance(arg1, Alloc))):
+        if not(isinstance(dest, Variable) and (isinstance(arg1, Variable) or
+               isinstance(arg1, Integer))):
             raise ValueError("Unsupported Assignment")
         self.dest = dest
         self.arg1 = arg1
@@ -925,7 +913,7 @@ class ICContextBasicBlock(object):
         for x in self.instructions:
             line = '%s' % x
             line = '%s%s\n' % (line, ' ' * (15 - len(line)))
-            line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            #line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
             s += line
             #s += '%s\t%s\n' % (x, x.liveliness['out'])
         return s
