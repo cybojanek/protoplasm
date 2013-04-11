@@ -585,7 +585,7 @@ class ICAllocMemory(IC):
         if self.length == old:
             self.remove_used(self.length)
             self.length = new
-            self.add_used(self.length)
+            self.add_used(self.dest)
 
     def rename_defined(self, old, new):
         pass
