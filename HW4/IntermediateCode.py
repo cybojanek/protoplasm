@@ -43,6 +43,7 @@ class Label(object):
     def __hash__(self):
         return hash(self.name)
 
+
 class IC(object):
     # Constant registers
     REGISTER_CONSTANTS = {Variable('@stack'): '$sp'}
@@ -262,20 +263,27 @@ class ICBinaryOp(IC):
             self.add_defined(self.dest)
 
     def generate_assembly(self):
-        # We can accept Integer to arg1/arg2 but by here they should be moved
-        # out and only registers accepted
-        if isinstance(self.arg1, Integer) or isinstance(self.arg2, Integer):
-            raise ValueError("Cannot do binary operation on Integers!")
         # Get instruction from op map
         op = ICBinaryOp.ASM_OPS[self.op]
         dest = self.get_register_or_value(self.dest)
-        arg1 = self.get_register_or_value(self.arg1)
-        arg2 = self.get_register_or_value(self.arg2)
+
+        a = []
+        if isinstance(self.arg1, Integer):
+            arg1 = '$t0'
+            a = a + [AsmInstruction('li', '$t0', self.arg1)]
+        else:
+            arg1 = self.get_register_or_value(self.arg1)
+        if isinstance(self.arg1, Integer):
+            arg2 = '$t1'
+            a = a + [AsmInstruction('li', '$t1', self.arg2)]
+        else:
+            arg2 = self.get_register_or_value(self.arg2)
+
         # Short circuit logic for &&
         if self.op == '&&':
             label_set_0 = self.context.new_label(suffix='set_0')
             label_done = self.context.new_label(suffix='done')
-            return [AsmInstruction('beqz', arg1, label_set_0, comment=str(self)),
+            return a + [AsmInstruction('beqz', arg1, label_set_0, comment=str(self)),
                     AsmInstruction('move', dest, arg2),
                     AsmInstruction('b', label_done),
                     AsmInstruction('%s:' % label_set_0),
@@ -285,14 +293,14 @@ class ICBinaryOp(IC):
         elif self.op == '||':
             label_use_arg1 = self.context.new_label(suffix='use_arg1')
             label_done = self.context.new_label(suffix='done')
-            return [AsmInstruction('bnez', arg1, label_use_arg1, comment=str(self)),
+            return a + [AsmInstruction('bnez', arg1, label_use_arg1, comment=str(self)),
                     AsmInstruction('move', dest, arg2),
                     AsmInstruction('b', label_done),
                     AsmInstruction('%s:' % label_use_arg1),
                     AsmInstruction('move', dest, arg1),
                     AsmInstruction('%s:' % label_done)]
         # op Rd, Rs, Rt    Rd = Rs op Rt
-        return [AsmInstruction(op, dest, arg1, arg2, comment=str(self))]
+        return a + [AsmInstruction(op, dest, arg1, arg2, comment=str(self))]
 
     def __str__(self):
         return "%s = %s %s %s" % (self.dest, self.arg1, self.op, self.arg2)
@@ -328,7 +336,12 @@ class ICDoWhile(IC):
 
     def generate_assembly(self):
         # Get the condition register
-        arg1 = self.get_register_or_value(self.while_var)
+        if isinstance(self.while_var, Integer):
+            arg1 = '$t0'
+            a = [AsmInstruction('li', '$t0', self.while_var)]
+        else:
+            arg1 = self.get_register_or_value(self.while_var)
+            a = []
 
         # At end of statements, jump back to condition checking
         #self.end_if_block.add_end_branch(self.condition_label)
@@ -336,8 +349,7 @@ class ICDoWhile(IC):
         # Make a label for the end block
         next_block_label = self.context.new_label(suffix='end_while')
         self.next_block.add_start_label(next_block_label)
-
-        return [AsmInstruction('beqz', arg1, next_block_label, comment=str(self)),
+        return a + [AsmInstruction('beqz', arg1, next_block_label, comment=str(self)),
                 AsmInstruction('b', self.do_label, comment='do again')]
 
     def __str__(self):
@@ -376,13 +388,18 @@ class ICFor(IC):
 
     def generate_assembly(self):
         # Get the condition register
-        arg1 = self.get_register_or_value(self.cond_var)
+        if isinstance(self.cond_var, Integer):
+            arg1 = '$t0'
+            a = [AsmInstruction('li', '$t0', self.cond_var)]
+        else:
+            arg1 = self.get_register_or_value(self.cond_var)
+            a = []
 
         # Make a label for the end block
         next_block_label = self.context.new_label(suffix='end_for')
         self.next_block.add_start_label(next_block_label)
 
-        return [AsmInstruction('beqz', arg1, next_block_label, comment=str(self))]
+        return a + [AsmInstruction('beqz', arg1, next_block_label, comment=str(self))]
 
     def __str__(self):
         return "for... %s" % (self.cond_var)
@@ -412,14 +429,19 @@ class ICIf(IC):
 
     def generate_assembly(self):
         # Get the condition register
-        arg1 = self.get_register_or_value(self.if_var)
+        if isinstance(self.if_var, Integer):
+            arg1 = '$t0'
+            a = [AsmInstruction('li', '$t0', self.if_var)]
+        else:
+            arg1 = self.get_register_or_value(self.if_var)
+            a = []
         # Make a label for the end block
         end_if_label = self.context.new_label(suffix='end_if')
         # Add the label to the start of that block
         self.end_if_block.add_start_label(end_if_label)
         if self.else_block is None:
             # If false, then branch to next end if block
-            return [AsmInstruction('beqz', arg1, end_if_label, comment=str(self))]
+            return a + [AsmInstruction('beqz', arg1, end_if_label, comment=str(self))]
         # Make a label for the else block
         else_label = self.context.new_label(suffix='else')
         # Add the else label to the else block
@@ -427,7 +449,7 @@ class ICIf(IC):
         # Tell the then_block to branch to end_if_block (to skip else block)
         self.then_block.add_end_branch(end_if_label)
         # If false, then branch to the else_block
-        return [AsmInstruction('beqz', arg1, else_label, comment=str(self))]
+        return a + [AsmInstruction('beqz', arg1, else_label, comment=str(self))]
 
     def __str__(self):
         return "if %s then...%s" % (
@@ -548,6 +570,7 @@ class ICLoadWord(IC):
     def __str__(self):
         return "%s = %s[%s]" % (self.dest, self.base, self.offset)
 
+
 class ICAllocMemory(IC):
     """Allocate memory 
     """
@@ -649,7 +672,6 @@ class ICPrint(IC):
         return "print(%s)" % (self.arg1)
 
 
-
 class ICBoundCheck(IC):
     """Do a print statement for an integer
     """
@@ -705,7 +727,6 @@ class ICBoundCheck(IC):
         return "%s = array_bound_check(%s, %s)" % (self.size, self.base, self.elem)
 
 
-
 class ICStoreWord(IC):
     """Store a word
     """
@@ -726,7 +747,6 @@ class ICStoreWord(IC):
         if not(isinstance(src, Variable)):
             raise ValueError("Unsupported storage")
         # Check base
-
         if isinstance(base, Label) and isinstance(offset, Variable):
             # base is label and offset is register
             self.add_used(Variable)
@@ -866,7 +886,12 @@ class ICWhileDo(IC):
 
     def generate_assembly(self):
         # Get the condition register
-        arg1 = self.get_register_or_value(self.while_var)
+        if isinstance(self.while_var, Integer):
+            arg1 = '$t0'
+            a = [AsmInstruction('li', '$t0', self.while_var)]
+        else:
+            arg1 = self.get_register_or_value(self.while_var)
+            a = []
 
         # At end of statements, jump back to condition checking
         self.end_if_block.add_end_branch(self.condition_label)
@@ -875,7 +900,7 @@ class ICWhileDo(IC):
         end_while_label = self.context.new_label(suffix='end_while')
         self.next_block.add_start_label(end_while_label)
 
-        return [AsmInstruction('beqz', arg1, end_while_label, comment=str(self))]
+        return a + [AsmInstruction('beqz', arg1, end_while_label, comment=str(self))]
 
     def __str__(self):
         return "while %s do..." % (self.while_var)
@@ -935,7 +960,7 @@ class ICContextBasicBlock(object):
                     visited.add(c)
                 else:
                     continue
-                if len(c.instructions) < 1:
+                if len(c.instructions) == 0:
                     for x in c.follow:
                         if x not in visited:
                             candidates.append(x)
@@ -944,8 +969,7 @@ class ICContextBasicBlock(object):
 
             # Then loop through its follows
             for follow in follower_blocks:
-                if len(follow.instructions) >= 1:
-                    changed = changed or self.instructions[-1].update_variable_sets(next_ic=follow.instructions[0])
+                changed = changed or self.instructions[-1].update_variable_sets(next_ic=follow.instructions[0])
             # Bottom up, update in's and out's, using next statement
             for i in xrange(len(self.instructions) - 2, -1, -1):
                 changed = changed or self.instructions[i].update_variable_sets(
@@ -967,8 +991,9 @@ class ICContextBasicBlock(object):
         s = ''
         for x in self.instructions:
             line = '%s' % x
-            line = '%s%s\n' % (line, ' ' * (15 - len(line)))
-            #line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            line = '%s%s' % (line, ' ' * (20 - len(line)))
+            line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            # line = '%sOut: %s  Def: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['defined']])
             s += line
             #s += '%s\t%s\n' % (x, x.liveliness['out'])
         return s
@@ -985,7 +1010,6 @@ class ICContext(object):
         '$s6': '#00CC00',
         '$s7': '#D2006B',
         '$s8': '#574DD8',
-        # '$s9': '#B7F200'
     }
     ALL_TEMP_REGS = set(TEMP_REGS.keys())
 
@@ -998,6 +1022,7 @@ class ICContext(object):
         self.counter = 0
         self.liveliness_graph = UndirectedGraph()
         self.variable_usage = {}
+        self.spilled_variables = set()
         self.stack_pointer = 0
 
     def new_block(self, auto_follow=True):
@@ -1046,7 +1071,6 @@ class ICContext(object):
         name = '@%s' % self.counter
         self.counter += 1
         return Variable(name)
-
 
     def new_stack_var(self):
         """Return the next available stack location: rounded to 4
@@ -1113,7 +1137,7 @@ class ICContext(object):
         # if ssa:
             # self.update_ssa()
         self.mipsify()
-        self.update_liveliness()
+        # self.update_liveliness()
         # Keep looping until we allocated
         # will loop multiple times if not enough registers and we spill
         allocated = False
@@ -1167,30 +1191,6 @@ class ICContext(object):
                         ins.arg2 = a
                         ins.add_used(a)
                         i += 1
-                if isinstance(ins, ICIf) and isinstance(ins.if_var, Integer):
-                    a = self.new_var()
-                    block.instructions.insert(i, ICAssign(a, ins.if_var))
-                    ins.if_var = a
-                    ins.add_used(a)
-                    i += 1
-                if isinstance(ins, ICWhileDo) and isinstance(ins.while_var, Integer):
-                    a = self.new_var()
-                    block.instructions.insert(i, ICAssign(a, ins.while_var))
-                    ins.while_var = a
-                    ins.add_used(a)
-                    i += 1
-                if isinstance(ins, ICDoWhile) and isinstance(ins.while_var, Integer):
-                    a = self.new_var()
-                    block.instructions.insert(i, ICAssign(a, ins.while_var))
-                    ins.while_var = a
-                    ins.add_used(a)
-                    i += 1
-                if isinstance(ins, ICFor) and isinstance(ins.cond_var, Integer):
-                    a = self.new_var()
-                    block.instructions.insert(i, ICAssign(a, ins.cond_var))
-                    ins.cond_var = a
-                    ins.add_used(a)
-                    i += 1
                 i += 1
 
     def update_liveliness(self):
@@ -1265,8 +1265,24 @@ class ICContext(object):
                 # Find the node which has the
                 # highest degree - amount of times used
                 # get its value, or 0, not used
-                node = max(graph.nodes(),
+                nodes = sorted(graph.nodes(),
                     key=lambda x: graph.degree(x) - self.variable_usage.get(x, 0))
+                node = None
+                for n in nodes:
+                    if n not in self.spilled_variables:
+                        node = n
+                        break
+                if node is None:
+                    # Shit nothing else to spill right now
+                    # So select one that hasnt been spilled yet
+                    all_nodes = set([x[0] for x in stack] + [x for x in graph.nodes()])
+                    possible_nodes = all_nodes.difference(self.spilled_variables)
+                    if len(possible_nodes) == 0:
+                        raise RuntimeError('Already spilled all the variables!')
+                    node = max(possible_nodes,
+                        key=lambda x: self.variable_usage.get(x, 0))
+                    self.spill_variable(node)
+                    return False
                 stack.append((node, graph.remove_node(node)))
         # Now add back the nodes
         while len(stack) != 0:
@@ -1306,25 +1322,32 @@ class ICContext(object):
         var - variable to be spilled
 
         """
+        self.spilled_variables.add(var)
         stack_counter = self.new_stack_var()
         for block in self.blocks:
             i = 0
             while i < len(block.instructions):
                 ins = block.instructions[i]
-                if (isinstance(ins, ICAssign) or isinstance(ins, ICAllocMemory)) and var in ins.liveliness['defined']:
+                # If its being defined now
+                if var in ins.liveliness['defined']:
+                    # Its also used, so restore it
                     if var in ins.liveliness['used']:
                         # Restore before instruction
-                        block.instructions.insert(i, ICLoadWord(var,
-                            base=Variable('@stack'), offset=Integer(stack_counter)))
+                        load = ICLoadWord(var, base=Variable('@stack'), offset=Integer(stack_counter))
+                        load.set_context(self, block)
+                        block.instructions.insert(i, load)   
                         i += 1
-                    block.instructions.insert(i + 1, ICStoreWord(var,
-                        base=Variable('@stack'), offset=Integer(stack_counter)))
+                    # Now save it back again
+                    store = ICStoreWord(var, base=Variable('@stack'), offset=Integer(stack_counter))
+                    store.set_context(self, block)
+                    block.instructions.insert(i + 1, store)
                     i += 2
                     continue
+                # Restore before instruction
                 elif var in ins.liveliness['used']:
-                    # Restore before instruction
-                    block.instructions.insert(i, ICLoadWord(var,
-                        base=Variable('@stack'), offset=Integer(stack_counter)))
+                    load = ICLoadWord(var, base=Variable('@stack'), offset=Integer(stack_counter))
+                    load.set_context(self, block)
+                    block.instructions.insert(i, load)
                     i += 2
                     continue
                 else:
@@ -1358,13 +1381,6 @@ class ICContext(object):
                 if len(follow.follow) == 0:
                     graph.add_node(b, style='filled', color='#DB2929')
                 graph.add_edge(a, b)
-
-        # graph.node_attr['style'] = 'filled'
-        # for node in self.nodes():
-            # graph.add_node(node, fillcolor=self.node_colors[node])
-        # for nodeA in self.edges:
-            # for nodeB in self.edges[nodeA]:
-                # graph.add_edge(nodeA, nodeB)
         graph.draw('%s_basic_blocks.png' % program_name, prog='dot')
 
     def __str__(self):

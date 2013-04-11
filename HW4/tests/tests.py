@@ -117,7 +117,7 @@ def test_boolean_logic():
 @pre_entry
 def test_if():
     """if/then/else"""
-    compile_and_run('if', [1, 1, 1, 2, 2, 0, 1, 1, 1, 1, 2, 2])
+    compile_and_run('if', [1, 1, 1, 2, 2, 0, 1, 1, 1, 1, 2, 2, 0, 0])
 
 
 @pre_entry

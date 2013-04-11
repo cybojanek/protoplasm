@@ -53,3 +53,9 @@ if !(a && b) == (!a || !b) then print(c);
 
 // print 2
 if (a && b) != (!a || !b) then print(c);
+
+// print 0
+if(true) then print(0);
+
+// print 0
+if(false) then print(1); else print(0);
