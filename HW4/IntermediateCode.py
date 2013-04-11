@@ -582,7 +582,7 @@ class ICAllocMemory(IC):
 
     def __init__(self, dest, length):
         super(ICAllocMemory, self).__init__()
-        if not(isinstance(dest, Variable)):
+        if not(isinstance(dest, Variable) or isinstance(dest, Integer)):
             raise ValueError("Bad memory allocation dest")
         if not(isinstance(length, Variable) or isinstance(length, Integer)):
             raise ValueError("Bad memory allocation len")
@@ -605,10 +605,9 @@ class ICAllocMemory(IC):
         pass
 
     def generate_assembly(self):
-        dest = self.get_register_or_value(self.dest)
+        asm, dest = self.register_or_tmp(self.dest, "$t1")
         length = self.get_register_or_value(self.length)
 
-        asm = []
         if isinstance(self.length, Integer):
             # li Rd, Imm    Rd = Imm
             asm.append(AsmInstruction('li', '$a0', (length+1)*4, comment=str(self)))
@@ -794,7 +793,7 @@ class ICStoreWord(IC):
         else:
             asm, arg1 = self.register_or_tmp(self.src, "$t3")
             arg2 = ''
-            
+
             if isinstance(self.base, Label) and isinstance(self.offset, Variable):
                 # base is label and offset is register
                 arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))

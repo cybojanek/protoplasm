@@ -827,12 +827,8 @@ class ASTAlloc(ASTNode):
         size = icc.pop_var();
         
         icc.add_instruction(ICAllocMemory(var, size))
-        if isinstance(size, Variable):
-           icc.add_instruction(ICStoreWord(size, var, Integer(0)))
-        else:
-            tmp = icc.new_var()
-            icc.add_instruction(ICAssign(tmp, size))
-            icc.add_instruction(ICStoreWord(tmp, var, Integer(0)))
+
+        icc.add_instruction(ICStoreWord(size, var, Integer(0)))
 
         icc.push_var(var);
 
