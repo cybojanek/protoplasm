@@ -819,7 +819,7 @@ class ASTAlloc(ASTNode):
         size = icc.pop_var();
 
         icc.add_instruction(ICAllocMemory(var, size))
-        icc.add_instruction(ICStoreWord(size, var, Integer(4)))
+        icc.add_instruction(ICStoreWord(size, var, Integer(0)))
         icc.push_var(var);
 
     def to_stack(self):

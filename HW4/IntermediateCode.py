@@ -604,7 +604,7 @@ class ICAllocMemory(IC):
 
             # Add one word to the the length, and multiply by 4
             asm.append(AsmInstruction('addi', '$a0', '$a0', 1, comment=str(self)))
-            asm.append(AsmInstruction('srl', '$a0', '$a0', 2, comment=str(self)))
+            asm.append(AsmInstruction('sll', '$a0', '$a0', 2, comment=str(self)))
 
         # li Rd, Imm    Rd = Imm
         # syscall
