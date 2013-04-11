@@ -998,6 +998,62 @@ class ASTUnaryOp(ASTNode):
         return '%s: %s' % (self.type, self.value)
 
 
+
+class ASTPrePostIncrement(ASTNode):
+    COLOR = NODE_COLORS['ASTUnaryOp']
+    PRE = 0
+    POST = 1
+
+    def __init__(self, p, value, mytype, direction):
+        """AST unary operator (ie, -, ~).
+        Throws TypeError if type not in ASTUnaryOp.TYPES
+
+        Arguments:
+        p - pyl parser object
+        value - ASTNode to use op on
+        type - ++ or --
+        direction - 0 = pre (++i);
+                    1 = post (i++);
+        """
+        self.p = p
+        self.value = value
+        self.type = mytype[0]
+        self.direction = direction
+
+        if self.type not in ("+", "-"):
+            raise TypeError('Increment operation: %s not supported' % self.type)
+        if self.direction not in (self.PRE, self.POST):
+            raise TypeError('Increment operation: %s not supported' % self.type)
+
+
+    def wellformed(self, astc):
+        return self.value.wellformed(astc)
+
+    def gencode(self, icc):
+        new_var = icc.new_var()
+        orig_var = icc.pop_var();
+
+        icc.add_instruction(ICAssign(new_var, orig_var))
+        icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.type))
+
+        if self.direction == self.PRE:
+            icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.type))
+
+        icc.push_var(new_var)
+
+    def to_stack(self):
+        return [self] + self.value.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, self.type)
+        graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return '%s%s' % (self.value, self.type)
+
+
 class ASTVariable(ASTNode):
     COLOR = NODE_COLORS['ASTVariable']
 

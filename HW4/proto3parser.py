@@ -141,9 +141,10 @@ def p_se_increment(p):
           | lhs MINUSMINUS
           | PLUSPLUS lhs
           | MINUSMINUS lhs'''
-          
-    raise NotImplementedError("Fix it")
-
+    if p[2] in ("++", "--"):
+        p[0] = ASTPrePostIncrement(p, p[1], p[2], 1);
+    elif p[1] in ("++", "--"):
+        p[0] = ASTPrePostIncrement(p, p[2], p[1], 0);
 
 def p_lhs(p):
     '''lhs : ID
