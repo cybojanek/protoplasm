@@ -1206,7 +1206,7 @@ class ICContext(object):
                 # Find the node which has the
                 # highest degree - amount of times used
                 node = max(graph.nodes(),
-                    key=lambda x: graph.degree(x) - self.variable_usage[x])
+                    key=lambda x: graph.degree(x) - (self.variable_usage[x] if x in self.variable_usage else 0))
                 stack.append((node, graph.remove_node(node)))
         # Now add back the nodes
         while len(stack) != 0:
