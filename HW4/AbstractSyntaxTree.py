@@ -18,6 +18,7 @@ NODE_COLORS = {
     'ASTUnaryOp': '#FFFFFF',
     'ASTVariable': '#4380D3',
     'ASTWhileDo': '#009999',
+    'ASTArray': '#fff'
 }
 
 
@@ -203,7 +204,7 @@ class ASTAssign(ASTNode):
 
     def wellformed(self, astc):
         if not self.right.wellformed(astc):
-            return False
+           return False
         if self.left.value in astc.rename:
             self.left.value = astc.rename[self.left.value]
         if self.left.value not in astc.declared:
@@ -214,9 +215,15 @@ class ASTAssign(ASTNode):
         return True
 
     def gencode(self, icc):
-        dest = Variable(self.left.value)
-        icc.add_instruction(ICAssign(dest, icc.pop_var()))
-        icc.push_var(dest)
+        if isinstance(self.left, ASTVariable):
+            dest = Variable(self.left.value)
+            icc.add_instruction(ICAssign(dest, icc.pop_var()))
+            icc.push_var(dest)
+        else:
+            dest = Variable(self.left.value)
+            icc.add_instruction(ICAssign(dest, icc.pop_var()))
+            icc.push_var(dest)
+
 
     def to_stack(self):
         return [self] + self.right.to_stack()
@@ -412,16 +419,18 @@ class ASTDeclareList(ASTNode):
 class ASTDeclareVariable(ASTNode):
     COLOR = NODE_COLORS['ASTDeclareVariable']
 
-    def __init__(self, p, value):
+    def __init__(self, p, value, dimensions):
         """AST variable
 
         Arguments:
         p - pyl parser object
         value - name of variable
+        dimensions - number of dimensions
 
         """
         self.p = p
         self.value = value
+        self.dimensions = dimensions
 
     def wellformed(self, astc):
         if self.value not in astc.declared:
@@ -440,7 +449,7 @@ class ASTDeclareVariable(ASTNode):
         return [self]
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.value)
+        name = "%s\n%s[%dd]" % (counter, self.value, self.dimensions)
         graph.add_node(name, fillcolor=ASTDeclareVariable.COLOR)
         graph.add_edge(parent, name)
         return counter
@@ -788,6 +797,90 @@ class ASTInteger(ASTNode):
         return 'INTEGER: %s' % self.value
 
 
+class ASTAlloc(ASTNode):
+    COLOR = NODE_COLORS['ASTInteger']
+
+    def __init__(self, p, size):
+        """AST integer
+
+        Argumets:
+        p - pyl parser object
+        size - size of array
+
+        """
+        self.p = p
+        self.size = size
+
+    def wellformed(self, astc):
+        return self.size.wellformed(astc);
+
+    def gencode(self, icc):
+        var = icc.new_var();
+        size = icc.pop_var();
+
+        icc.add_instruction(ICAllocMemory(var, size))
+        icc.add_instruction(ICStoreWord(size, var, Integer(4)))
+        icc.push_var(var);
+
+    def to_stack(self):
+        return [self] + [self.size]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\nalloc(%s)" % (counter, self.size)
+        graph.add_node(name, fillcolor=ASTInteger.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'ALLOC: %s' % self.size
+
+class ASTArrayLValue(ASTNode):
+    COLOR = NODE_COLORS['ASTVariable']
+
+    def __init__(self, p, value, element):
+        """AST variable
+
+        Arguments:
+        p - pyl parser object
+        value - name of variable
+
+        """
+        self.p = p
+        self.value = value
+        self.element = element
+
+    def wellformed(self, astc):
+        if self.value in astc.rename:
+            self.value = astc.rename[self.value]
+        if self.value in astc.declared and self.value not in astc.defined:
+            print '%s declared but used before definition!' % (self.value)
+            return False
+        elif self.value not in astc.declared:
+            print '%s not declared!' % (self.value)
+            return False
+        elif self.value not in astc.defined:
+            print '%s declared but not defined!' % (self.value)
+            return False
+        astc.used.add(self.value)
+        return True
+
+    def gencode(self, icc):
+        icc.push_var(Variable(self.value))
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s[%s]" % (counter, self.value, self.element)
+        graph.add_node(name, fillcolor=ASTVariable.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'LVALUE: %s[%s]' % self.value, self.element
+
+
+
 class ASTPrint(ASTNode):
     COLOR = NODE_COLORS['ASTPrint']
 
@@ -898,7 +991,7 @@ class ASTUnaryOp(ASTNode):
 class ASTVariable(ASTNode):
     COLOR = NODE_COLORS['ASTVariable']
 
-    def __init__(self, p, value):
+    def __init__(self, p, value, dimensions=0):
         """AST variable
 
         Arguments:
@@ -908,6 +1001,7 @@ class ASTVariable(ASTNode):
         """
         self.p = p
         self.value = value
+        self.dimensions = dimensions
 
     def wellformed(self, astc):
         if self.value in astc.rename:
@@ -938,6 +1032,7 @@ class ASTVariable(ASTNode):
 
     def __str__(self):
         return 'ID: %s' % self.value
+
 
 
 class ASTWhileDo(ASTNode):

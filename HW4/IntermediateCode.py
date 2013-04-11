@@ -15,6 +15,21 @@ class Variable(object):
     def __hash__(self):
         return hash(self.name)
 
+    def as_pointer(self):
+        return PointerVar(self.name)
+
+class PointerVar(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return hash(self.name)
 
 class Integer(object):
     def __init__(self, value):
@@ -42,7 +57,6 @@ class Label(object):
 
     def __hash__(self):
         return hash(self.name)
-
 
 class IC(object):
     # Constant registers
@@ -190,7 +204,7 @@ class ICAssign(IC):
     def __init__(self, dest, arg1):
         super(ICAssign, self).__init__()
         if not(isinstance(dest, Variable)and (isinstance(arg1, Variable) or
-               isinstance(arg1, Integer))):
+               isinstance(arg1, Integer) or isinstance(arg1, Alloc))):
             raise ValueError("Unsupported Assignment")
         self.dest = dest
         self.arg1 = arg1
@@ -548,6 +562,63 @@ class ICLoadWord(IC):
     def __str__(self):
         return "%s = %s[%s]" % (self.dest, self.base, self.offset)
 
+class ICAllocMemory(IC):
+    """Allocate memory 
+    """
+
+    def __init__(self, dest, length):
+        super(ICAllocMemory, self).__init__()
+        if not(isinstance(dest, Variable)):
+            raise ValueError("Bad memory allocation dest")
+        if not(isinstance(length, Variable) or isinstance(length, Integer)):
+            raise ValueError("Bad memory allocation len")
+        self.dest = dest
+        self.length = length
+        self.add_used(dest)
+        self.add_used(length)
+
+    def rename_used(self, old, new):
+        if self.dest == old:
+            self.remove_used(self.dest)
+            self.dest = new
+            self.add_used(self.dest)
+        if self.length == old:
+            self.remove_used(self.length)
+            self.length = new
+            self.add_used(self.length)
+
+    def rename_defined(self, old, new):
+        pass
+
+    def generate_assembly(self):
+        dest = self.get_register_or_value(self.dest)
+        length = self.get_register_or_value(self.length)
+
+        asm = []
+        if isinstance(self.length, Integer):
+            # li Rd, Imm    Rd = Imm
+            asm.append(AsmInstruction('li', '$a0', (length+1)*4, comment=str(self)))
+        else:
+            # move Rd, Rs   Rd = Rs
+            asm.append(AsmInstruction('move', '$a0', length, comment=str(self)))
+
+            # Add one word to the the length, and multiply by 4
+            asm.append(AsmInstruction('addi', '$a0', '$a0', 1, comment=str(self)))
+            asm.append(AsmInstruction('srl', '$a0', '$a0', 2, comment=str(self)))
+
+        # li Rd, Imm    Rd = Imm
+        # syscall
+        asm.append(AsmInstruction('li', '$v0', 9))
+        asm.append(AsmInstruction('syscall'))
+
+        # move Rd, Rs   Rd = Rs
+        asm.append(AsmInstruction('move', dest, "$v0", comment=str(self)))
+
+        return asm
+
+    def __str__(self):
+        return "%s = AllocMemory(%s)" % (self.dest, str(self.length))
+
 
 class ICPrint(IC):
     """Do a print statement for an integer
@@ -599,7 +670,6 @@ class ICStoreWord(IC):
         """
         Arguments:
         src - variable name (register)
-        dest - variable name (register)
 
         Keyword Arguments:
         base - label or variable
@@ -668,7 +738,7 @@ class ICStoreWord(IC):
         return [AsmInstruction('sw', arg1, arg2, comment=str(self))]
 
     def __str__(self):
-        return "%s[%s] = %s" % (self.base, self.offset, self.src)
+        return "*(%s+%s) = %s" % (self.base, self.offset, self.src)
 
 
 class ICUnaryOp(IC):
@@ -933,6 +1003,7 @@ class ICContext(object):
         name = '@%s' % self.counter
         self.counter += 1
         return Variable(name)
+
 
     def new_stack_var(self):
         """Return the next available stack location: rounded to 4

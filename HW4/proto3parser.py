@@ -128,7 +128,7 @@ def p_varlist(p):
 def p_var(p):
     '''var : ID dimstar'''
     # For now ignore brackets in dimstar
-    p[0] = ASTDeclareVariable(p, p[1])
+    p[0] = ASTDeclareVariable(p, p[1], (p[2] if p[2] else 0))
 
 
 def p_se_assign(p):
@@ -149,6 +149,8 @@ def p_lhs(p):
            | lhs LBRACE ae RBRACE'''
     if len(p) == 2:
         p[0] = ASTVariable(p, p[1])
+    elif len(p) == 5:
+        p[0] = ASTArrayLValue(p, p[1].value, p[3])
     else:
         raise NotImplementedError("Fix it")
 
@@ -219,21 +221,20 @@ def p_ae_false(p):
 
 def p_ae_array(p):
     '''ae : NEW type dimexpr dimstar'''
-    raise NotImplementedError("Fix it")
+    p[0] = ASTAlloc(p, p[3]);
 
 
 def p_dimexpr(p):
     '''dimexpr : LBRACE ae RBRACE'''
-    raise NotImplementedError("Fix it")
+    p[0] = p[2];
 
 
 def p_dimstar_d(p):
     '''dimstar : LBRACE RBRACE dimstar
                | empty'''
-    if len(p) == 4:
-        raise NotImplementedError("Fix it")
-    else:
-        pass
+    if len(p) == 4:  # Count how many dimensions
+        p[0] = 1 + (p[3] if p[3] else 0);
+    pass
 
 
 # def p_f_id(p):
