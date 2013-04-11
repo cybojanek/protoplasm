@@ -117,6 +117,18 @@ class IC(object):
         else:
             return self.register_map[variable]
 
+    def register_or_tmp(self, variable, tmp_reg):
+        if isinstance(variable, Variable): 
+            return [], self.get_register_or_value(variable);
+        else:
+            return [AsmInstruction("li", tmp_reg, self.get_register_or_value(variable))], tmp_reg
+
+    def to_tmp(self, variable, tmp_reg):
+        if isinstance(variable, Variable): 
+            return [AsmInstruction("move", tmp_reg, self.get_register_or_value(variable))], tmp_reg
+        else:
+            return [AsmInstruction("li", tmp_reg, self.get_register_or_value(variable))], tmp_reg
+
     def add_used(self, variable):
         """Add a variable that is used. Automatically filters out Integers
         and compiler constants defined in REGISTER_CONSTANTS
@@ -474,7 +486,7 @@ class ICInput(IC):
 class ICLoadWord(IC):
     """Load a word
     """
-    def __init__(self, dest, base=None, offset=None):
+    def __init__(self, dest, base=None, offset=None, elem=None):
         """
         Arguments:
         dest - variable name (register)
@@ -491,6 +503,9 @@ class ICLoadWord(IC):
         if not(isinstance(dest, Variable)):
             raise ValueError("Unsupported load")
         # Check base
+
+        if isinstance(elem, Variable):
+            self.add_used(elem)
 
         if isinstance(base, Label) and isinstance(offset, Variable):
             # base is label and offset is register
@@ -509,6 +524,7 @@ class ICLoadWord(IC):
         self.dest = dest
         self.base = base
         self.offset = offset
+        self.elem = elem
         self.add_defined(dest)
 
     def rename_used(self, old, new):
@@ -528,22 +544,34 @@ class ICLoadWord(IC):
             self.add_defined(new)
 
     def generate_assembly(self):
-        arg1 = self.get_register_or_value(self.dest)
-        arg2 = ''
-        if isinstance(self.base, Label) and isinstance(self.offset, Variable):
-            # base is label and offset is register
-            arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
-        elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
-            # base is register and offset is integer
-            arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
-        elif isinstance(self.base, Label):
-            # base is label
-            arg2 = '%s'
-        elif isinstance(self.offset, Variable):
-            # offset is register
-            arg2 = '(%s)' % (self.get_register_or_value(self.offset))
+        if self.elem:
+             asm1, elem = self.to_tmp(self.elem, "$t0")
+             asm2, base = self.to_tmp(self.base, "$t1")
+             dest = self.get_register_or_value(self.dest)
+             asm = asm1+asm2
+             asm.append(AsmInstruction("addi", elem, elem, "1"))
+             asm.append(AsmInstruction("sll", elem, elem, "2"))
+             asm.append(AsmInstruction("add", elem, elem, base))
+             asm.append(AsmInstruction("lw", dest, "("+elem+")", comment=str(self)))
+             return asm
+        else:
+            arg1 = self.get_register_or_value(self.dest)
+            arg2 = ''
 
-        return [AsmInstruction('lw', arg1, arg2, comment=str(self))]
+            if isinstance(self.base, Label) and isinstance(self.offset, Variable):
+                # base is label and offset is register
+                arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
+            elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
+                # base is register and offset is integer
+                arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
+            elif isinstance(self.base, Label):
+                # base is label
+                arg2 = '%s'
+            elif isinstance(self.offset, Variable):
+                # offset is register
+                arg2 = '(%s)' % (self.get_register_or_value(self.offset))
+
+            return [AsmInstruction('lw', arg1, arg2, comment=str(self))]
 
     def __str__(self):
         return "%s = %s[%s]" % (self.dest, self.base, self.offset)
@@ -654,26 +682,17 @@ class ICBoundCheck(IC):
     """Do a print statement for an integer
     """
 
-    def __init__(self, size, base, elem):
+    def __init__(self, base, elem):
         super(ICBoundCheck, self).__init__()
-        if not(isinstance(size, Variable) and isinstance(base, Variable) 
-            and isinstance(elem, Variable)):
+        if not(isinstance(base, Variable)):
             raise ValueError("Unsupported bound check operation")
-        self.size = size
         self.base = base
         self.elem = elem
 
-        self.add_defined(size)
-        self.add_used(size)
         self.add_used(base)
         self.add_used(elem)
-        self.add_used(size)
 
     def rename_used(self, old, new):
-        if self.size == old:
-            self.remove_used(self.size)
-            self.size = new
-            self.add_used(self.size)
         if self.base == old:
             self.remove_used(self.base)
             self.base = new
@@ -684,33 +703,26 @@ class ICBoundCheck(IC):
             self.add_used(self.elem)       
 
     def rename_defined(self, old, new):
-        if self.size == old:
-            self.remove_used(self.size)
-            self.size = new
-            self.add_used(self.size)
+        pass
 
     def generate_assembly(self):
-        print self.size, self.elem
-
-        size = self.get_register_or_value(self.size)
         base = self.get_register_or_value(self.base)
-        elem = self.get_register_or_value(self.elem)
-        print size, elem
+        asm, elem = self.register_or_tmp(self.elem, "$t1")
 
-        asm = []
-        asm.append(AsmInstruction('lw', size, "0("+base+")", comment=str(self)))
-        asm.append(AsmInstruction('bge', elem, size, "exc_oob", comment=str(self)))
+        asm.append(AsmInstruction('lw', "$t0", "0("+base+")", comment=str(self)))
+        asm.append(AsmInstruction('bge', elem, "$t0", "exc_oob", comment=str(self)))
+
         return asm
 
     def __str__(self):
-        return "%s = array_bound_check(%s, %s)" % (self.size, self.base, self.elem)
+        return "array_bound_check(%s, %s)" % (self.base, self.elem)
 
 
 
 class ICStoreWord(IC):
     """Store a word
     """
-    def __init__(self, src, base=None, offset=None):
+    def __init__(self, src, base=None, offset=None, elem=None):
         """
         Arguments:
         src - variable name (register)
@@ -724,9 +736,9 @@ class ICStoreWord(IC):
 
         """
         super(ICStoreWord, self).__init__()
-        if not(isinstance(src, Variable)):
-            raise ValueError("Unsupported storage")
-        # Check base
+
+        if isinstance(elem, Variable):
+            self.add_used(elem)
 
         if isinstance(base, Label) and isinstance(offset, Variable):
             # base is label and offset is register
@@ -742,9 +754,11 @@ class ICStoreWord(IC):
             self.add_used(offset)
         else:
             raise ValueError("Unsupported storage base/offset: %s, %s" % (base, offset))
+
         self.src = src
         self.base = base
         self.offset = offset
+        self.elem = elem
         self.add_used(src)
 
     def rename_used(self, old, new):
@@ -765,21 +779,35 @@ class ICStoreWord(IC):
         pass
 
     def generate_assembly(self):
-        arg1 = self.get_register_or_value(self.src)
-        arg2 = ''
-        if isinstance(self.base, Label) and isinstance(self.offset, Variable):
-            # base is label and offset is register
-            arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
-        elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
-            # base is register and offset is integer
-            arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
-        elif isinstance(self.base, Label):
-            # base is label
-            arg2 = '%s'
-        elif isinstance(self.offset, Variable):
-            # offset is register
-            arg2 = '(%s)' % (self.get_register_or_value(self.offset))
-        return [AsmInstruction('sw', arg1, arg2, comment=str(self))]
+        if self.elem:
+            asm1, addr = self.to_tmp(self.elem, "$t0")
+            asm2, arg1 = self.to_tmp(self.src, "$t1")
+            asm3, base = self.to_tmp(self.base, "$t3")
+
+            asm = asm1+asm2+asm3
+            asm.append(AsmInstruction("addi", addr, addr, "1"))
+            asm.append(AsmInstruction("sll", addr, addr, "2"))
+            asm.append(AsmInstruction("add", addr, base, addr))
+
+            return asm+[AsmInstruction('sw', arg1, "("+addr+")", comment=str(self))]
+
+        else:
+            asm, arg1 = self.register_or_tmp(self.src, "$t3")
+            arg2 = ''
+            
+            if isinstance(self.base, Label) and isinstance(self.offset, Variable):
+                # base is label and offset is register
+                arg2 = '%s(%s)' % (self.base, self.get_register_or_value(self.offset))
+            elif isinstance(self.base, Variable) and isinstance(self.offset, Integer):
+                # base is register and offset is integer
+                arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
+            elif isinstance(self.base, Label):
+                # base is label
+                arg2 = '%s'
+            elif isinstance(self.offset, Variable):
+                # offset is register
+                arg2 = '(%s)' % (self.get_register_or_value(self.offset))
+            return asm+[AsmInstruction('sw', arg1, arg2, comment=str(self))]
 
     def __str__(self):
         return "*(%s+%s) = %s" % (self.base, self.offset, self.src)
@@ -985,7 +1013,7 @@ class ICContext(object):
         '$s5': '#008500',
         '$s6': '#00CC00',
         '$s7': '#D2006B',
-        '$s8': '#574DD8',
+        # '$s8': '#574DD8',
         # '$s9': '#B7F200'
     }
     ALL_TEMP_REGS = set(TEMP_REGS.keys())

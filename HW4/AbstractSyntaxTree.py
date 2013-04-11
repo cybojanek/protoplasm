@@ -232,20 +232,15 @@ class ASTAssign(ASTNode):
             #base = icc.pop_var()     # destination base addr
             #elem = icc.pop_var()     # array element number
 
-            tmpaddress = icc.new_var()
-            icc.add_instruction(ICAssign(tmpaddress, rvalue._elem))
-            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
-            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
-            icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, rvalue._base, "+"))
+            #tmpaddress = icc.new_var()
+            #icc.add_instruction(ICAssign(tmpaddress, rvalue._elem))
+            #icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
+            #icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
+            #icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, rvalue._base, "+"))
 
-            if not isinstance(src, ASTVariable):
-                val = icc.new_var()
-                icc.add_instruction(ICAssign(val, src))
-                icc.add_instruction(ICStoreWord(val, tmpaddress, Integer(0)))
-                icc.push_var(val)
-            else: 
-                icc.add_instruction(ICStoreWord(src, tmpaddress, Integer(0)))
-                icc.push_var(src)
+            icc.add_instruction(ICStoreWord(src, rvalue._base, Integer(0), rvalue._elem))
+
+            icc.push_var(src)
 
 
             #icc.push_var(dest)
@@ -889,33 +884,23 @@ class ASTArray(ASTNode):
         return self.value.wellformed(astc);
 
     def gencode(self, icc):
+
         base = icc.pop_var()     # destination base addr
         elem = icc.pop_var()     # array element number
-        print base,elem
 
-        tmpaddress = icc.new_var()
-        array_size = icc.new_var()
+        #icc.add_instruction(ICBoundCheck(base, elem))
 
-        if isinstance(elem, Variable):
-           icc.add_instruction(ICBoundCheck(array_size, base, elem))
-        else:
-           req_elem = icc.new_var()
-           icc.add_instruction(ICAssign(req_elem, elem))
-           icc.add_instruction(ICBoundCheck(array_size, base, req_elem))
-
-        icc.add_instruction(ICAssign(tmpaddress, elem))
-        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
-        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
-        icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, base, "+"))
+        #icc.add_instruction(ICAssign(tmpaddress, elem))
+        #icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
+        #icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
+        #icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, base, "+"))
 
         val = icc.new_var()
-
-        icc.add_instruction(ICLoadWord(val, tmpaddress, Integer(0)))
+        icc.add_instruction(ICLoadWord(val, base, Integer(0), elem))
 
         val.is_pointer = True;
         val._elem = elem;
         val._base = base; 
-        val._size = array_size;     
         icc.push_var(val);
 
     def to_stack(self):
