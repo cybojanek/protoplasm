@@ -756,8 +756,6 @@ class ICStoreWord(IC):
 
         """
         super(ICStoreWord, self).__init__()
-        if not(isinstance(src, Variable)):
-            raise ValueError("Unsupported storage")
         if isinstance(elem, Variable):
             self.add_used(elem)
 
