@@ -28,7 +28,13 @@ def write_asm_to_file(program_name, asm):
 
     """
     out = open('%s.asm' % program_name, 'w')
+    out.write('.data\n')
+    out.write('out_of_bounds: .asciiz "Proto Runtime Error: Attempt to access array out of bounds.\\n"\n')
     out.write('.text\n')
+    out.write('# Exception handler\n');
+    out.write('exc_oob:\nli $v0, 4\nla $a0, out_of_bounds\nsyscall\n')
+    out.write('li $a0, -1\nli $v0, 10\nsyscall\n')
+    out.write("# Main code\n")
     out.write('main:\n')
     for a in asm:
         out.write('%s\n' % a)

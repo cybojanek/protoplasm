@@ -5,6 +5,7 @@ from ASMCode import AsmInstruction
 class Variable(object):
     def __init__(self, value):
         self.value = value
+        self.is_pointer = False
 
     def __str__(self):
         return self.value
@@ -14,10 +15,6 @@ class Variable(object):
 
     def __hash__(self):
         return hash(self.value)
-
-    def as_pointer(self):
-        return PointerVar(self.value)
-
 
 class Integer(object):
     def __init__(self, value):
@@ -545,6 +542,7 @@ class ICLoadWord(IC):
         elif isinstance(self.offset, Variable):
             # offset is register
             arg2 = '(%s)' % (self.get_register_or_value(self.offset))
+
         return [AsmInstruction('lw', arg1, arg2, comment=str(self))]
 
     def __str__(self):
@@ -649,6 +647,62 @@ class ICPrint(IC):
 
     def __str__(self):
         return "print(%s)" % (self.arg1)
+
+
+
+class ICBoundCheck(IC):
+    """Do a print statement for an integer
+    """
+
+    def __init__(self, size, base, elem):
+        super(ICBoundCheck, self).__init__()
+        if not(isinstance(size, Variable) and isinstance(base, Variable) 
+            and isinstance(elem, Variable)):
+            raise ValueError("Unsupported bound check operation")
+        self.size = size
+        self.base = base
+        self.elem = elem
+
+        self.add_defined(size)
+        self.add_used(base)
+        self.add_used(elem)
+
+    def rename_used(self, old, new):
+        if self.size == old:
+            self.remove_used(self.size)
+            self.size = new
+            self.add_used(self.size)
+        if self.base == old:
+            self.remove_used(self.base)
+            self.base = new
+            self.add_used(self.base)
+        if self.elem == old:
+            self.remove_used(self.elem)
+            self.elem = new
+            self.add_used(self.elem)       
+
+    def rename_defined(self, old, new):
+        if self.size == old:
+            self.remove_used(self.size)
+            self.size = new
+            self.add_used(self.size)
+
+    def generate_assembly(self):
+        print self.size, self.elem
+
+        size = self.get_register_or_value(self.size)
+        base = self.get_register_or_value(self.base)
+        elem = self.get_register_or_value(self.elem)
+        print size, elem
+
+        asm = []
+        asm.append(AsmInstruction('lw', size, "0("+base+")", comment=str(self)))
+        asm.append(AsmInstruction('bgt', elem, size, "exc_oob", comment=str(self)))
+        return asm
+
+    def __str__(self):
+        return "%s = array_bound_check(%s, %s)" % (self.size, self.base, self.elem)
+
 
 
 class ICStoreWord(IC):

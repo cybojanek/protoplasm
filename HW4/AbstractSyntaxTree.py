@@ -849,7 +849,13 @@ class ASTAlloc(ASTNode):
         size = icc.pop_var();
         
         icc.add_instruction(ICAllocMemory(var, size))
-        #icc.add_instruction(ICStoreWord(size, var, Integer(0)))
+        if isinstance(size, Variable):
+           icc.add_instruction(ICStoreWord(size, var, Integer(0)))
+        else:
+            tmp = icc.new_var()
+            icc.add_instruction(ICAssign(tmp, size))
+            icc.add_instruction(ICStoreWord(tmp, var, Integer(0)))
+
         icc.push_var(var);
 
     def to_stack(self):
@@ -888,16 +894,28 @@ class ASTArray(ASTNode):
         print base,elem
 
         tmpaddress = icc.new_var()
+        array_size = icc.new_var()
+
+        if isinstance(elem, Variable):
+           icc.add_instruction(ICBoundCheck(array_size, base, elem))
+        else:
+           req_elem = icc.new_var()
+           icc.add_instruction(ICAssign(req_elem, elem))
+           icc.add_instruction(ICBoundCheck(array_size, base, req_elem))
+
         icc.add_instruction(ICAssign(tmpaddress, elem))
         icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(1), "+"))
         icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, Integer(4), "*"))
         icc.add_instruction(ICBinaryOp(tmpaddress, tmpaddress, base, "+"))
 
         val = icc.new_var()
+
         icc.add_instruction(ICLoadWord(val, tmpaddress, Integer(0)))
 
+        val.is_pointer = True;
         val._elem = elem;
-        val._base = base;      
+        val._base = base; 
+        val._size = array_size;     
         icc.push_var(val);
 
     def to_stack(self):
