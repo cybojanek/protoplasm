@@ -664,6 +664,7 @@ class ICBoundCheck(IC):
         self.elem = elem
 
         self.add_defined(size)
+        self.add_used(size)
         self.add_used(base)
         self.add_used(elem)
 
@@ -697,7 +698,7 @@ class ICBoundCheck(IC):
 
         asm = []
         asm.append(AsmInstruction('lw', size, "0("+base+")", comment=str(self)))
-        asm.append(AsmInstruction('bgt', elem, size, "exc_oob", comment=str(self)))
+        asm.append(AsmInstruction('bge', elem, size, "exc_oob", comment=str(self)))
         return asm
 
     def __str__(self):
