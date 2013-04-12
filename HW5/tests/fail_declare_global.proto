@@ -1,0 +1,5 @@
+int a, b;
+a = 0;
+b = 1;
+// c is not declared
+c = 2;

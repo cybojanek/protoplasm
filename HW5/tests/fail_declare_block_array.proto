@@ -1,0 +1,11 @@
+int a;
+a = true;
+if(a) then {
+    int b[];
+    b = new int[1];
+} else {
+    int b[];
+    b = new int[1];
+}
+// b is only declared locally in if then else
+print(b);

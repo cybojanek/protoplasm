@@ -1,0 +1,9 @@
+int a;
+a = 1024;
+print(!a);
+a = -1024;
+print(!a);
+a = 1;
+print(!a);
+a = 0;
+print(!a);

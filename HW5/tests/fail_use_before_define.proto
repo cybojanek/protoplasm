@@ -1,0 +1,5 @@
+int a, b, c;
+a = 0;
+b = 1;
+// c is declared but not defined before use
+print(a + b + c);
