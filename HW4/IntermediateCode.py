@@ -16,6 +16,7 @@ class Variable(object):
     def __hash__(self):
         return hash(self.value)
 
+
 class Integer(object):
     def __init__(self, value):
         self.value = value
@@ -1232,7 +1233,7 @@ class ICContext(object):
             for ins in block.instructions:
                 # Clear up outs and ins
                 ins.liveliness['out'] = set()
-                ins.liveliness['int'] = set()
+                ins.liveliness['in'] = set()
         # Update block liveliness
         # Last statement of each block sets its out to union of all follows
         changed = True

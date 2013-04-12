@@ -141,12 +141,14 @@ def test_spilling():
     compile_and_run('spill_one', [66])
     compile_and_run('spill_five', [120])
     compile_and_run('spill_many', [681])
+    compile_and_run('spill_array', [86, 0, 1, 2, 3, 4])
 
 
 @pre_entry
 def test_cascade():
     """cascade"""
     compile_and_run('cascade', [64, 64, 2])
+    compile_and_run('cascade_array', [1, 1, 1])
 
 
 @pre_entry
@@ -165,13 +167,13 @@ def test_array():
 @pre_entry
 def test_increment():
     """++ --"""
-    compile_and_run('pre_post_increment', [1,0,0,2,2,0,1,0,2,1,0,3,3,1,0,0,1,1,1])
-    compile_and_run('pre_post_array', [0,1,2,3,4,0,5,0,1,2,3,4,1,2,3,4,5,2,3,4,5,6,3,4,5,6,7,4,5,6,7,8,2])
+    compile_and_run('pre_post_increment', [1, 0, 0, 2, 2, 0, 1, 0, 2, 1, 0, 3,
+                    3, 1, 0, 0, 1, 1, 1])
+    compile_and_run('pre_post_array',  [0, 1, 2, 3, 4, 0, 5, 0, 1, 2, 3, 4, 1,
+                    2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 2])
+
 
 @pre_entry
 def test_runtime_error():
     """array bounds"""
-    compile_and_run('runtime_error', [0,"Proto Runtime Error: Attempt to access array out of bounds."])
-
-       
-
+    compile_and_run('runtime_error', [0, "Proto Runtime Error: Attempt to access array out of bounds."])
