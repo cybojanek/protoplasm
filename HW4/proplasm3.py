@@ -32,7 +32,7 @@ def main(args):
         sys.exit(1)
     # Generate three address code
     tac = program.gencode()
-    print tac
+    # print tac
     #print tac
     # for block in tac.blocks:
     #     print '----------\n'

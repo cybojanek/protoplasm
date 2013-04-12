@@ -177,3 +177,15 @@ def test_increment():
 def test_runtime_error():
     """array bounds"""
     compile_and_run('runtime_error', [0, "Proto Runtime Error: Attempt to access array out of bounds."])
+
+
+@pre_entry
+def test_comments():
+    """comments"""
+    compile_and_run('comments', [1])
+
+
+@pre_entry
+def test_empty():
+    """empty"""
+    compile_and_run('empty', [])

@@ -58,7 +58,7 @@ t_COMMA = r','
 
 # Comments
 def t_COMMENT(t):
-    r'//.*\n'
+    r'//.*[\n]?'
     # Increment line number and don't return these tokens
     t.lexer.lineno += t.value.count('\n')
 

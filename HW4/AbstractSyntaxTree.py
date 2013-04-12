@@ -860,6 +860,8 @@ class ASTArray(ASTNode):
         self.element = element
 
     def wellformed(self, astc):
+        if not self.element.wellformed(astc):
+            return False
         return self.value.wellformed(astc);
 
     def gencode(self, icc):
