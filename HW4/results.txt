@@ -1,0 +1,44 @@
+t1: Correct, answer was 52
+t2: Correct, answer was not well-formed
+t3: Correct, answer was 52 42
+t4: Correct, answer was syntax error
+t5: Correct, answer was 0 -420
+t6: Correct, answer was 5 0
+t7: Correct, answer was -18 -330
+t8: Correct, answer was 70
+t9: Correct, answer was syntax error
+t10: Correct, answer was syntax error
+t11: Correct, answer was 528
+t12: Correct, answer was 1
+t13: Correct, answer was 11
+t14: Correct, answer was not well-formed
+t15: Correct, answer was 10
+t16: Correct, answer was 0
+t17: Correct, answer was 42 0
+t18: Correct, answer was 1
+t19: Correct, answer was -30
+t21: Correct, answer was declare-first error
+t22: Wrong, answer was 42 10 10, should be 42 10 42
+t23: Correct, answer was 42
+t24: Correct, answer was 0 1 2
+t25: Correct, answer was 0 1 2
+t26: Correct, answer was 1 2 3 4
+t27: Correct, 'out-of-bounds' error
+t28: Correct, answer was 42 42
+t29: Correct, answer was 42 41
+t30: Correct, answer was 42 41
+t31: Correct, answer was 24 42 42
+t33: Wrong, answer was 0 1 1, should be 1 0 1
+t34: Correct, 'out-of-bounds' error
+
+Syntax Checking  :  3/3
+Static Semantics :  5/5
+For and Do-While loops : 5/5
+Cascaded assignments : 2/2
+Pre/Post Increment/Decrement : 5.5/6
+Arrays : 9/9
+Total : 29.5/30
+
+Comments:
+1. Excellent job! Just minor bug in the pre/post inrement/decrement
+operations (testcase #33)
