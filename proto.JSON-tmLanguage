@@ -26,6 +26,10 @@
       "name": "constant.language.proto",
       "comment": "Built in constants"
     },
+    { "match": "[_a-zA-Z]\\w*",
+      "name": "variable.other.proto",
+      "comment": "Variable names"
+    },
     { "match": "\\d+",
       "name": "constant.numeric.integer.proto",
       "comment": "Integers" 
