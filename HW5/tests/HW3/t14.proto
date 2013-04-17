@@ -1,0 +1,4 @@
+int x, y;
+y = input();
+if y != 42 then x = 0;
+print(x);

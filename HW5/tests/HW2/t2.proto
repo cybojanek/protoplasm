@@ -1,0 +1,4 @@
+int x, y, z;
+x = 42;
+z = x + y;
+print(z);

@@ -1,0 +1,5 @@
+int x;
+x = 0;
+while (x < 10 && 1)
+  do x = x + 1;
+print(x);      

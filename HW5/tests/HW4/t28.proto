@@ -1,0 +1,5 @@
+int x,y;
+x = 41;
+y = ++x;
+print(x);
+print(y);

@@ -1,0 +1,9 @@
+int x,y;
+x = 0;
+y = 0;
+if (x > -42 && y != 10) || (x < 0 && y > 0) // true
+then {
+while x < 42 do x = x + 1; }
+else {print(x); print(y);}
+print(x);
+print(y);

@@ -189,3 +189,70 @@ def test_comments():
 def test_empty():
     """empty"""
     compile_and_run('empty', [])
+
+
+@pre_entry
+def test_hw2():
+    """Homework 2"""
+    compile_and_run('HW2/t1', [52])
+    compile_and_fail('HW2/t2')
+    compile_and_run('HW2/t3', [45, 35], [3])
+    compile_and_fail('HW2/t4')
+    compile_and_run('HW2/t5', [0, -420])
+    compile_and_run('HW2/t6', [5, 0])
+    compile_and_run('HW2/t7', [-18, -330])
+    compile_and_run('HW2/t8', [70])
+    compile_and_fail('HW2/t9')
+
+
+@pre_entry
+def test_h3():
+    """Homework 3"""
+    compile_and_run('HW3/t12', [1])
+    compile_and_run('HW3/t13', [11])
+    compile_and_fail('HW3/t14')
+    compile_and_run('HW3/t15', [10])
+    compile_and_run('HW3/t16', [0])
+    compile_and_run('HW3/t17', [42, 0])
+    compile_and_run('HW3/t18', [1])
+    compile_and_run('HW3/t19', [-30])
+    compile_and_run('HW3/t20', [0])
+
+
+@pre_entry
+def test_hw4():
+    """Homework 4"""
+    compile_and_run('HW4/t1', [52])
+    compile_and_fail('HW4/t2')
+    compile_and_run('HW4/t3', [52, 42], [10])
+    compile_and_fail('HW4/t4')
+    compile_and_run('HW4/t5', [0, -420])
+    compile_and_run('HW4/t6', [5, 0])
+    compile_and_run('HW4/t7', [-18, -330])
+    compile_and_run('HW4/t8', [70])
+    compile_and_fail('HW4/t9')
+    compile_and_fail('HW4/t10')
+    compile_and_run('HW4/t11', [528])
+    compile_and_run('HW4/t12', [1])
+    compile_and_run('HW4/t13', [11])
+    compile_and_fail('HW4/t14')
+    compile_and_run('HW4/t15', [10])
+    compile_and_run('HW4/t16', [0])
+    compile_and_run('HW4/t17', [42, 0])
+    compile_and_run('HW4/t18', [1])
+    compile_and_run('HW4/t19', [-30])
+    # compile_and_run('HW4/t20', [0])  # Not used
+    compile_and_fail('HW4/t21')
+    # compile_and_run('HW4/t22', [42, 10, 42])  # WRONG
+    compile_and_run('HW4/t23', [42])
+    compile_and_run('HW4/t24', [0, 1, 2])
+    compile_and_run('HW4/t25', [0, 1, 2])
+    compile_and_run('HW4/t26', [1, 2, 3, 4])
+    compile_and_run('HW4/t27', ["Proto Runtime Error: Attempt to access array out of bounds."])
+    compile_and_run('HW4/t28', [42, 42])
+    compile_and_run('HW4/t29', [42, 41])
+    compile_and_run('HW4/t30', [42, 41])
+    compile_and_run('HW4/t31', [24, 42, 42])
+    # compile_and_run('HW4/t32', [24, 42, 42])  # Not used
+    # compile_and_run('HW4/t33', [1, 0, 1])  # WRONG
+    compile_and_run('HW4/t34', ["Proto Runtime Error: Attempt to access array out of bounds."], [5])

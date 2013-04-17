@@ -1,0 +1,7 @@
+int x,y,z;
+x = input();
+y = 42;
+z = x + y;
+print(z);
+z = z - 10;
+print(z);

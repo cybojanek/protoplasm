@@ -1,0 +1,3 @@
+int x;
+x = 42;
+if x == 42 then print(1); else print(0);

@@ -1,0 +1,7 @@
+int x[];
+int i;
+x = new int[3];
+for (i = 0; i < 3; i = i + 1)
+    { x[i] = i; }
+for (i = 0; i < 3; i = i + 1)
+    { print(i); }
