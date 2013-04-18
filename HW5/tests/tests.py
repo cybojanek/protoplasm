@@ -154,7 +154,7 @@ def test_cascade():
 @pre_entry
 def test_scope():
     """variable scope"""
-    compile_and_run('scope', [1, 3, 1, 0])
+    compile_and_run('scope', [1, 3, 1, 0, 1, 1, 4])
 
 
 @pre_entry
@@ -243,7 +243,7 @@ def test_hw4():
     compile_and_run('HW4/t19', [-30])
     # compile_and_run('HW4/t20', [0])  # Not used
     compile_and_fail('HW4/t21')
-    # compile_and_run('HW4/t22', [42, 10, 42])  # WRONG
+    compile_and_run('HW4/t22', [42, 10, 42])
     compile_and_run('HW4/t23', [42])
     compile_and_run('HW4/t24', [0, 1, 2])
     compile_and_run('HW4/t25', [0, 1, 2])

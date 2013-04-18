@@ -47,7 +47,7 @@ def p_stmt_print(p):
 
 def p_stmt_block(p):
     '''stmt : LCURLY declseq stmtseq RCURLY'''
-    p[0] = ASTStatement(p, ASTBlock(p, p[2], p[3]))
+    p[0] = ASTStatement(p, ASTBlock(p, p[2], p[3] + [ASTEndBlock(p)]))
 
 
 def p_stmt_if_then_else(p):
