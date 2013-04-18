@@ -169,8 +169,8 @@ def test_increment():
     """++ --"""
     compile_and_run('pre_post_increment', [1, 0, 0, 2, 2, 0, 1, 0, 2, 1, 0, 3,
                     3, 1, 0, 0, 1, 1, 1])
-    compile_and_run('pre_post_array',  [1, 1, 2, 3, 4, 0, 5, 0, 1, 2, 3, 4, 1,
-                    2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 2])
+    compile_and_run('pre_post_array',  [1, 1, 2, 3, 4, 0, 0, 5, 0, 1, 2, 3, 4, 1,
+                    2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8])
 
 
 @pre_entry
@@ -254,5 +254,5 @@ def test_hw4():
     compile_and_run('HW4/t30', [42, 41])
     compile_and_run('HW4/t31', [24, 42, 42])
     # compile_and_run('HW4/t32', [24, 42, 42])  # Not used
-    # compile_and_run('HW4/t33', [1, 0, 1])  # WRONG
+    compile_and_run('HW4/t33', [1, 1, 1])  # WRONG
     compile_and_run('HW4/t34', ["Proto Runtime Error: Attempt to access array out of bounds."], [5])

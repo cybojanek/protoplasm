@@ -221,7 +221,6 @@ class ASTAssign(ASTNode):
 
 
     def gencode(self, icc):
-        print self
         dest = icc.pop_var()
         src = icc.pop_var()         
 
