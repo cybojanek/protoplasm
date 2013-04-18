@@ -2,6 +2,7 @@ from IntermediateCode import *
 import inspect
 
 NODE_COLORS = {
+    'ASTArray': '#FFFFFF',
     'ASTAssign': '#269926',
     'ASTBinaryOp': '#CC0909',
     'ASTBlock': '#FF7400',
@@ -9,6 +10,7 @@ NODE_COLORS = {
     'ASTDeclareList': '#38a0ad',
     'ASTDeclareVariable': '#4380D3',
     'ASTDoWhile': '#009999',
+    'ASTEndBlock': '#FFFFFF',
     'ASTFor': '#009999',
     'ASTIf': '#FFCA7A',
     'ASTInput': '#BF7130',
@@ -19,7 +21,6 @@ NODE_COLORS = {
     'ASTUnaryOp': '#FFFFFF',
     'ASTVariable': '#4380D3',
     'ASTWhileDo': '#009999',
-    'ASTArray': '#fff'
 }
 
 
@@ -35,6 +36,7 @@ class ASTContext(object):
         self.used = set()
         self.rename = dict()
         self.counter = 0
+        self.previous = None
 
     def get_new_var_name(self, name):
         n = '&%s%s' % (name, self.counter)
@@ -58,6 +60,7 @@ class ASTContext(object):
         for k, v in self.rename.iteritems():
             a.rename[k] = v
         a.counter = self.counter
+        a.previous = self
         return a
 
     def __str__(self):
@@ -314,11 +317,12 @@ class ASTBlock(ASTNode):
         self.statements = statements
 
     def wellformed(self, astc):
+        astc_clone = astc.clone()
         for d in self.declarations:
-            if not d.wellformed(astc):
+            if not d.wellformed(astc_clone):
                 return False
         for s in self.statements:
-            if not s.wellformed(astc):
+            if not s.wellformed(astc_clone):
                 return False
         return True
 
@@ -533,6 +537,44 @@ class ASTDoWhile(ASTNode):
         return 'DO: [%s] WHILE [%s]' % (self.do_part, self.while_part)
 
 
+class ASTEndBlock(ASTNode):
+    COLOR = NODE_COLORS['ASTEndBlock']
+
+    def __init__(self, p):
+        """End of a Block
+        Restores ASTC
+
+        Arguments:
+        p - pyl object
+        """
+        self.p = p
+
+    def wellformed(self, astc):
+        previous = astc.previous
+        for x in astc.defined:
+            if x in previous.declared:
+                previous.defined.add(x)
+        astc.defined = previous.defined
+        astc.declared = previous.declared
+        astc.used = previous.used
+        astc.rename = previous.rename
+        astc.counter = previous.counter
+        astc.previous = previous.previous
+        return True
+
+    def gencode(self, icc):
+        pass
+
+    def to_stack(self):
+        return []
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        return counter
+
+    def __str__(self):
+        return ''
+
+
 class ASTFor(ASTNode):
     COLOR = NODE_COLORS['ASTFor']
 
@@ -540,7 +582,7 @@ class ASTFor(ASTNode):
         """AST if statements
 
         Arguments:
-        p = pyl object
+        p - pyl object
         init_part - expression run on start of for loop
         cond_part - condition check of for loop
         incr_part - expression run on every loop
