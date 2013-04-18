@@ -2,6 +2,9 @@ from nose.tools import *
 from subprocess import Popen, PIPE
 
 
+RUNTIME_OOB = "Proto Runtime Error: Attempt to access array out of bounds."
+
+
 def pre_entry(f):
     """Decorator for adding any pre test entry stuff.
     For now it just adds a newline so when you capture output,
@@ -176,7 +179,7 @@ def test_increment():
 @pre_entry
 def test_runtime_error():
     """array bounds"""
-    compile_and_run('runtime_error', [0, "Proto Runtime Error: Attempt to access array out of bounds."])
+    compile_and_run('fail_array_bounds', [0, RUNTIME_OOB])
 
 
 @pre_entry
@@ -248,11 +251,11 @@ def test_hw4():
     compile_and_run('HW4/t24', [0, 1, 2])
     compile_and_run('HW4/t25', [0, 1, 2])
     compile_and_run('HW4/t26', [1, 2, 3, 4])
-    compile_and_run('HW4/t27', ["Proto Runtime Error: Attempt to access array out of bounds."])
+    compile_and_run('HW4/t27', [RUNTIME_OOB])
     compile_and_run('HW4/t28', [42, 42])
     compile_and_run('HW4/t29', [42, 41])
     compile_and_run('HW4/t30', [42, 41])
     compile_and_run('HW4/t31', [24, 42, 42])
     # compile_and_run('HW4/t32', [24, 42, 42])  # Not used
     compile_and_run('HW4/t33', [1, 1, 1])  # WRONG
-    compile_and_run('HW4/t34', ["Proto Runtime Error: Attempt to access array out of bounds."], [5])
+    compile_and_run('HW4/t34', [RUNTIME_OOB], [5])
