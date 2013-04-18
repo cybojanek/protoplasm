@@ -218,23 +218,20 @@ class ASTAssign(ASTNode):
 
 
     def gencode(self, icc):
-        if not isinstance(self.left, ASTArray):
-            src = icc.pop_var()
-            dest = icc.pop_var()
+        print self
+        dest = icc.pop_var()
+        src = icc.pop_var()         
 
+        if not isinstance(self.left, ASTArray):
             icc.add_instruction(ICAssign(dest, src))
             icc.push_var(dest)
         elif isinstance(self.left, ASTArray):
-            src = icc.pop_var()      # value to put into array
-            rvalue = icc.pop_var()   # pop the rvalue off the stack
-
-            icc.add_instruction(ICStoreWord(src, rvalue._base, Integer(0), rvalue._elem))
+            icc.add_instruction(ICStoreWord(src, dest._base, Integer(0), dest._elem))
             icc.push_var(src)
 
 
-
     def to_stack(self):
-        return [self] + self.right.to_stack() + self.left.to_stack()
+        return [self] + self.left.to_stack() + self.right.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, '=')
@@ -1037,6 +1034,8 @@ class ASTPrePostIncrement(ASTNode):
 
         icc.add_instruction(ICAssign(new_var, orig_var))
         icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.type))
+        if isinstance(self.value, ASTArray):
+           icc.add_instruction(ICStoreWord(orig_var, orig_var._base, Integer(0), orig_var._elem))
 
         if self.direction == self.PRE:
             icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.type))
@@ -1053,7 +1052,11 @@ class ASTPrePostIncrement(ASTNode):
         return self.value.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
-        return '%s%s' % (self.value, self.type)
+        if self.direction == 1: 
+          return '(%s)%s' % (self.value, self.type*2)
+        else:
+          return '%s(%s)' % (self.type*2, self.value)
+
 
 
 class ASTVariable(ASTNode):
