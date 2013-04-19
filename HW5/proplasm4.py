@@ -7,8 +7,8 @@ import sys
 
 import ply.lex as lex
 import ply.yacc as yacc
-import proto3lexer
-import proto3parser
+import proto4lexer
+import proto4parser
 
 from AbstractSyntaxTree import ASTProgram
 from ASMCode import write_asm_to_file
@@ -18,11 +18,11 @@ def main(args):
     # Remove file extension from name
     program_name = os.path.splitext(args.file)[0]
     # Load lexer
-    lexer = lex.lex(module=proto3lexer)
+    lexer = lex.lex(module=proto4lexer)
     # Tokenize file
     lexer.input(open(args.file, 'r').read())
     # Load parser
-    parser = yacc.yacc(module=proto3parser)
+    parser = yacc.yacc(module=proto4parser)
     # Parse program
     program = parser.parse(open(args.file, 'r').read())
     # print program
@@ -63,7 +63,7 @@ def main(args):
 
 if __name__ == '__main__':
     if argparse is not None:
-        parser = argparse.ArgumentParser(description='Proto3 Compiler')
+        parser = argparse.ArgumentParser(description='Proto4 Compiler')
         parser.add_argument('-nossa', action='store_true', default=False,
             help='Do NOT use SSA')
         parser.add_argument('-graphs', action='store_true', default=False,

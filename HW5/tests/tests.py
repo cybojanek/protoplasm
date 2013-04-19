@@ -24,7 +24,7 @@ def compile_and_run(file_prefix, expected_output, input_lines=None):
     expected_output = [str(x) for x in expected_output]
     # Call compiler to compile program
     print 'tests/%s.proto' % file_prefix
-    p = Popen(['python2', 'proplasm3.py', 'tests/%s.proto' % file_prefix],
+    p = Popen(['python2', 'proplasm4.py', 'tests/%s.proto' % file_prefix],
               stdout=PIPE, stdin=PIPE, stderr=PIPE)
     # Wait for compiler to finish compiling
     retcode = p.wait()
@@ -49,7 +49,7 @@ def compile_and_run(file_prefix, expected_output, input_lines=None):
 
 def compile_and_fail(file_prefix):
     print 'tests/%s.proto' % file_prefix
-    p = Popen(['python2', 'proplasm3.py', 'tests/%s.proto' % file_prefix],
+    p = Popen(['python2', 'proplasm4.py', 'tests/%s.proto' % file_prefix],
               stdout=PIPE, stdin=PIPE, stderr=PIPE)
     retcode = p.wait()
     eq_(retcode, 1, 'tests/%s.proto: %s != 1\n%s' % (file_prefix, retcode,

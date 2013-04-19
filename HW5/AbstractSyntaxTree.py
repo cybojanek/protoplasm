@@ -12,10 +12,12 @@ NODE_COLORS = {
     'ASTDoWhile': '#009999',
     'ASTEndBlock': '#FFFFFF',
     'ASTFor': '#009999',
+    'ASTFunctionDeclare': '#CD1076',
     'ASTIf': '#FFCA7A',
     'ASTInput': '#BF7130',
     'ASTInteger': '#C0C0C0',
     'ASTNode': '#FFFFFF',
+    'ASTNoOp': '#FFFFFF',
     'ASTPrint': '#FFBF00',
     'ASTStatement': '#FF7400',
     'ASTUnaryOp': '#FFFFFF',
@@ -37,6 +39,7 @@ class ASTContext(object):
         self.rename = dict()
         self.counter = 0
         self.previous = None
+        self.types = {}
 
     def get_new_var_name(self, name):
         n = '&%s%s' % (name, self.counter)
@@ -123,24 +126,19 @@ class ASTNode(object):
 
 class ASTProgram(ASTNode):
 
-    def __init__(self, declarations, statements):
+    def __init__(self, declarations):
         """Encapsulates ASTStatements
 
         Arguments:
-        declarations - array of ASTDeclare
-        statements - array of ASTStatement
+        declarations - array of ASTDeclareList, ASTFunc, ASTClass
 
         """
         self.declarations = declarations
-        self.statements = statements
 
     def wellformed(self):
         astc = ASTContext()
         for d in self.declarations:
             if not d.wellformed(astc):
-                return False
-        for s in self.statements:
-            if not s.wellformed(astc):
                 return False
         return True
 
@@ -154,7 +152,7 @@ class ASTProgram(ASTNode):
 
     def to_stack(self):
         stack = []
-        for s in self.statements:
+        for s in self.declarations:
             stack = s.to_stack() + stack
         return stack
 
@@ -163,8 +161,6 @@ class ASTProgram(ASTNode):
         graph.add_node(name, fillcolor=ASTProgram.COLOR)
         for d in self.declarations:
             counter = d.add_edges_to_graph(graph, name, counter)
-        for s in self.statements:
-            counter = s.add_edges_to_graph(graph, name, counter)
         return counter
 
     def to_png(self, program_name):
@@ -385,7 +381,7 @@ class ASTBoolean(ASTNode):
 class ASTDeclareList(ASTNode):
     COLOR = NODE_COLORS['ASTDeclareList']
 
-    def __init__(self, p, dec_type, declarations):
+    def __init__(self, p, dec_type, dimensions, declarations):
         """AST Declaration list
 
         Arguments:
@@ -395,7 +391,11 @@ class ASTDeclareList(ASTNode):
         """
         self.p = p
         self.dec_type = dec_type
-        self.declarations = declarations
+        self.dimensions = dimensions
+        self.declarations = []
+        for d in declarations:
+            self.declarations.append(ASTDeclareVariable(
+                p, d, dimensions))
 
     def wellformed(self, astc):
         for d in self.declarations:
@@ -657,6 +657,62 @@ class ASTFor(ASTNode):
                                            self.incr_part)
 
 
+class ASTFunctionDeclare(ASTNode):
+    COLOR = NODE_COLORS['ASTFunctionDeclare']
+
+    def __init__(self, p, f_type, name, formals, statement):
+        """AST function declaration
+
+        Arguments:
+        p - pyl object
+        f_type - function return type
+        name - functon name
+        formals - list of accepted parameters
+        statement - function body
+
+        """
+        self.p = p
+        self.type = f_type
+        self.name = name
+        self.formals = formals
+        self.body = statement
+
+    def wellformed(self, astc):
+        if self.name not in astc.declared:
+            astc.declared.add(self.name)
+        else:
+            new_name = astc.get_new_var_name(self.name)
+            astc.rename[self.name] = new_name
+            self.name = new_name
+            astc.declared.add(self.name)
+        return True
+
+    def gencode(self, icc):
+        function_block = icc.new_block(auto_follow=False)
+        # Add variables
+        body_stack = self.body.to_stack()
+        while len(body_stack) != 0:
+            s = body_stack.pop()
+            s.gencode(icc)
+        body_end_block = icc.new_block()
+        icc.add_instruction(ICFunctionDeclare(self.name, function_block,
+                            body_end_block))
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'fun %s' % self.name)
+        graph.add_node(name, fillcolor=ASTFunctionDeclare.COLOR)
+        graph.add_edge(parent, name)
+        for f in self.formals:
+            counter = f.add_edges_to_graph(graph, name, counter + 1)
+        return self.body.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'FUN: %s' % (self.name)
+
+
 class ASTIf(ASTNode):
     COLOR = NODE_COLORS['ASTIf']
 
@@ -846,7 +902,7 @@ class ASTInteger(ASTNode):
 class ASTAlloc(ASTNode):
     COLOR = NODE_COLORS['ASTInteger']
 
-    def __init__(self, p, size):
+    def __init__(self, p, a_type, size, dimensions):
         """AST integer
 
         Argumets:
@@ -855,7 +911,9 @@ class ASTAlloc(ASTNode):
 
         """
         self.p = p
+        self.type = a_type
         self.size = size
+        self.dimensions = dimensions
 
     def wellformed(self, astc):
         return self.size.wellformed(astc);
@@ -995,6 +1053,37 @@ class ASTStatement(ASTNode):
 
     def __str__(self):
         return 'STMT: %s' % self.value
+
+
+class ASTNoOp(ASTNode):
+    COLOR = NODE_COLORS['ASTNoOp']
+
+    def __init__(self, p):
+        """AST NoOp - dosnt generate anything
+
+        Arguments:
+        p - pyl parser object
+
+        """
+        self.p = p
+
+    def wellformed(self, astc):
+        return True
+
+    def gencode(self, icc):
+        pass
+
+    def to_stack(self):
+        return []
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'NOOP')
+        graph.add_node(name, fillcolor=ASTStatement.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'NOOP: %s' % self.value
 
 
 class ASTUnaryOp(ASTNode):

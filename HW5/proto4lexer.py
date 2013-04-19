@@ -14,7 +14,10 @@ reserved = {
     'int': 'INT',
     'bool': 'BOOL',
     'true': 'TRUE',
-    'false': 'FALSE'
+    'false': 'FALSE',
+    'class': 'CLASS',
+    'return': 'RETURN',
+    'void': 'VOID'
 }
 
 # List of token names
@@ -23,7 +26,7 @@ tokens = ['EQUALS', 'PLUSPLUS', 'PLUS', 'MINUSMINUS', 'MINUS',
           'AND', 'OR', 'EQUALEQUAL', 'NOTEQUAL', 'NOT',
           'LESSTHAN', 'LESSTHANEQUAL', 'GREATERTHAN', 'GREATERTHANEQUAL',
           'LPAREN', 'RPAREN', 'LCURLY', 'RCURLY', 'SEMICOLON',
-          'LBRACE', 'RBRACE', 'COMMA',
+          'LBRACE', 'RBRACE', 'COMMA', 'DOT',
           'ID', 'NUMBER'] + list(reserved.values())
 
 # Tokens without actions
@@ -52,6 +55,7 @@ t_SEMICOLON = r';'
 t_LBRACE = r'\['
 t_RBRACE = r'\]'
 t_COMMA = r','
+t_DOT = r'\.'
 
 
 # Tokens with actions

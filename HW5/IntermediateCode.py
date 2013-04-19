@@ -318,6 +318,23 @@ class ICBinaryOp(IC):
     def __str__(self):
         return "%s = %s %s %s" % (self.dest, self.arg1, self.op, self.arg2)
 
+class ICFunctionDeclare(IC):
+    """Declare a function and its body code
+    """
+
+    def __init__(self, name, body_block, body_end_block):
+        super(ICFunctionDeclare, self).__init__()
+        self.name = name
+        self.body_block = body_block
+        self.body_end_block = body_end_block
+
+    def first_pass(self):
+        # Make a label for the body block
+        self.body_block.add_start_label('func_%s' % (self.name))
+
+    def generate_assembly(self):
+        return [AsmInstruction('jr', '$ra')]
+
 
 class ICDoWhile(IC):
     """Assign variable to variable, or Integer to variable

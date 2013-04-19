@@ -36,7 +36,8 @@ def write_asm_to_file(program_name, asm):
     out.write('li $a0, -1\nli $v0, 10\nsyscall\n')
     out.write("# Main code\n")
     out.write('main:\n')
-    for a in asm:
-        out.write('%s\n' % a)
+    out.write('jal func_main\n')
     # Exit gracefully
     out.write('# Exit gracefully\nli $v0, 10\nsyscall\n')
+    for a in asm:
+        out.write('%s\n' % a)
