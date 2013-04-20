@@ -1,61 +1,63 @@
-int a, b, c, d;
-a = 0;
-b = 1;
-c = 2;
-// print nothing
-if a then print(a);
+int main() {
+    int a, b, c, d;
+    a = 0;
+    b = 1;
+    c = 2;
+    // print nothing
+    if a then print(a);
 
-// print 1
-if a then print(a); else print(b);
+    // print 1
+    if a then print(a); else print(b);
 
-// print 1
-if b then print(b);
+    // print 1
+    if b then print(b);
 
-// print 1
-if b then print(b); else print(c);
+    // print 1
+    if b then print(b); else print(c);
 
-// print nothing
-if a then if b then print(b);
+    // print nothing
+    if a then if b then print(b);
 
-// print 2
-if b then if c then print(c);
+    // print 2
+    if b then if c then print(c);
 
-// print 2
-if b then 
-   if c then print(c);
-   else print(b);
-else print(a);
+    // print 2
+    if b then 
+       if c then print(c);
+       else print(b);
+    else print(a);
 
-// print 0
-if a then
-  if c then print(c);
-  else print(b);
-else print(a);
+    // print 0
+    if a then
+      if c then print(c);
+      else print(b);
+    else print(a);
 
-// print 1
-if !a then print(b);
+    // print 1
+    if !a then print(b);
 
-// print 1
-if (a || b) then print(b);
+    // print 1
+    if (a || b) then print(b);
 
-// print 1
-if (b && c) then print(b);
+    // print 1
+    if (b && c) then print(b);
 
-// print nothing
-if (a > 0 || b> 1 || c > 2) then print(c);
+    // print nothing
+    if (a > 0 || b> 1 || c > 2) then print(c);
 
-if a then d = 0; else d = 1;
-// print 1
-if d then print(d);
+    if a then d = 0; else d = 1;
+    // print 1
+    if d then print(d);
 
-// print 2
-if !(a && b) == (!a || !b) then print(c);
+    // print 2
+    if !(a && b) == (!a || !b) then print(c);
 
-// print 2
-if (a && b) != (!a || !b) then print(c);
+    // print 2
+    if (a && b) != (!a || !b) then print(c);
 
-// print 0
-if(true) then print(0);
+    // print 0
+    if(true) then print(0);
 
-// print 0
-if(false) then print(1); else print(0);
+    // print 0
+    if(false) then print(1); else print(0);
+}

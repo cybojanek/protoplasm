@@ -78,7 +78,7 @@ def p_classdecl(p):
 def p_type(p):
     '''type : INT
             | BOOL
-            | ID'''
+            | CLASSID'''
     p[0] = (p[1], 0)
 
 
@@ -113,15 +113,6 @@ def p_formals_question(p):
 def p_formals_question_empty(p):
     '''formals_question : empty'''
     p[0] = []
-
-
-def p_stmt_star(p):
-    '''stmt_star : stmt stmt_star
-                  | empty'''
-    if len(p) == 3:
-        p[0] = [p[1]] + p[2]
-    else:
-        p[0] = []
 
 
 def p_stmt(p):
@@ -166,7 +157,16 @@ def p_stmt_do_while(p):
 
 def p_stmt_return(p):
     '''stmt : RETURN ae_question SEMICOLON'''
-    raise NotImplementedError("Fix me")
+    p[0] = ASTFunctionReturn(p, p[2])
+
+
+def p_stmt_star(p):
+    '''stmt_star : stmt stmt_star
+                  | empty'''
+    if len(p) == 3:
+        p[0] = [p[1]] + p[2]
+    else:
+        p[0] = []
 
 
 def p_se_assign(p):
@@ -285,7 +285,7 @@ def p_primary_input(p):
 
 def p_primary_ae(p):
     '''primary : LPAREN ae RPAREN'''
-    p[0] = p[1]
+    p[0] = p[2]
 
 
 def p_primary_field(p):
@@ -314,14 +314,18 @@ def p_array_acccess(p):
 
 
 def p_field_acccess(p):
-    '''fieldaccess : primary DOT ID
-                   | ID'''
+    '''fieldaccess : primary DOT ID'''
     raise NotImplementedError("Fix me")
+
+
+def p_field_access_id(p):
+    '''fieldaccess : ID'''
+    p[0] = ASTVariable(p, p[1])
 
 
 def p_function_call(p):
     '''functioncall : ID LPAREN args_question RPAREN'''
-    raise NotImplementedError("Fix me")
+    p[0] = ASTFunctionCall(p, p[1], p[3])
 
 
 def p_args(p):

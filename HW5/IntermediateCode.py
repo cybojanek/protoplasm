@@ -318,22 +318,86 @@ class ICBinaryOp(IC):
     def __str__(self):
         return "%s = %s %s %s" % (self.dest, self.arg1, self.op, self.arg2)
 
+
+class ICFunctionCall(IC):
+    """Call a function
+    """
+
+    def __init__(self, dest, name):
+        super(ICFunctionCall, self).__init__()
+        if not isinstance(dest, Variable):
+            raise ValueError("Unsupported destination")
+        self.dest = dest
+        self.name = name
+        self.add_defined(dest)
+
+    def first_pass(self):
+        pass
+
+    def generate_assembly(self):
+        dest = self.get_register_or_value(self.dest)
+        return [AsmInstruction('jal', 'func_%s' % self.name, comment=str(self)),
+                AsmInstruction('move', dest, '$v0')]
+
+    def __str__(self):
+        return "%s = %s()" % (self.dest, self.name)
+
+
 class ICFunctionDeclare(IC):
     """Declare a function and its body code
     """
 
-    def __init__(self, name, body_block, body_end_block):
+    def __init__(self, name, body_block):
         super(ICFunctionDeclare, self).__init__()
         self.name = name
         self.body_block = body_block
-        self.body_end_block = body_end_block
 
     def first_pass(self):
         # Make a label for the body block
         self.body_block.add_start_label('func_%s' % (self.name))
 
     def generate_assembly(self):
-        return [AsmInstruction('jr', '$ra')]
+        # Get parameters
+        # Save s0 - s8 and ra
+        a = [AsmInstruction('addi', '$sp', '$sp', -40, comment=str(self))]
+        for i in range(9):
+            a.append(AsmInstruction('sw', '$s%s' % i, '%s($sp)' % (i * 4)))
+        a.append(AsmInstruction('sw', '$ra', '36($sp)'))
+        return a
+
+    def __str__(self):
+        return 'function: %s' % (self.name)
+
+class ICFunctionReturn(IC):
+    """Return from a function
+    """
+
+    def __init__(self, variable):
+        super(ICFunctionReturn, self).__init__()
+        if not(isinstance(variable, Variable) or isinstance(variable, Integer) or variable is None):
+            raise ValueError("Unsupported return type")
+        self.variable = variable
+
+    def first_pass(self):
+        pass
+
+    def generate_assembly(self):
+        if self.variable is None:
+            a = []
+        elif isinstance(self.variable, Integer):
+            a = [AsmInstruction('li', '$v0', self.variable, comment=str(self))]
+        elif isinstance(self.variable, Variable):
+            src = self.get_register_or_value(self.variable)
+            a = [AsmInstruction('move', '$v0', src, comment=str(self))]
+        # Restore ra and sp
+        a.append(AsmInstruction('lw', '$ra', '36($sp)', comment='' if self.variable is not None else str(self)))
+        for i in range(9):
+            a.append(AsmInstruction('lw', '$s%s' % i, '%s($sp)' % (i * 4)))
+        a.append(AsmInstruction('addi', '$sp', '$sp', 40))
+        return a + [AsmInstruction('jr', '$ra')]
+
+    def __str__(self):
+        return 'return: %s' % (self.variable)
 
 
 class ICDoWhile(IC):

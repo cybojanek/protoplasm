@@ -1,7 +1,9 @@
-int a, b;
-b = 10;
-a = 20;
-// A is never live beyond this point, and the compiler had
-// put a and b in the same register
-// 10
-print(b);
+int main() {
+    int a, b;
+    b = 10;
+    a = 20;
+    // A is never live beyond this point, and the compiler had
+    // put a and b in the same register
+    // 10
+    print(b);
+}

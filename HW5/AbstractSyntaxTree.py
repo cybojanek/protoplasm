@@ -12,7 +12,9 @@ NODE_COLORS = {
     'ASTDoWhile': '#009999',
     'ASTEndBlock': '#FFFFFF',
     'ASTFor': '#009999',
+    'ASTFunctionCall': '#CD1076',
     'ASTFunctionDeclare': '#CD1076',
+    'ASTFunctionReturn': '#CD1076',
     'ASTIf': '#FFCA7A',
     'ASTInput': '#BF7130',
     'ASTInteger': '#C0C0C0',
@@ -289,7 +291,7 @@ class ASTBinaryOp(ASTNode):
         return self.right.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
-        return 'BINARY_OP %s: %s, %s' % (self.type, self.left, self.right)
+        return 'BINARY_OP %s: [%s, %s]' % (self.type, self.left, self.right)
 
 
 class ASTBlock(ASTNode):
@@ -657,6 +659,47 @@ class ASTFor(ASTNode):
                                            self.incr_part)
 
 
+class ASTFunctionCall(ASTNode):
+    COLOR = NODE_COLORS['ASTFunctionCall']
+
+    def __init__(self, p, name, arguments):
+        """AST function call
+
+        Arguments:
+        p - pyl object
+        name - function name
+        arguments - list of arguments to pass
+
+        """
+        self.p = p
+        self.name = name
+        self.arguments = arguments
+
+    def wellformed(self, astc):
+        if self.name not in astc.declared:
+            print "Missing function: %s" % self.name
+            return False
+        return True
+
+    def gencode(self, icc):
+        variable = icc.new_var()
+        icc.push_var(variable)
+        icc.add_instruction(ICFunctionCall(variable, self.name))
+
+    def to_stack(self):
+        return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'call %s' % self.name)
+        graph.add_node(name, fillcolor=ASTFunctionCall.COLOR)
+        graph.add_edge(parent, name)
+        for a in self.arguments:
+            counter = a.add_edges_to_graph(graph, name, counter + 1)
+        return counter
+
+    def __str__(self):
+        return 'CALL: %s' % (self.name)
+
 class ASTFunctionDeclare(ASTNode):
     COLOR = NODE_COLORS['ASTFunctionDeclare']
 
@@ -689,14 +732,15 @@ class ASTFunctionDeclare(ASTNode):
 
     def gencode(self, icc):
         function_block = icc.new_block(auto_follow=False)
+        # Start function declaration
+        icc.add_instruction(ICFunctionDeclare(self.name, function_block))
         # Add variables
         body_stack = self.body.to_stack()
         while len(body_stack) != 0:
             s = body_stack.pop()
             s.gencode(icc)
         body_end_block = icc.new_block()
-        icc.add_instruction(ICFunctionDeclare(self.name, function_block,
-                            body_end_block))
+
 
     def to_stack(self):
         return [self]
@@ -711,6 +755,43 @@ class ASTFunctionDeclare(ASTNode):
 
     def __str__(self):
         return 'FUN: %s' % (self.name)
+
+
+class ASTFunctionReturn(ASTNode):
+    COLOR = NODE_COLORS['ASTFunctionReturn']
+
+    def __init__(self, p, value):
+        """AST return from function
+
+        Arguments:
+        p - pyl object
+        value - value to return (can be None)
+
+        """
+        self.p = p
+        self.value = value
+
+    def wellformed(self, astc):
+        return self.value.wellformed()
+
+    def gencode(self, icc):
+        if isinstance(self.value, ASTNoOp):
+            icc.add_instruction(ICFunctionReturn(None))
+        else:
+            icc.add_instruction(ICFunctionReturn(icc.pop_var()))
+
+    def to_stack(self):
+        return [self] + self.value.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'return')
+        graph.add_node(name, fillcolor=ASTFunctionReturn.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'RETURN:...'
+
 
 
 class ASTIf(ASTNode):

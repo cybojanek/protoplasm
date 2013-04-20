@@ -1,15 +1,17 @@
-int a, b;
-a = 1024;
-b = 1023;
-print(a == 1024);
-print(a == a);
-print(1024 == 1024);
-print(a == 2048);
-print(1024 == 1023);
-print(a == b);
-print(a != 1024);
-print(a != a);
-print(1024 != 1024);
-print(a != 2048);
-print(1024 != 1023);
-print(a != b);
+int main() {
+    int a, b;
+    a = 1024;
+    b = 1023;
+    print(a == 1024);
+    print(a == a);
+    print(1024 == 1024);
+    print(a == 2048);
+    print(1024 == 1023);
+    print(a == b);
+    print(a != 1024);
+    print(a != a);
+    print(1024 != 1024);
+    print(a != 2048);
+    print(1024 != 1023);
+    print(a != b);
+}
