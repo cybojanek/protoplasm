@@ -1,5 +1,4 @@
 from IntermediateCode import *
-import inspect
 
 NODE_COLORS = {
     'ASTArray': '#FFFFFF',
@@ -206,7 +205,7 @@ class ASTAssign(ASTNode):
 
     def wellformed(self, astc):
         if not self.right.wellformed(astc):
-           return False
+            return False
         if not isinstance(self.left, ASTArray):
             if self.left.value in astc.rename:
                 self.left.value = astc.rename[self.left.value]
@@ -217,10 +216,9 @@ class ASTAssign(ASTNode):
             astc.defined.add(self.left.value)
         return True
 
-
     def gencode(self, icc):
         dest = icc.pop_var()
-        src = icc.pop_var()         
+        src = icc.pop_var()
 
         if not isinstance(self.left, ASTArray):
             icc.add_instruction(ICAssign(dest, src))
@@ -228,7 +226,6 @@ class ASTAssign(ASTNode):
         elif isinstance(self.left, ASTArray):
             icc.add_instruction(ICStoreWord(src, dest._base, Integer(0), dest._elem))
             icc.push_var(src)
-
 
     def to_stack(self):
         return [self] + self.left.to_stack() + self.right.to_stack()
@@ -335,9 +332,9 @@ class ASTBlock(ASTNode):
         graph.add_node(name, fillcolor=ASTBlock.COLOR)
         graph.add_edge(parent, name)
         for d in self.declarations:
-            counter = d.add_edges_to_graph(graph, name, counter)
+            counter = d.add_edges_to_graph(graph, name, counter + 1)
         for s in self.statements:
-            counter = s.add_edges_to_graph(graph, name, counter)
+            counter = s.add_edges_to_graph(graph, name, counter + 1)
         return counter
 
     def __str__(self):
@@ -419,7 +416,7 @@ class ASTDeclareList(ASTNode):
         graph.add_node(name, fillcolor=ASTDeclareList.COLOR)
         graph.add_edge(parent, name)
         for d in self.declarations:
-            counter = d.add_edges_to_graph(graph, name, counter)
+            counter = d.add_edges_to_graph(graph, name, counter + 1)
         return counter
 
     def __str__(self):
@@ -700,6 +697,7 @@ class ASTFunctionCall(ASTNode):
     def __str__(self):
         return 'CALL: %s' % (self.name)
 
+
 class ASTFunctionDeclare(ASTNode):
     COLOR = NODE_COLORS['ASTFunctionDeclare']
 
@@ -740,7 +738,6 @@ class ASTFunctionDeclare(ASTNode):
             s = body_stack.pop()
             s.gencode(icc)
         body_end_block = icc.new_block()
-
 
     def to_stack(self):
         return [self]
@@ -791,7 +788,6 @@ class ASTFunctionReturn(ASTNode):
 
     def __str__(self):
         return 'RETURN:...'
-
 
 
 class ASTIf(ASTNode):
@@ -997,17 +993,17 @@ class ASTAlloc(ASTNode):
         self.dimensions = dimensions
 
     def wellformed(self, astc):
-        return self.size.wellformed(astc);
+        return self.size.wellformed(astc)
 
     def gencode(self, icc):
-        var = icc.new_var();
-        size = icc.pop_var();
-        
+        var = icc.new_var()
+        size = icc.pop_var()
+
         icc.add_instruction(ICAllocMemory(var, size))
 
         icc.add_instruction(ICStoreWord(size, var, Integer(0)))
 
-        icc.push_var(var);
+        icc.push_var(var)
 
     def to_stack(self):
         return [self] + [self.size]
@@ -1020,6 +1016,7 @@ class ASTAlloc(ASTNode):
 
     def __str__(self):
         return 'ALLOC: %s' % self.size
+
 
 class ASTArray(ASTNode):
     COLOR = NODE_COLORS['ASTVariable']
@@ -1039,7 +1036,7 @@ class ASTArray(ASTNode):
     def wellformed(self, astc):
         if not self.element.wellformed(astc):
             return False
-        return self.value.wellformed(astc);
+        return self.value.wellformed(astc)
 
     def gencode(self, icc):
 
@@ -1051,10 +1048,10 @@ class ASTArray(ASTNode):
 
         icc.add_instruction(ICLoadWord(val, base, Integer(0), elem))
 
-        val.is_pointer = True;
-        val._elem = elem;
-        val._base = base; 
-        icc.push_var(val);
+        val.is_pointer = True
+        val._elem = elem
+        val._base = base 
+        icc.push_var(val)
 
     def to_stack(self):
         return [self] + self.value.to_stack() + self.element.to_stack()
@@ -1067,7 +1064,6 @@ class ASTArray(ASTNode):
 
     def __str__(self):
         return 'ARRAY: %s[%s]' % (self.value, self.element)
-
 
 
 class ASTPrint(ASTNode):
@@ -1208,7 +1204,6 @@ class ASTUnaryOp(ASTNode):
         return '%s: %s' % (self.type, self.value)
 
 
-
 class ASTPrePostIncrement(ASTNode):
     COLOR = NODE_COLORS['ASTUnaryOp']
     PRE = 0
@@ -1235,18 +1230,17 @@ class ASTPrePostIncrement(ASTNode):
         if self.direction not in (self.PRE, self.POST):
             raise TypeError('Increment operation: %s not supported' % self.type)
 
-
     def wellformed(self, astc):
         return self.value.wellformed(astc)
 
     def gencode(self, icc):
         new_var = icc.new_var()
-        orig_var = icc.pop_var();
+        orig_var = icc.pop_var()
 
         icc.add_instruction(ICAssign(new_var, orig_var))
         icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.type))
         if isinstance(self.value, ASTArray):
-           icc.add_instruction(ICStoreWord(orig_var, orig_var._base, Integer(0), orig_var._elem))
+            icc.add_instruction(ICStoreWord(orig_var, orig_var._base, Integer(0), orig_var._elem))
 
         if self.direction == self.PRE:
             icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.type))
@@ -1263,11 +1257,10 @@ class ASTPrePostIncrement(ASTNode):
         return self.value.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
-        if self.direction == 1: 
-          return '(%s)%s' % (self.value, self.type*2)
+        if self.direction == 1:
+            return '(%s)%s' % (self.value, self.type * 2)
         else:
-          return '%s(%s)' % (self.type*2, self.value)
-
+            return '%s(%s)' % (self.type * 2, self.value)
 
 
 class ASTVariable(ASTNode):
@@ -1304,7 +1297,7 @@ class ASTVariable(ASTNode):
         icc.push_var(Variable(self.value))
 
     def to_stack(self):
-        return [self] + ( self.value.to_stack() if isinstance(self.value, ASTArray) else [] )
+        return [self] + ( self.value.to_stack() if isinstance(self.value, ASTArray) else [])
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\n%s" % (counter, self.value)
@@ -1314,7 +1307,6 @@ class ASTVariable(ASTNode):
 
     def __str__(self):
         return 'ID: %s' % self.value
-
 
 
 class ASTWhileDo(ASTNode):
