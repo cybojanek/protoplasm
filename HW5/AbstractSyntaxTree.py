@@ -1,6 +1,7 @@
 from IntermediateCode import *
 
 NODE_COLORS = {
+    'ASTAlloc': '#FFFFFF',
     'ASTArray': '#FFFFFF',
     'ASTAssign': '#269926',
     'ASTBinaryOp': '#CC0909',
@@ -19,6 +20,7 @@ NODE_COLORS = {
     'ASTInteger': '#C0C0C0',
     'ASTNode': '#FFFFFF',
     'ASTNoOp': '#FFFFFF',
+    'ASTPrePostIncrement': '#FFFFFF',
     'ASTPrint': '#FFBF00',
     'ASTStatement': '#FF7400',
     'ASTUnaryOp': '#FFFFFF',
@@ -185,6 +187,96 @@ class ASTProgram(ASTNode):
 
     def __str__(self):
         return 'PROGRAM:\n%s\n%s' % ('\n'.join([str(x) for x in self.declarations]), '\n'.join([str(x) for x in self.statements]))
+
+
+class ASTAlloc(ASTNode):
+    COLOR = NODE_COLORS['ASTAlloc']
+
+    def __init__(self, p, a_type, size, dimensions):
+        """AST integer
+
+        Argumets:
+        p - pyl parser object
+        size - size of array
+
+        """
+        self.p = p
+        self.type = a_type
+        self.size = size
+        self.dimensions = dimensions
+
+    def wellformed(self, astc):
+        return self.size.wellformed(astc)
+
+    def gencode(self, icc):
+        var = icc.new_var()
+        size = icc.pop_var()
+
+        icc.add_instruction(ICAllocMemory(var, size))
+
+        icc.add_instruction(ICStoreWord(size, var, Integer(0)))
+
+        icc.push_var(var)
+
+    def to_stack(self):
+        return [self] + [self.size]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\nalloc(%s)" % (counter, self.size)
+        graph.add_node(name, fillcolor=ASTInteger.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'ALLOC: %s' % self.size
+
+
+class ASTArray(ASTNode):
+    COLOR = NODE_COLORS['ASTVariable']
+
+    def __init__(self, p, value, element):
+        """AST variable
+
+        Arguments:
+        p - pyl parser object
+        value - name of variable
+
+        """
+        self.p = p
+        self.value = value
+        self.element = element
+
+    def wellformed(self, astc):
+        if not self.element.wellformed(astc):
+            return False
+        return self.value.wellformed(astc)
+
+    def gencode(self, icc):
+
+        base = icc.pop_var()     # destination base addr
+        elem = icc.pop_var()     # array element number
+
+        val = icc.new_var()
+        icc.add_instruction(ICBoundCheck(base, elem))
+
+        icc.add_instruction(ICLoadWord(val, base, Integer(0), elem))
+
+        val.is_pointer = True
+        val._elem = elem
+        val._base = base 
+        icc.push_var(val)
+
+    def to_stack(self):
+        return [self] + self.value.to_stack() + self.element.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s[%s]" % (counter, self.value, self.element)
+        graph.add_node(name, fillcolor=ASTVariable.COLOR)
+        graph.add_edge(parent, name)
+        return counter
+
+    def __str__(self):
+        return 'ARRAY: %s[%s]' % (self.value, self.element)
 
 
 class ASTAssign(ASTNode):
@@ -976,94 +1068,94 @@ class ASTInteger(ASTNode):
         return 'INTEGER: %s' % self.value
 
 
-class ASTAlloc(ASTNode):
-    COLOR = NODE_COLORS['ASTInteger']
+class ASTNoOp(ASTNode):
+    COLOR = NODE_COLORS['ASTNoOp']
 
-    def __init__(self, p, a_type, size, dimensions):
-        """AST integer
-
-        Argumets:
-        p - pyl parser object
-        size - size of array
-
-        """
-        self.p = p
-        self.type = a_type
-        self.size = size
-        self.dimensions = dimensions
-
-    def wellformed(self, astc):
-        return self.size.wellformed(astc)
-
-    def gencode(self, icc):
-        var = icc.new_var()
-        size = icc.pop_var()
-
-        icc.add_instruction(ICAllocMemory(var, size))
-
-        icc.add_instruction(ICStoreWord(size, var, Integer(0)))
-
-        icc.push_var(var)
-
-    def to_stack(self):
-        return [self] + [self.size]
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\nalloc(%s)" % (counter, self.size)
-        graph.add_node(name, fillcolor=ASTInteger.COLOR)
-        graph.add_edge(parent, name)
-        return counter
-
-    def __str__(self):
-        return 'ALLOC: %s' % self.size
-
-
-class ASTArray(ASTNode):
-    COLOR = NODE_COLORS['ASTVariable']
-
-    def __init__(self, p, value, element):
-        """AST variable
+    def __init__(self, p):
+        """AST NoOp - dosnt generate anything
 
         Arguments:
         p - pyl parser object
-        value - name of variable
 
         """
         self.p = p
-        self.value = value
-        self.element = element
 
     def wellformed(self, astc):
-        if not self.element.wellformed(astc):
-            return False
+        return True
+
+    def gencode(self, icc):
+        pass
+
+    def to_stack(self):
+        return []
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s" % (counter, 'NOOP')
+        graph.add_node(name, fillcolor=ASTStatement.COLOR)
+        graph.add_edge(parent, name)
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
+
+    def __str__(self):
+        return 'NOOP: %s' % self.value
+
+
+class ASTPrePostIncrement(ASTNode):
+    COLOR = NODE_COLORS['ASTPrePostIncrement']
+    PRE = 0
+    POST = 1
+
+    def __init__(self, p, value, mytype, direction):
+        """AST unary operator (ie, -, ~).
+        Throws TypeError if type not in ASTUnaryOp.TYPES
+
+        Arguments:
+        p - pyl parser object
+        value - ASTNode to use op on
+        type - ++ or --
+        direction - 0 = pre (++i);
+                    1 = post (i++);
+        """
+        self.p = p
+        self.value = value
+        self.type = mytype[0]
+        self.direction = direction
+
+        if self.type not in ("+", "-"):
+            raise TypeError('Increment operation: %s not supported' % self.type)
+        if self.direction not in (self.PRE, self.POST):
+            raise TypeError('Increment operation: %s not supported' % self.type)
+
+    def wellformed(self, astc):
         return self.value.wellformed(astc)
 
     def gencode(self, icc):
+        new_var = icc.new_var()
+        orig_var = icc.pop_var()
 
-        base = icc.pop_var()     # destination base addr
-        elem = icc.pop_var()     # array element number
+        icc.add_instruction(ICAssign(new_var, orig_var))
+        icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.type))
+        if isinstance(self.value, ASTArray):
+            icc.add_instruction(ICStoreWord(orig_var, orig_var._base, Integer(0), orig_var._elem))
 
-        val = icc.new_var()
-        icc.add_instruction(ICBoundCheck(base, elem))
+        if self.direction == self.PRE:
+            icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.type))
 
-        icc.add_instruction(ICLoadWord(val, base, Integer(0), elem))
-
-        val.is_pointer = True
-        val._elem = elem
-        val._base = base 
-        icc.push_var(val)
+        icc.push_var(new_var)
 
     def to_stack(self):
-        return [self] + self.value.to_stack() + self.element.to_stack()
+        return [self] + self.value.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s[%s]" % (counter, self.value, self.element)
-        graph.add_node(name, fillcolor=ASTVariable.COLOR)
+        name = "%s\n%s" % (counter, self.type)
+        graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
         graph.add_edge(parent, name)
-        return counter
+        return self.value.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
-        return 'ARRAY: %s[%s]' % (self.value, self.element)
+        if self.direction == 1:
+            return '(%s)%s' % (self.value, self.type * 2)
+        else:
+            return '%s(%s)' % (self.type * 2, self.value)
 
 
 class ASTPrint(ASTNode):
@@ -1132,37 +1224,6 @@ class ASTStatement(ASTNode):
         return 'STMT: %s' % self.value
 
 
-class ASTNoOp(ASTNode):
-    COLOR = NODE_COLORS['ASTNoOp']
-
-    def __init__(self, p):
-        """AST NoOp - dosnt generate anything
-
-        Arguments:
-        p - pyl parser object
-
-        """
-        self.p = p
-
-    def wellformed(self, astc):
-        return True
-
-    def gencode(self, icc):
-        pass
-
-    def to_stack(self):
-        return []
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, 'NOOP')
-        graph.add_node(name, fillcolor=ASTStatement.COLOR)
-        graph.add_edge(parent, name)
-        return self.value.add_edges_to_graph(graph, name, counter + 1)
-
-    def __str__(self):
-        return 'NOOP: %s' % self.value
-
-
 class ASTUnaryOp(ASTNode):
     COLOR = NODE_COLORS['ASTUnaryOp']
     TYPES = set(['-', '!'])
@@ -1202,65 +1263,6 @@ class ASTUnaryOp(ASTNode):
 
     def __str__(self):
         return '%s: %s' % (self.type, self.value)
-
-
-class ASTPrePostIncrement(ASTNode):
-    COLOR = NODE_COLORS['ASTUnaryOp']
-    PRE = 0
-    POST = 1
-
-    def __init__(self, p, value, mytype, direction):
-        """AST unary operator (ie, -, ~).
-        Throws TypeError if type not in ASTUnaryOp.TYPES
-
-        Arguments:
-        p - pyl parser object
-        value - ASTNode to use op on
-        type - ++ or --
-        direction - 0 = pre (++i);
-                    1 = post (i++);
-        """
-        self.p = p
-        self.value = value
-        self.type = mytype[0]
-        self.direction = direction
-
-        if self.type not in ("+", "-"):
-            raise TypeError('Increment operation: %s not supported' % self.type)
-        if self.direction not in (self.PRE, self.POST):
-            raise TypeError('Increment operation: %s not supported' % self.type)
-
-    def wellformed(self, astc):
-        return self.value.wellformed(astc)
-
-    def gencode(self, icc):
-        new_var = icc.new_var()
-        orig_var = icc.pop_var()
-
-        icc.add_instruction(ICAssign(new_var, orig_var))
-        icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.type))
-        if isinstance(self.value, ASTArray):
-            icc.add_instruction(ICStoreWord(orig_var, orig_var._base, Integer(0), orig_var._elem))
-
-        if self.direction == self.PRE:
-            icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.type))
-
-        icc.push_var(new_var)
-
-    def to_stack(self):
-        return [self] + self.value.to_stack()
-
-    def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.type)
-        graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
-        graph.add_edge(parent, name)
-        return self.value.add_edges_to_graph(graph, name, counter + 1)
-
-    def __str__(self):
-        if self.direction == 1:
-            return '(%s)%s' % (self.value, self.type * 2)
-        else:
-            return '%s(%s)' % (self.type * 2, self.value)
 
 
 class ASTVariable(ASTNode):
