@@ -2,12 +2,14 @@
   "scopeName": "source.proto",
   "fileTypes": ["proto"],
   "patterns": [
+    { "include": "#function-definition" },
     { "include": "#comment-line" },
     { "include": "#control-flow" },
     { "include": "#control" },
     { "include": "#function-source" },
     { "include": "#storage-type" },
     { "include": "#constants" },
+    { "include": "#variables-declare" },
     { "include": "#variables" },
     { "include": "#numeric" },
     { "include": "#operator-logic" },
@@ -16,6 +18,17 @@
     { "include": "#operator-assignment" }
   ],
   "repository": {
+    "function-definition": {
+        "begin": "^([\\s]*)([\\w]+)([\\s]+)([_a-zA-Z]+)([\\s]*\\()",
+        "beginCaptures": {
+            "2": { "name": "storage.type.proto" },
+            "4": { "name": "entity.name.function.proto" }
+        },
+        "end": "(?={)",
+        "patterns": [
+          { "include": "#variables-declare" }
+        ]
+    },
     "comment-line": {
         "match": "//.*$\\n?",
         "name": "comment.line.double-slash.proto",
@@ -45,6 +58,22 @@
         "match": "\\b(true|false)\\b",
         "name": "constant.language.proto",
         "comment": "Built in constants"
+    },
+    "parameters-declare": {
+        "begin": "([_a-zA-Z]\\w*)([\\s]+)([_a-zA-Z]\\w*)",
+        "beginCaptures": {
+            "1": { "name": "storage.type.proto" },
+            "3": { "name": "variable.parameter.proto" }
+        },
+        "end": "."
+    },
+    "variables-declare": {
+        "begin": "([_a-zA-Z]\\w*)([\\s]+)([_a-zA-Z]\\w*)",
+        "beginCaptures": {
+            "1": { "name": "storage.type.proto" },
+            "3": { "name": "variable.other.proto" }
+        },
+        "end": "."
     },
     "variables": {
         "match": "[_a-zA-Z]\\w*",
@@ -78,4 +107,3 @@
     }
   },
   "uuid": "284b6004-1d26-42d2-9ab1-5d8b75b058e7"
-}
