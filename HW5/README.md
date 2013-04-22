@@ -1,4 +1,4 @@
-### Homework 4
+### Homework 5
 Implements HW4 proto compiler
 
 Python packages used:
@@ -12,7 +12,7 @@ Python packages used:
 Usage:
 
 ```bash
-python proplasm1.py [OPTS] ex1.proto
+python proplasm4.py [OPTS] ex1.proto
 ```
 
 Command line arguments (only available with argparse):
@@ -22,11 +22,11 @@ Command line arguments (only available with argparse):
 * **-graphs** output liveliness, AST, and basic block graphs in png format (requires _pygraphviz_)
 
 ### Developer notes
-* **protoplasm3.py** is the glue code for running the compiler. It loads the program code, starts up the lexer and parser, and calls the AST tree to generate the intermediate code, and then converts that to assembly code.
+* **protoplasm4.py** is the glue code for running the compiler. It loads the program code, starts up the lexer and parser, and calls the AST tree to generate the intermediate code, and then converts that to assembly code.
 
-* **proto3lexer.py** defines the set of tokens to which programs are translated
+* **proto4lexer.py** defines the set of tokens to which programs are translated
 
-* **proto3parser.py** defines the CFG of the language, and generates an Abstract Syntax Tree of ASTNode objects
+* **proto4parser.py** defines the CFG of the language, and generates an Abstract Syntax Tree of ASTNode objects
 
 * **AsbstractSyntaxTree.py** contains various ASTNode object types, which generate Intermediate Code objects
 

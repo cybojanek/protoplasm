@@ -53,7 +53,8 @@ def p_decl_classdecl(p):
 
 def p_vardecl(p):
     '''vardecl : type varlist SEMICOLON'''
-    p[0] = ASTDeclareList(p, p[1][0], p[1][1], p[2])
+    p[0] = ASTDeclareList(p, p[1][0], p[1][1],
+                          [ASTDeclareVariable(p, d, p[1][1]) for d in p[2]])
 
 
 def p_vardecl_star(p):
@@ -78,6 +79,7 @@ def p_classdecl(p):
 def p_type(p):
     '''type : INT
             | BOOL
+            | VOID
             | CLASSID'''
     p[0] = (p[1], 0)
 
@@ -99,10 +101,12 @@ def p_varlist(p):
 def p_formals(p):
     '''formals : type ID COMMA formals
                | type ID'''
-    if len(p) == 4:
-        p[0] = [(p[1], p[2])] + p[4]
+    if len(p) == 5:
+        p[0] = [ASTDeclareList(p, p[1][0], p[1][1],
+                               [ASTDeclareVariable(p, p[2], p[1][1])])] + p[4]
     else:
-        p[0] = [(p[1], p[2])]
+        p[0] = [ASTDeclareList(p, p[1][0], p[1][1],
+                               [ASTDeclareVariable(p, p[2], p[1][1])])]
 
 
 def p_formals_question(p):

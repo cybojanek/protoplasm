@@ -72,6 +72,12 @@ def test_compile_errors():
 
 
 @pre_entry
+def test_recursion():
+    """recursion"""
+    compile_and_run('factorial', [120, 479001600])
+
+
+@pre_entry
 def test_liveliness():
     """liveliness"""
     compile_and_run('liveliness', [10])

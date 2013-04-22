@@ -47,7 +47,10 @@ class Label(object):
 
 class IC(object):
     # Constant registers
-    REGISTER_CONSTANTS = {Variable('@stack'): '$sp'}
+    REGISTER_CONSTANTS = {
+        Variable('@stack'): '$sp',
+        Variable('@frame'): '$fp'
+    }
 
     def __init__(self):
         """Intermediate Code object
@@ -323,20 +326,26 @@ class ICFunctionCall(IC):
     """Call a function
     """
 
-    def __init__(self, dest, name):
+    def __init__(self, dest, name, arguments):
         super(ICFunctionCall, self).__init__()
         if not isinstance(dest, Variable):
             raise ValueError("Unsupported destination")
         self.dest = dest
         self.name = name
+        self.arguments = arguments
         self.add_defined(dest)
+        for arg in self.arguments:
+            self.add_used(arg)
 
     def first_pass(self):
         pass
 
     def generate_assembly(self):
         dest = self.get_register_or_value(self.dest)
-        return [AsmInstruction('jal', 'func_%s' % self.name, comment=str(self)),
+        if len(self.arguments) > 0:
+            a = [AsmInstruction('move', '$fp', '$sp', comment='Save frame pointer'),
+                 AsmInstruction('addi', '$sp', '$sp', -4 * len(self.arguments))]
+        return a + [AsmInstruction('jal', 'func_%s' % self.name, comment=str(self)),
                 AsmInstruction('move', dest, '$v0')]
 
     def __str__(self):
@@ -359,14 +368,17 @@ class ICFunctionDeclare(IC):
     def generate_assembly(self):
         # Get parameters
         # Save s0 - s8 and ra
-        a = [AsmInstruction('addi', '$sp', '$sp', -40, comment=str(self))]
-        for i in range(9):
-            a.append(AsmInstruction('sw', '$s%s' % i, '%s($sp)' % (i * 4)))
-        a.append(AsmInstruction('sw', '$ra', '36($sp)'))
+        used_registers = set(self.register_map.values()).intersection(ICContext.ALL_TEMP_REGS)
+        a = [AsmInstruction('addi', '$sp', '$sp', -4 * (len(used_registers) + 2), comment=str(self))]
+        for i, v in enumerate(used_registers):
+            a.append(AsmInstruction('sw', v, '%s($sp)' % (i * 4), comment='Save: %s' % v))
+        a.append(AsmInstruction('sw', '$ra', '%s($sp)' % (4 * (len(used_registers))), comment='Save return address'))
+        a.append(AsmInstruction('sw', '$fp', '%s($sp)' % (4 * (len(used_registers) + 1)), comment='Save frame pointer'))
         return a
 
     def __str__(self):
         return 'function: %s' % (self.name)
+
 
 class ICFunctionReturn(IC):
     """Return from a function
@@ -377,6 +389,8 @@ class ICFunctionReturn(IC):
         if not(isinstance(variable, Variable) or isinstance(variable, Integer) or variable is None):
             raise ValueError("Unsupported return type")
         self.variable = variable
+        if isinstance(variable, Variable):
+            self.add_used(variable)
 
     def first_pass(self):
         pass
@@ -390,10 +404,13 @@ class ICFunctionReturn(IC):
             src = self.get_register_or_value(self.variable)
             a = [AsmInstruction('move', '$v0', src, comment=str(self))]
         # Restore ra and sp
-        a.append(AsmInstruction('lw', '$ra', '36($sp)', comment='' if self.variable is not None else str(self)))
-        for i in range(9):
-            a.append(AsmInstruction('lw', '$s%s' % i, '%s($sp)' % (i * 4)))
-        a.append(AsmInstruction('addi', '$sp', '$sp', 40))
+        used_registers = set(self.register_map.values()).intersection(ICContext.ALL_TEMP_REGS)
+        for i, v in enumerate(used_registers):
+            a.append(AsmInstruction('lw', v, '%s($sp)' % (i * 4)))
+        a.append(AsmInstruction('lw', '$ra', '%s($sp)' % (4 * (len(used_registers)))))
+        a.append(AsmInstruction('lw', '$fp', '%s($sp)' % (4 * (len(used_registers) + 1))))
+        a.append(AsmInstruction('move', '$sp', '$fp'))
+        # a.append(AsmInstruction('addi', '$sp', '$sp', 4 * (len(used_registers) + 1), comment=str(self)))
         return a + [AsmInstruction('jr', '$ra')]
 
     def __str__(self):
@@ -843,7 +860,7 @@ class ICStoreWord(IC):
 
         if isinstance(base, Label) and isinstance(offset, Variable):
             # base is label and offset is register
-            self.add_used(Variable)
+            self.add_used(offset)
         elif isinstance(base, Variable) and isinstance(offset, Integer):
             # base is register and offset is integer
             self.add_used(base)
@@ -1026,10 +1043,25 @@ class ICContextBasicBlock(object):
         self.branch_label = None
         self.instructions = []
         self.follow = []
+        self.precede = []
         self.liveliness = {'in': set(), 'out': set()}
+
+    def get_root_and_children(self):
+        visited = set()
+        q = [self]
+        ret = []
+        while len(q) != 0:
+            b = q.pop()
+            ret.append(b)
+            for follow in b.follow:
+                if follow not in visited:
+                    q.append(follow)
+                    visited.add(follow)
+        return ret
 
     def add_follow(self, block):
         self.follow.append(block)
+        block.precede.append(self)
 
     def add_start_label(self, name):
         self.start_label = name
@@ -1119,7 +1151,7 @@ class ICContext(object):
         '$s5': '#008500',
         '$s6': '#00CC00',
         '$s7': '#D2006B',
-        '$s8': '#574DD8',
+        # '$s8': '#574DD8',
     }
     ALL_TEMP_REGS = set(TEMP_REGS.keys())
 
@@ -1244,35 +1276,21 @@ class ICContext(object):
         ssa - look @ICContext.update_ssa
 
         """
-        # if ssa:
-            # self.update_ssa()
         self.mipsify()
+        starter_blocks = filter(lambda x: len(x.precede) == 0, self.blocks)
+        starter_blocks = map(lambda x: x.get_root_and_children(), starter_blocks)
+
         # self.update_liveliness()
         # Keep looping until we allocated
         # will loop multiple times if not enough registers and we spill
-        allocated = False
-        while not allocated:
-            self.update_liveliness()
-            allocated = self.allocate_registers()
-
-    def update_ssa(self):
-        """Translate intermediate code to use Static Single Assignment
-        variables.
-
-        """
-        return
-        vc = {}
-        for block in self.blocks:
-            for i in block.instructions:
-                for x in i.liveliness['used']:
-                    if isinstance(x, Variable) and x in vc and vc[x] != 0:
-                        i.rename_used(x, Variable('%s%s' % (x, vc[x])))
-                for x in i.liveliness['defined']:
-                    if x in vc:
-                        vc[x] += 1
-                        i.rename_defined(x, Variable('%s%s' % (x, vc[x])))
-                    else:
-                        vc[x] = 0
+        for blocks in starter_blocks:
+            self.liveliness_graph = UndirectedGraph()
+            self.spilled_variables = set()
+            self.stack_pointer = 0
+            allocated = False
+            while not allocated:
+                self.update_liveliness(blocks)
+                allocated = self.allocate_registers(blocks)
 
     def mipsify(self):
         """Convert from generic intermediate code to mips three address
@@ -1303,12 +1321,12 @@ class ICContext(object):
                         i += 1
                 i += 1
 
-    def update_liveliness(self):
+    def update_liveliness(self, blocks):
         """Loop through all instructions and update their in and out sets.
         Calculate how many times a variable is used.
 
         """
-        for block in self.blocks:
+        for block in blocks:
             block.liveliness['out'] = set()
             block.liveliness['in'] = set()
             for ins in block.instructions:
@@ -1320,12 +1338,12 @@ class ICContext(object):
         changed = True
         while changed:
             changed = False
-            for i in xrange(len(self.blocks) - 1, -1, -1):
-                changed = changed or self.blocks[i].update_liveliness()
+            for i in xrange(len(blocks) - 1, -1, -1):
+                changed = changed or blocks[i].update_liveliness()
         # Now build up a graph of which variables need to be alive at the
         # same time
         self.liveliness_graph = UndirectedGraph()
-        for block in self.blocks:
+        for block in blocks:
             for ins in block.instructions:
                 # Add defined variables
                 for i in ins.liveliness['defined']:
@@ -1342,7 +1360,7 @@ class ICContext(object):
         # Calculate how many times each variable is used
         # doesn't take any consideration of ifs nor whiles
         self.variable_usage = {}
-        for block in self.blocks:
+        for block in blocks:
             for ins in block.instructions:
                 # TODO: why does this break liveliness, but
                 # get(x, 0) in lambda key does not?
@@ -1354,7 +1372,7 @@ class ICContext(object):
                     else:
                         self.variable_usage[v] += 1
 
-    def allocate_registers(self):
+    def allocate_registers(self, blocks):
         """Allocate registers by coloring in a graph of liveliness
 
         """
@@ -1391,7 +1409,7 @@ class ICContext(object):
                         raise RuntimeError('Already spilled all the variables!')
                     node = max(possible_nodes,
                         key=lambda x: self.variable_usage.get(x, 0))
-                    self.spill_variable(node)
+                    self.spill_variable(node, blocks)
                     return False
                 stack.append((node, graph.remove_node(node)))
         # Now add back the nodes
@@ -1408,7 +1426,7 @@ class ICContext(object):
             # return false, and wait to be called again
             if len(possible_regs) == 0:
                 # raise ValueError("NOT ENOUGH REGISTERS")
-                self.spill_variable(node)
+                self.spill_variable(node, blocks)
                 return False
             # Get one
             reg = possible_regs.pop()
@@ -1420,12 +1438,12 @@ class ICContext(object):
             var_map[node] = graph.color(node)
             graph.colorize(node, ICContext.TEMP_REGS[graph.color(node)])
         # Rename all variables
-        for block in self.blocks:
+        for block in blocks:
             for ic in block.instructions:
                 ic.set_register_map(var_map)
         return True
 
-    def spill_variable(self, var):
+    def spill_variable(self, var, blocks):
         """Spill a variable, and store it to a memory location
 
         Arguments:
@@ -1434,7 +1452,7 @@ class ICContext(object):
         """
         self.spilled_variables.add(var)
         stack_counter = self.new_stack_var()
-        for block in self.blocks:
+        for block in blocks:
             i = 0
             while i < len(block.instructions):
                 ins = block.instructions[i]

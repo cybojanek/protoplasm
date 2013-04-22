@@ -483,10 +483,7 @@ class ASTDeclareList(ASTNode):
         self.p = p
         self.dec_type = dec_type
         self.dimensions = dimensions
-        self.declarations = []
-        for d in declarations:
-            self.declarations.append(ASTDeclareVariable(
-                p, d, dimensions))
+        self.declarations = declarations
 
     def wellformed(self, astc):
         for d in self.declarations:
@@ -772,8 +769,18 @@ class ASTFunctionCall(ASTNode):
 
     def gencode(self, icc):
         variable = icc.new_var()
+        argument_stack = []
+        for arg in self.arguments:
+            argument_stack = argument_stack + arg.to_stack()
+        while len(argument_stack) != 0:
+            s = argument_stack.pop()
+            s.gencode(icc)
+        for i, arg in enumerate(self.arguments):
+            icc.add_instruction(ICStoreWord(icc.pop_var(),
+                                base=Variable('@stack'),
+                                offset=Integer(-4 * (i + 1))))
         icc.push_var(variable)
-        icc.add_instruction(ICFunctionCall(variable, self.name))
+        icc.add_instruction(ICFunctionCall(variable, self.name, self.arguments))
 
     def to_stack(self):
         return [self]
@@ -818,13 +825,27 @@ class ASTFunctionDeclare(ASTNode):
             astc.rename[self.name] = new_name
             self.name = new_name
             astc.declared.add(self.name)
+        for f in self.formals:
+            if not f.wellformed(astc):
+                return False
         return True
 
     def gencode(self, icc):
         function_block = icc.new_block(auto_follow=False)
         # Start function declaration
         icc.add_instruction(ICFunctionDeclare(self.name, function_block))
-        # Add variables
+        # Declare variables
+        formal_stack = []
+        for f in self.formals:
+            formal_stack = formal_stack + f.to_stack()
+        while len(formal_stack) != 0:
+            s = formal_stack.pop()
+            s.gencode(icc)
+        for i, arg in enumerate(self.formals):
+            variable = Variable(arg.declarations[0].value)
+            icc.add_instruction(ICLoadWord(variable, base=Variable('@frame'),
+                                offset=Integer(-4 * (i + 1))))
+
         body_stack = self.body.to_stack()
         while len(body_stack) != 0:
             s = body_stack.pop()
@@ -1093,7 +1114,7 @@ class ASTNoOp(ASTNode):
         name = "%s\n%s" % (counter, 'NOOP')
         graph.add_node(name, fillcolor=ASTStatement.COLOR)
         graph.add_edge(parent, name)
-        return self.value.add_edges_to_graph(graph, name, counter + 1)
+        return counter
 
     def __str__(self):
         return 'NOOP: %s' % self.value
