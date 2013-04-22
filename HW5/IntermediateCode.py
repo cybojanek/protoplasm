@@ -322,6 +322,59 @@ class ICBinaryOp(IC):
         return "%s = %s %s %s" % (self.dest, self.arg1, self.op, self.arg2)
 
 
+class ICFunctionArgumentLoad(IC):
+    """Load an argument at the start of a function call
+    """
+
+    def __init__(self, dest, number):
+        super(ICFunctionArgumentLoad, self).__init__()
+        if not(isinstance(dest, Variable)):
+            raise ValueError("Unsupported destination")
+        self.dest = dest
+        self.number = number
+        self.add_defined(dest)
+
+    def generate_assembly(self):
+        dest = self.get_register_or_value(self.dest)
+        if 0 <= self.number <= 3:
+            return [AsmInstruction('move', dest, '$a%s' % self.number, comment=str(self))]
+        else:
+            return [AsmInstruction('lw', dest, '%s($fp)' % (-4 * (self.number - 3)), comment=str(self))]
+
+    def __str__(self):
+        return '%s = arg%s' % (self.dest, self.number)
+
+
+class ICFunctionArgumentSave(IC):
+    """Save an argument for a function call
+    """
+
+    def __init__(self, src, number):
+        super(ICFunctionArgumentSave, self).__init__()
+        if not(isinstance(src, Variable) or isinstance(src, Integer)):
+            raise ValueError("Unsupported source")
+        self.src = src
+        self.number = number
+        self.add_used(src)
+
+    def generate_assembly(self):
+        if isinstance(self.src, Variable):
+            src = self.get_register_or_value(self.src)
+            if 0 <= self.number <= 3:
+                return [AsmInstruction('move', '$a%s' % self.number, src, comment=str(self))]
+            else:
+                return [AsmInstruction('sw', src, '%s($sp)' % (-4 * (self.number - 3)), comment=str(self))]
+        else:
+            if 0 <= self.number <= 3:
+                return [AsmInstruction('li', '$a%s' % self.number, self.src, comment=str(self))]
+            else:
+                return [AsmInstruction('li', '$t0', self.src, comment=str(self)),
+                        AsmInstruction('sw', '$t0', '%s($sp)' % (-4 * (self.number - 3)))]
+
+    def __str__(self):
+        return 'arg%s = %s' % (self.number, self.src)
+
+
 class ICFunctionCall(IC):
     """Call a function
     """
@@ -334,19 +387,19 @@ class ICFunctionCall(IC):
         self.name = name
         self.arguments = arguments
         self.add_defined(dest)
-        for arg in self.arguments:
-            self.add_used(arg)
+        # for arg in self.arguments:
+            # self.add_used(arg)
 
     def first_pass(self):
         pass
 
     def generate_assembly(self):
         dest = self.get_register_or_value(self.dest)
-        if len(self.arguments) > 0:
-            a = [AsmInstruction('move', '$fp', '$sp', comment='Save frame pointer'),
-                 AsmInstruction('addi', '$sp', '$sp', -4 * len(self.arguments))]
+        a = [AsmInstruction('move', '$fp', '$sp', comment='Save frame pointer')]
+        if len(self.arguments) > 4:
+            a = a + [AsmInstruction('addi', '$sp', '$sp', -4 * (len(self.arguments) - 4))]
         return a + [AsmInstruction('jal', 'func_%s' % self.name, comment=str(self)),
-                AsmInstruction('move', dest, '$v0')]
+                    AsmInstruction('move', dest, '$v0')]
 
     def __str__(self):
         return "%s = %s()" % (self.dest, self.name)
@@ -666,15 +719,15 @@ class ICLoadWord(IC):
 
     def generate_assembly(self):
         if self.elem:
-             asm1, elem = self.to_tmp(self.elem, "$t0")
-             asm2, base = self.to_tmp(self.base, "$t1")
-             dest = self.get_register_or_value(self.dest)
-             asm = asm1+asm2
-             asm.append(AsmInstruction("addi", elem, elem, "1"))
-             asm.append(AsmInstruction("sll", elem, elem, "2"))
-             asm.append(AsmInstruction("add", elem, elem, base))
-             asm.append(AsmInstruction("lw", dest, "("+elem+")", comment=str(self)))
-             return asm
+            asm1, elem = self.to_tmp(self.elem, "$t0")
+            asm2, base = self.to_tmp(self.base, "$t1")
+            dest = self.get_register_or_value(self.dest)
+            asm = asm1 + asm2
+            asm.append(AsmInstruction("addi", elem, elem, "1"))
+            asm.append(AsmInstruction("sll", elem, elem, "2"))
+            asm.append(AsmInstruction("add", elem, elem, base))
+            asm.append(AsmInstruction("lw", dest, "(" + elem + ")", comment=str(self)))
+            return asm
         else:
             arg1 = self.get_register_or_value(self.dest)
             arg2 = ''

@@ -776,9 +776,8 @@ class ASTFunctionCall(ASTNode):
             s = argument_stack.pop()
             s.gencode(icc)
         for i, arg in enumerate(self.arguments):
-            icc.add_instruction(ICStoreWord(icc.pop_var(),
-                                base=Variable('@stack'),
-                                offset=Integer(-4 * (i + 1))))
+            icc.add_instruction(ICFunctionArgumentSave(icc.pop_var(), i))
+
         icc.push_var(variable)
         icc.add_instruction(ICFunctionCall(variable, self.name, self.arguments))
 
@@ -843,8 +842,7 @@ class ASTFunctionDeclare(ASTNode):
             s.gencode(icc)
         for i, arg in enumerate(self.formals):
             variable = Variable(arg.declarations[0].value)
-            icc.add_instruction(ICLoadWord(variable, base=Variable('@frame'),
-                                offset=Integer(-4 * (i + 1))))
+            icc.add_instruction(ICFunctionArgumentLoad(variable, i))
 
         body_stack = self.body.to_stack()
         while len(body_stack) != 0:
