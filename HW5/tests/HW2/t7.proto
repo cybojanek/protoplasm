@@ -1,5 +1,8 @@
-int x, y;
-x = - (20 + 15) + 17;
-y = ((x - 15) * 10);
-print(x);
-print(y);
+void main() {
+    int x, y;
+    x = - (20 + 15) + 17;
+    y = ((x - 15) * 10);
+    print(x);
+    print(y);
+    return;
+}

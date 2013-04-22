@@ -135,18 +135,16 @@ def test_if():
 @pre_entry
 def test_while():
     """while"""
-    pass
-    # compile_and_run('while_do', [10, 10, 11, 3, 6, 9, 12, 15, 18, 21, 1, 2, 3,
-    #                 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987])
-    # compile_and_run('do_while', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3,
-    #                 4, 1, 2, 3, 4, 2, 3, 4, 5])
+    compile_and_run('while_do', [10, 10, 11, 3, 6, 9, 12, 15, 18, 21, 1, 2, 3,
+                    5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987])
+    compile_and_run('do_while', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 1, 2, 3,
+                    4, 1, 2, 3, 4, 2, 3, 4, 5])
 
 
 @pre_entry
 def test_for():
     """for"""
-    pass
-    # compile_and_run('for', [120, 5, 5, 5])
+    compile_and_run('for', [120, 5, 5, 5])
 
 
 @pre_entry
@@ -185,9 +183,8 @@ def test_array():
 @pre_entry
 def test_increment():
     """++ --"""
-    pass
-    # compile_and_run('pre_post_increment', [1, 0, 0, 2, 2, 0, 1, 0, 2, 1, 0, 3,
-    #                 3, 1, 0, 0, 1, 1, 1])
+    compile_and_run('pre_post_increment', [1, 0, 0, 2, 2, 0, 1, 0, 2, 1, 0, 3,
+                    3, 1, 0, 0, 1, 1, 1])
     # compile_and_run('pre_post_array',  [1, 1, 2, 3, 4, 0, 0, 5, 0, 1, 2, 3, 4, 1,
     #                 2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8])
 
@@ -202,8 +199,7 @@ def test_runtime_error():
 @pre_entry
 def test_comments():
     """comments"""
-    pass
-    # compile_and_run('comments', [1])
+    compile_and_run('comments', [1])
 
 
 @pre_entry
@@ -216,15 +212,14 @@ def test_empty():
 @pre_entry
 def test_hw2():
     """Homework 2"""
-    pass
-    # compile_and_run('HW2/t1', [52])
+    compile_and_run('HW2/t1', [52])
     # compile_and_fail('HW2/t2')
-    # compile_and_run('HW2/t3', [45, 35], [3])
+    compile_and_run('HW2/t3', [45, 35], [3])
     # compile_and_fail('HW2/t4')
-    # compile_and_run('HW2/t5', [0, -420])
-    # compile_and_run('HW2/t6', [5, 0])
-    # compile_and_run('HW2/t7', [-18, -330])
-    # compile_and_run('HW2/t8', [70])
+    compile_and_run('HW2/t5', [0, -420])
+    compile_and_run('HW2/t6', [5, 0])
+    compile_and_run('HW2/t7', [-18, -330])
+    compile_and_run('HW2/t8', [70])
     # compile_and_fail('HW2/t9')
 
 
@@ -232,15 +227,15 @@ def test_hw2():
 def test_h3():
     """Homework 3"""
     pass
-    # compile_and_run('HW3/t12', [1])
-    # compile_and_run('HW3/t13', [11])
+    compile_and_run('HW3/t12', [1])
+    compile_and_run('HW3/t13', [11])
     # compile_and_fail('HW3/t14')
-    # compile_and_run('HW3/t15', [10])
-    # compile_and_run('HW3/t16', [0])
-    # compile_and_run('HW3/t17', [42, 0])
-    # compile_and_run('HW3/t18', [1])
-    # compile_and_run('HW3/t19', [-30])
-    # compile_and_run('HW3/t20', [0])
+    compile_and_run('HW3/t15', [10])
+    compile_and_run('HW3/t16', [0])
+    compile_and_run('HW3/t17', [42, 0])
+    compile_and_run('HW3/t18', [1])
+    compile_and_run('HW3/t19', [-30])
+    compile_and_run('HW3/t20', [0])
 
 
 @pre_entry

@@ -19,7 +19,7 @@
   ],
   "repository": {
     "function-definition": {
-        "begin": "^([\\s]*)(?!return)([\\w]+)([\\s]+)([_a-zA-Z]+)([\\s]*\\()",
+        "begin": "^([\\s]*)(?!if|then|else|while|do|for|new|return)([\\w]+)([\\s]+)([_a-zA-Z]+)([\\s]*\\()",
         "beginCaptures": {
             "2": { "name": "storage.type.proto" },
             "4": { "name": "entity.name.function.proto" }

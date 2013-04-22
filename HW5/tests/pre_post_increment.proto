@@ -1,59 +1,61 @@
-int a, b;
-int c[];
-a = 0;
-a++;
-// 1
-print(a);
-a--;
-// 0
-print(a);
-// 0
-print(a++);
-// 2
-print(++a);
-// 2
-print(a--);
-// 0
-print(--a);
+void main() {
+    int a, b, c;
+    a = 0;
+    a++;
+    // 1
+    print(a);
+    a--;
+    // 0
+    print(a);
+    // 0
+    print(a++);
+    // 2
+    print(++a);
+    // 2
+    print(a--);
+    // 0
+    print(--a);
 
-a = 0;
-b = 1;
-// 1
-if(++a == b) then
-    print(1);
+    a = 0;
+    b = 1;
+    // 1
+    if(++a == b) then
+        print(1);
 
-c = 0;
-a = b++; 
-// 0
-print(c);
-// 2
-print(b);
-// 1
-print(a);
+    c = 0;
+    a = b++; 
+    // 0
+    print(c);
+    // 2
+    print(b);
+    // 1
+    print(a);
 
-c = 0;
-a = ++b;
-// 0
-print(c);
-// 3
-print(b);
-// 3
-print(a);
+    c = 0;
+    a = ++b;
+    // 0
+    print(c);
+    // 3
+    print(b);
+    // 3
+    print(a);
 
-c = 0;
-a = b = c++;
-// 1
-print(c);
-// 0
-print(b);
-// 0
-print(a);
+    c = 0;
+    a = b = c++;
+    // 1
+    print(c);
+    // 0
+    print(b);
+    // 0
+    print(a);
 
-c = 0;
-a = b = ++c;
-// 1
-print(c);
-// 1
-print(b);
-// 1
-print(a);
+    c = 0;
+    a = b = ++c;
+    // 1
+    print(c);
+    // 1
+    print(b);
+    // 1
+    print(a);
+    return;
+}

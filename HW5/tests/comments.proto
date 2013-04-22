@@ -1,5 +1,9 @@
-// wat
-int a;
-a = 1;
-print(a);
-// done
+// meow!
+void main() { // main method
+    // wat
+    int a;
+    a = 1;
+    print(a);
+    // done
+}
+// no really - done

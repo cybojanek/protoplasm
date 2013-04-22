@@ -86,7 +86,7 @@ def t_ID(t):
     # Go back to initial state
     if t.type == 'ID' and state == 'CLASS':
         t.type = 'CLASSID'
-        classes[level].add(t.value)
+        classes.add(t.value)
         state = 'INITIAL'
         return t
     # Check if its a class name - if it is,
