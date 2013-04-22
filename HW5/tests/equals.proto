@@ -1,4 +1,4 @@
-int main() {
+void main() {
     int a, b;
     a = 1024;
     b = 1023;
@@ -14,4 +14,5 @@ int main() {
     print(a != 2048);
     print(1024 != 1023);
     print(a != b);
+    return;
 }

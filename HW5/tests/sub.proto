@@ -1,4 +1,4 @@
-int main() {
+void main() {
     int a, b, c;
     a = 10000000;
     b =  2345678;
@@ -20,4 +20,5 @@ int main() {
     print(-2345678 - -2345678);
     print(-2345678 - c);
     print(c - -2345678);
+    return;
 }

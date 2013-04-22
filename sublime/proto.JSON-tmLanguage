@@ -19,7 +19,7 @@
   ],
   "repository": {
     "function-definition": {
-        "begin": "^([\\s]*)([\\w]+)([\\s]+)([_a-zA-Z]+)([\\s]*\\()",
+        "begin": "^([\\s]*)(?!return)([\\w]+)([\\s]+)([_a-zA-Z]+)([\\s]*\\()",
         "beginCaptures": {
             "2": { "name": "storage.type.proto" },
             "4": { "name": "entity.name.function.proto" }
@@ -107,3 +107,4 @@
     }
   },
   "uuid": "284b6004-1d26-42d2-9ab1-5d8b75b058e7"
+}

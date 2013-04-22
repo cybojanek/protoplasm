@@ -1,4 +1,4 @@
-int main() {
+void main() {
     int a, b, c, d;
     a = 0;
     b = 1;
@@ -60,4 +60,5 @@ int main() {
 
     // print 0
     if(false) then print(1); else print(0);
+    return;
 }

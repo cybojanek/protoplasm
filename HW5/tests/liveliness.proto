@@ -1,4 +1,4 @@
-int main() {
+void main() {
     int a, b;
     b = 10;
     a = 20;
@@ -6,4 +6,5 @@ int main() {
     // put a and b in the same register
     // 10
     print(b);
+    return;
 }

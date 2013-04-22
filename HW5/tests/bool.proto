@@ -1,4 +1,4 @@
-int main() {
+void main() {
     bool a, b;
     a = true;
     b = false;
@@ -8,4 +8,5 @@ int main() {
         print(0);
     if(a && !b) then
         print(2);
+    return;
 }

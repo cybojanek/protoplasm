@@ -1,4 +1,4 @@
-int main() {
+void main() {
     int a;
     a = 1024;
     print(!a);
@@ -8,4 +8,5 @@ int main() {
     print(!a);
     a = 0;
     print(!a);
+    return;
 }

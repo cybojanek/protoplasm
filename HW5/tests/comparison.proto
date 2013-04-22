@@ -1,4 +1,4 @@
-int main() {
+void main() {
     int a, b, c;
     a = 1024;
     b = 1023;
@@ -11,4 +11,5 @@ int main() {
     print(a <= c);
     print(a > c);
     print(a >= c);
+    return;
 }

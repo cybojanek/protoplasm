@@ -1,4 +1,4 @@
-int main() {
+void main() {
     int a, b, c;
     a = 974067840;
     b = 7890;
@@ -20,4 +20,5 @@ int main() {
     print(-7890 / 7890);
     print(-7890 / -7890);
     print(7890 / -7890);
+    return;
 }
