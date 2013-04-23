@@ -10,6 +10,8 @@ import ply.yacc as yacc
 import proto4lexer
 import proto4parser
 
+from proto4lexer import colorize
+
 from AbstractSyntaxTree import ASTProgram
 from ASMCode import write_asm_to_file
 
@@ -19,12 +21,27 @@ def main(args):
     program_name = os.path.splitext(args.file)[0]
     # Load lexer
     lexer = lex.lex(module=proto4lexer)
+    lexer.proto_file = args.file
+    lexer.proto_errors = 0
     # Tokenize file
     lexer.input(open(args.file, 'r').read())
+    lexer.lineno = 0
     # Load parser
     parser = yacc.yacc(module=proto4parser)
+    parser.proto_errors = 0
     # Parse program
-    program = parser.parse(open(args.file, 'r').read())
+    try:
+        program = parser.parse(open(args.file, 'r').read())
+    except:
+        # Exception probably because of errors
+        if parser.proto_errors > 0 or lexer.proto_errors > 0:
+            print colorize('Could not continue parsing due to previous errors', 'red')
+            sys.exit(1)
+        else:  # Idk
+            raise
+    if parser.proto_errors > 0 or lexer.proto_errors > 0:
+        print colorize('Could not continue parsing due to previous errors', 'red')
+        sys.exit(1)
     # print program
     # print 'FIX WELLFORMED'
     if not program.wellformed():

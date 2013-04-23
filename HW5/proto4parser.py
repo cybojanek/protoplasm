@@ -1,7 +1,7 @@
 import ply.yacc as yacc
 
 # Get tokens from lexer
-from proto4lexer import tokens
+from proto4lexer import tokens, colorize, find_column
 from AbstractSyntaxTree import *
 
 # Precedence ordering lowest to highest
@@ -386,7 +386,96 @@ def p_empty(p):
     '''empty :'''
     pass
 
+#########################################
+#  _____ ____  ____   ___  ____  ____   #
+# | ____|  _ \|  _ \ / _ \|  _ \/ ___|  #
+# |  _| | |_) | |_) | | | | |_) \___ \  #
+# | |___|  _ <|  _ <| |_| |  _ < ___) | #
+# |_____|_| \_\_| \_\\___/|_| \_\____/  #
+#########################################
+
+
+
+
+    # pass
+# def p_error(p):
+#     print "MEOW"
+    # print p.__dict__
+    # p.parser.errok()
+
+
+# def p_stmt_error(p):
+#     '''stmt : se error'''
+#     p.parser.proto_errors += 1
+#     print p.parser.__dict__
+#     # print p.slice[1][1]
+#     # print_expected_error(p, 1, "expected ';' after statement", ';')
+#     p.parser.errok()
+# def p_stmt_if_then_error(p):
+#     '''stmt : IF ae error stmt'''
+#     print_expected_error(p, 1, "expected 'then' in 'if' statement")
+
+
+def p_type_rbrace_error(p):
+    ''' type : type LBRACE error'''
+    print_expected_error(p, 2, "expected ']' after '['", ']')
+
+
+def p_type_lbrace_error(p):
+    ''' type : type error RBRACE'''
+    print_expected_error(p, 3, "expected '[' before ']'", '[', aug=2)
+
+
+def p_varlist_error(p):
+    '''varlist : ID COMMA error'''
+    print_expected_error(p, 2, "expected variable after ','")
+
+
+def p_stmt_print_semi_error(p):
+    '''stmt : PRINT LPAREN ae RPAREN error'''
+    print_expected_error(p, 4, "expected ';' after print statement", ';')
+
+
+def p_stmt_print_lparen_error(p):
+    '''stmt : PRINT error ae RPAREN SEMICOLON'''
+    print_expected_error(p, 1, "expected '(' after print", '(', aug=-3)
+
+
+def p_stmt_print_lrparen_error(p):
+    '''stmt : PRINT error ae error SEMICOLON'''
+    print_expected_error(p, 1, "expected '(' after print", '(', aug=-3)
+    print_expected_error(p, 5, "expected ')' before ';'", ')', aug=2)
+
+
+def p_primary_ae_rparen_error(p):
+    '''primary : LPAREN ae error'''
+    print_expected_error(p, 1, "unmatched '('", aug=2)
+
+
+def p_function_call_rparen_error(p):
+    '''functioncall : ID LPAREN args_question error'''
+    print_expected_error(p, 2, "unmatched '('", aug=2)
+
+
+def print_expected_error(p, t, message, missing=None, aug=1):
+    p.parser.proto_errors += 1
+    lineno, col = p.lineno(t), find_column(p.lexer.lexdata, p.slice[t])
+    line = p.lexer.lexdata.split('\n')[lineno]
+    print "%s %s %s" % (
+        colorize('%s:%s:%s' % (p.lexer.proto_file, lineno, col), 'white'),
+        colorize('error:', 'red'),
+        colorize(message, 'white'))
+    print line.rstrip()
+    print '%s%s' % (' ' * (col - aug), colorize('^', 'green'))
+    if missing:
+        print '%s%s' % (' ' * (col - aug), colorize(missing, 'green'))
+    p.parser.errok()
 
 # Syntax errors
 def p_error(p):
-    raise ValueError("Synax error!: %r" % p)
+    p.lexer.proto_errors += 1
+    print colorize(str(ValueError("Synax error!: %r" % p)), 'blue')
+    # print colorize("Somewhere here", 'blue')
+    # print colorize("##")
+    # print '\n'.join(p.lexer.lexdata.split('\n')[p.lineno - 1:p.lineno + 1])
+    # p.parser.errok()

@@ -1,4 +1,5 @@
 import ply.lex as lex
+import sys
 
 # Reserved words
 reserved = {
@@ -117,8 +118,37 @@ def t_newline(t):
     t.lexer.lineno += t.value.count('\n')
 
 
+def find_column(input, token):
+    last_cr = input.rfind('\n', 0, token.lexpos)
+    if last_cr < 0:
+        last_cr = 0
+    column = (token.lexpos - last_cr) + 1
+    return column
+
+
+def colorize(string, color):
+    colors = {
+        'red': '\033[91m',
+        'white': '\033[97m',
+        'green': '\033[92m',
+        'blue': '\033[94m',
+    }
+    if not sys.stdout.isatty():
+        return string
+    return '%s%s%s' % (colors[color], string, '\033[0m')
+
+
 # On character error
 def t_error(t):
-    raise ValueError("Illegal character %r at line: %s" % (
-        t.value[0], t.lexer.lineno))
-    # t.lexer.skip(1)
+    t.lexer.proto_errors += 1
+    lineno, col = t.lexer.lineno, find_column(t.lexer.lexdata, t)
+    line = t.lexer.lexdata.split('\n')[lineno]
+    print "%s %s %s" % (
+        colorize('%s:%s:%s' % (t.lexer.proto_file, lineno, col), 'white'),
+        colorize('error:', 'red'),
+        colorize('unexpected token', 'white'))
+    print line.rstrip()
+    print '%s%s' % (' ' * (col - 2), colorize('^', 'green'))
+    # sys.exit(1)
+    t.lexer.skip(1)
+    t.type = 'ERROR'
