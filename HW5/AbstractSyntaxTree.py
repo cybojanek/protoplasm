@@ -153,6 +153,7 @@ class ASTProgram(ASTNode):
 
     def wellformed(self):
         astc = ASTContext()
+        # Get all functions
         for d in self.declarations:
             if isinstance(d, ASTFunctionDeclare):
                 if d.name in astc.functions:
@@ -163,6 +164,17 @@ class ASTProgram(ASTNode):
                 else:
                     astc.functions[d.name] = d.formals
                     astc.types[d.name] = d.type(astc)
+        # Check for correct main
+        if 'main' not in astc.functions:
+            print 'Missing main functions'
+            return False
+        if len(astc.functions['main']) != 0:
+            print 'Main function has arguments!'
+            return False
+        if astc.types['main'] != ('void', 0):
+            print 'Main functoin has non-void return type!'
+            return False
+        # Now do everything else
         for d in self.declarations:
             if not d.wellformed(astc):
                 return False
