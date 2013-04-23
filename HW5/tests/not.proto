@@ -1,12 +1,8 @@
 void main() {
-    int a;
-    a = 1024;
-    print(!a);
-    a = -1024;
-    print(!a);
-    a = 1;
-    print(!a);
-    a = 0;
-    print(!a);
+    bool b;
+    b = true;
+    if !!b then print(0);
+    b = false;
+    if !b then print(1); else print(0);
     return;
 }

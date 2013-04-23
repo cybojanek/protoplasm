@@ -121,7 +121,7 @@ def test_comparison():
 def test_boolean_logic():
     """&& || !"""
     compile_and_run('bool', [1, 0, 2])
-    compile_and_run('not', [0, 0, 0, 1])
+    compile_and_run('not', [0, 1])
     compile_and_run('and_or', [0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1,
                     1])
 

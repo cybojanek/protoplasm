@@ -2,9 +2,9 @@ void main() {
     bool a, b;
     a = true;
     b = false;
-    if(a == 1) then
+    if(a == true) then
         print(1);
-    if(b == 0) then
+    if(b == false) then
         print(0);
     if(a && !b) then
         print(2);

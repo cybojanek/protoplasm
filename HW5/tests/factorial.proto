@@ -1,12 +1,12 @@
-void main() {
-    print(factorial(5));
-    print(factorial(12));
-    return;
-}
-
 int factorial(int i) {
     if i == 1 then
         return 1;
     else
         return i * factorial(i - 1);
+}
+
+void main() {
+    print(factorial(5));
+    print(factorial(12));
+    return;
 }

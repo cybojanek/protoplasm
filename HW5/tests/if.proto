@@ -1,59 +1,62 @@
 void main() {
     int a, b, c, d;
+    bool t, f;
+    t = true;
+    f = false;
     a = 0;
     b = 1;
     c = 2;
     // print nothing
-    if a then print(a);
+    if f then print(a);
 
     // print 1
-    if a then print(a); else print(b);
+    if f then print(a); else print(b);
 
     // print 1
-    if b then print(b);
+    if t then print(b);
 
     // print 1
-    if b then print(b); else print(c);
+    if t then print(b); else print(c);
 
     // print nothing
-    if a then if b then print(b);
+    if f then if t then print(b);
 
     // print 2
-    if b then if c then print(c);
+    if t then if t then print(c);
 
     // print 2
-    if b then 
-       if c then print(c);
+    if t then 
+       if t then print(c);
        else print(b);
     else print(a);
 
     // print 0
-    if a then
-      if c then print(c);
+    if f then
+      if t then print(c);
       else print(b);
     else print(a);
 
     // print 1
-    if !a then print(b);
+    if !f then print(b);
 
     // print 1
-    if (a || b) then print(b);
+    if (t || f) then print(b);
 
     // print 1
-    if (b && c) then print(b);
+    if (t && t) then print(b);
 
     // print nothing
     if (a > 0 || b> 1 || c > 2) then print(c);
 
-    if a then d = 0; else d = 1;
+    if f then d = 0; else d = 1;
     // print 1
-    if d then print(d);
+    if d == 1 then print(d);
 
     // print 2
-    if !(a && b) == (!a || !b) then print(c);
+    if !(t && f) == (!t || !f) then print(c);
 
     // print 2
-    if (a && b) != (!a || !b) then print(c);
+    if (t && f) != (!t || !f) then print(c);
 
     // print 0
     if(true) then print(0);

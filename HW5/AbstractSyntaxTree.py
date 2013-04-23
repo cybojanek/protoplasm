@@ -37,12 +37,14 @@ class ASTContext(object):
 
         """
         self.defined = set()
-        self.declared = set()
         self.used = set()
+        self.declared = set()
         self.rename = dict()
+        self.types = {}
+        self.functions = {}
+        self.current_function = None
         self.counter = 0
         self.previous = None
-        self.types = {}
 
     def get_new_var_name(self, name):
         n = '&%s%s' % (name, self.counter)
@@ -65,6 +67,11 @@ class ASTContext(object):
             a.declared.add(x)
         for k, v in self.rename.iteritems():
             a.rename[k] = v
+        for k, v in self.types.iteritems():
+            a.types[k] = v
+        for k, v in self.functions.iteritems():
+            a.functions[k] = v
+        a.current_function = self.current_function
         a.counter = self.counter
         a.previous = self
         return a
@@ -84,6 +91,12 @@ class ASTNode(object):
     COLOR = NODE_COLORS['ASTNode']
 
     def __init__(self):
+        raise NotImplemented()
+
+    def type(self, astc):
+        """Return the resultant type and check children
+        types
+        """
         raise NotImplemented()
 
     def wellformed(self):
@@ -205,8 +218,16 @@ class ASTAlloc(ASTNode):
         self.size = size
         self.dimensions = dimensions
 
+    def type(self, astc):
+        return (self.type, self.dimensions)
+
     def wellformed(self, astc):
-        return self.size.wellformed(astc)
+        if not self.size.wellformed(astc):
+            return False
+        if self.size.type(astc) != ('int', 0):
+            print 'Array size is not an integer!'
+            return False
+        return True
 
     def gencode(self, icc):
         var = icc.new_var()
@@ -246,7 +267,13 @@ class ASTArray(ASTNode):
         self.value = value
         self.element = element
 
+    def type(self, astc):
+        return self.value.type(astc)
+
     def wellformed(self, astc):
+        if self.element.type(astc) != ('int', 0):
+            print 'Array index is not an integer!'
+            return False
         if not self.element.wellformed(astc):
             return False
         return self.value.wellformed(astc)
@@ -295,7 +322,11 @@ class ASTAssign(ASTNode):
         self.left = left
         self.right = right
 
+    def type(self, astc):
+        return self.right.type(astc)
+
     def wellformed(self, astc):
+        # print self.left.type(astc), self.right.type(astc)
         if not self.right.wellformed(astc):
             return False
         if not isinstance(self.left, ASTArray):
@@ -306,6 +337,9 @@ class ASTAssign(ASTNode):
                 print "%s assigned but not declared!" % self.left.value
                 return False
             astc.defined.add(self.left.value)
+        if self.left.type(astc) != self.right.type(astc):
+            print 'type mismatch for asisgnment statement!'
+            return False
         return True
 
     def gencode(self, icc):
@@ -355,32 +389,51 @@ class ASTBinaryOp(ASTNode):
         """
         self.p = p
         self.left, self.right = left, right
-        self.type = type
-        if self.type not in ASTBinaryOp.TYPES:
+        self.b_type = type
+        if self.b_type not in ASTBinaryOp.TYPES:
             raise TypeError('Binary operation: %r not supported')
 
+    def type(self, astc):
+        left, right = self.left.type(astc), self.right.type(astc)
+        integer, boolean = ('int', 0), ('bool', 0)
+        if self.b_type in ('+', '-', '*', '/', '%') and left == integer and right == integer:
+            return integer
+        elif self.b_type in ('<', '<=', '>', '>=') and left == integer and right == integer:
+            return boolean
+        elif self.b_type in ('&&', '||') and left == boolean and right == boolean:
+            return boolean
+        elif self.b_type in ('==', '!=') and ((left == boolean and right == boolean) or (left == integer and right == integer)):
+            return boolean
+        else:
+            return None
+
     def wellformed(self, astc):
-        return self.left.wellformed(astc) and self.right.wellformed(astc)
+        if not(self.left.wellformed(astc) and self.right.wellformed(astc)):
+            return False
+        if self.type(astc) is None:
+            print 'Bad binary op type!'
+            return False
+        return True
 
     def gencode(self, icc):
         var = icc.new_var()
         arg2 = icc.pop_var()
         arg1 = icc.pop_var()
-        icc.add_instruction(ICBinaryOp(var, arg1, arg2, self.type))
+        icc.add_instruction(ICBinaryOp(var, arg1, arg2, self.b_type))
         icc.push_var(var)
 
     def to_stack(self):
         return [self] + self.right.to_stack() + self.left.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.type)
+        name = "%s\n%s" % (counter, self.b_type)
         graph.add_node(name, fillcolor=ASTBinaryOp.COLOR)
         graph.add_edge(parent, name)
         counter = self.left.add_edges_to_graph(graph, name, counter + 1)
         return self.right.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
-        return 'BINARY_OP %s: [%s, %s]' % (self.type, self.left, self.right)
+        return 'BINARY_OP %s: [%s, %s]' % (self.b_type, self.left, self.right)
 
 
 class ASTBlock(ASTNode):
@@ -447,6 +500,9 @@ class ASTBoolean(ASTNode):
         self.p = p
         self.value = value
 
+    def type(self, astc):
+        return ('bool', 0)
+
     def wellformed(self, astc):
         return True
 
@@ -485,10 +541,14 @@ class ASTDeclareList(ASTNode):
         self.dimensions = dimensions
         self.declarations = declarations
 
+    def type(self, astc):
+        return (self.dec_type, self.dimensions)
+
     def wellformed(self, astc):
         for d in self.declarations:
             if not d.wellformed(astc):
                 return False
+            astc.types[d.value] = (self.dec_type, self.dimensions)
         return True
 
     def gencode(self, icc):
@@ -578,6 +638,8 @@ class ASTDoWhile(ASTNode):
             return False
         if not self.while_part.wellformed(stmt_astc):
             return False
+        if self.while_part.type(astc) != ('bool', 0):
+            print 'while part'
         astc.counter = stmt_astc.counter
         return True
 
@@ -684,6 +746,9 @@ class ASTFor(ASTNode):
             return False
         if not self.cond_part.wellformed(astc):
             return False
+        if self.cond_part.type(astc) != ('bool', 0):
+            print 'condition of for loop is not bool!'
+            return False
         if not self.incr_part.wellformed(astc):
             return False
         if not self.stmt_part.wellformed(astc):
@@ -761,10 +826,22 @@ class ASTFunctionCall(ASTNode):
         self.name = name
         self.arguments = arguments
 
+    def type(self, astc):
+        return astc.types[self.name]
+
     def wellformed(self, astc):
         if self.name not in astc.declared:
             print "Missing function: %s" % self.name
             return False
+        if len(self.arguments) != len(astc.functions[self.name]):
+            print 'Argument number does not match for calling %s' % self.name
+        for i, (arg, formal) in enumerate(zip(self.arguments, astc.functions[self.name])):
+            if arg.type(astc) != formal.type(astc):
+                print 'Argument :%s of function call to %s does not match' % (i, self.name)
+                return False
+        # print astc.functions
+        # print astc.functions[self.name][0].type(astc)
+        # check arguments
         return True
 
     def gencode(self, icc):
@@ -811,12 +888,16 @@ class ASTFunctionDeclare(ASTNode):
 
         """
         self.p = p
-        self.type = f_type
+        self.f_type = f_type
         self.name = name
         self.formals = formals
         self.body = statement
 
+    def type(self, astc):
+        return self.f_type
+
     def wellformed(self, astc):
+        astc.current_function = self.name
         if self.name not in astc.declared:
             astc.declared.add(self.name)
         else:
@@ -824,9 +905,19 @@ class ASTFunctionDeclare(ASTNode):
             astc.rename[self.name] = new_name
             self.name = new_name
             astc.declared.add(self.name)
+        astc.types[self.name] = self.f_type
+        rest_astc = astc.clone()
+        # print self.formals
         for f in self.formals:
-            if not f.wellformed(astc):
+            if not f.wellformed(rest_astc):
                 return False
+            # All will be defined
+            rest_astc.defined.add(f.declarations[0].value)
+        astc.functions[self.name] = self.formals
+        rest_astc.functions[self.name] = self.formals
+        if not self.body.wellformed(rest_astc):
+            return False
+        astc.current_function = None
         return True
 
     def gencode(self, icc):
@@ -879,8 +970,16 @@ class ASTFunctionReturn(ASTNode):
         self.p = p
         self.value = value
 
+    def type(self, astc):
+        return self.value.type(astc)
+
     def wellformed(self, astc):
-        return self.value.wellformed()
+        if not self.value.wellformed(astc):
+            return False
+        if self.type(astc) != astc.types[astc.current_function]:
+            print 'Return type mismtch in function %s' % (astc.current_function)
+            return False
+        return True
 
     def gencode(self, icc):
         if isinstance(self.value, ASTNoOp):
@@ -923,6 +1022,11 @@ class ASTIf(ASTNode):
 
     def wellformed(self, astc):
         if not self.if_part.wellformed(astc):
+            return False
+        if self.if_part.type(astc) != ('bool', 0):
+            print 'if is not bool type!'
+            print self.if_part.type(astc)
+            print self.if_part
             return False
         # Then part can only check for usage, and not defined new variables
         # because its path is uncertain
@@ -1028,6 +1132,9 @@ class ASTInput(ASTNode):
         """
         self.p = p
 
+    def type(self, astc):
+        return ('int', 0)
+
     def wellformed(self, astc):
         return True
 
@@ -1062,6 +1169,9 @@ class ASTInteger(ASTNode):
         """
         self.p = p
         self.value = value
+
+    def type(self, astc):
+        return ('int', 0)
 
     def wellformed(self, astc):
         if isinstance(self.value, int) and \
@@ -1099,6 +1209,9 @@ class ASTNoOp(ASTNode):
         """
         self.p = p
 
+    def type(self, astc):
+        return ('void', 0)
+
     def wellformed(self, astc):
         return True
 
@@ -1115,7 +1228,7 @@ class ASTNoOp(ASTNode):
         return counter
 
     def __str__(self):
-        return 'NOOP: %s' % self.value
+        return 'NOOP:'
 
 
 class ASTPrePostIncrement(ASTNode):
@@ -1136,28 +1249,36 @@ class ASTPrePostIncrement(ASTNode):
         """
         self.p = p
         self.value = value
-        self.type = mytype[0]
+        self.ptype = mytype[0]
         self.direction = direction
 
-        if self.type not in ("+", "-"):
-            raise TypeError('Increment operation: %s not supported' % self.type)
+        if self.ptype not in ("+", "-"):
+            raise TypeError('Increment operation: %s not supported' % self.ptype)
         if self.direction not in (self.PRE, self.POST):
-            raise TypeError('Increment operation: %s not supported' % self.type)
+            raise TypeError('Increment operation: %s not supported' % self.ptype)
+
+    def type(self, astc):
+        return ('int', 0)
 
     def wellformed(self, astc):
-        return self.value.wellformed(astc)
+        if not self.value.wellformed(astc):
+            return False
+        if self.value.type(astc) != ('int', 0):
+            print '++/-- on non integer!'
+            return False
+        return True
 
     def gencode(self, icc):
         new_var = icc.new_var()
         orig_var = icc.pop_var()
 
         icc.add_instruction(ICAssign(new_var, orig_var))
-        icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.type))
+        icc.add_instruction(ICBinaryOp(orig_var, orig_var, Integer(1), self.ptype))
         if isinstance(self.value, ASTArray):
             icc.add_instruction(ICStoreWord(orig_var, orig_var._base, Integer(0), orig_var._elem))
 
         if self.direction == self.PRE:
-            icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.type))
+            icc.add_instruction(ICBinaryOp(new_var, new_var, Integer(1), self.ptype))
 
         icc.push_var(new_var)
 
@@ -1165,16 +1286,16 @@ class ASTPrePostIncrement(ASTNode):
         return [self] + self.value.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.type)
+        name = "%s\n%s" % (counter, self.ptype)
         graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
         graph.add_edge(parent, name)
         return self.value.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
         if self.direction == 1:
-            return '(%s)%s' % (self.value, self.type * 2)
+            return '(%s)%s' % (self.value, self.ptype * 2)
         else:
-            return '%s(%s)' % (self.type * 2, self.value)
+            return '%s(%s)' % (self.ptype * 2, self.value)
 
 
 class ASTPrint(ASTNode):
@@ -1192,7 +1313,13 @@ class ASTPrint(ASTNode):
         self.value = value
 
     def wellformed(self, astc):
-        return self.value.wellformed(astc)
+        if not self.value.wellformed(astc):
+            return False
+        if self.value.type(astc) != ('int', 0):
+            print self.value.type(astc)
+            print 'print statement does not have int type'
+            return False
+        return True
 
     def gencode(self, icc):
         icc.add_instruction(ICPrint(icc.pop_var()))
@@ -1223,6 +1350,9 @@ class ASTStatement(ASTNode):
         """
         self.p = p
         self.value = value
+
+    def type(self, astc):
+        return self.value.type(astc)
 
     def wellformed(self, astc):
         return self.value.wellformed(astc)
@@ -1259,29 +1389,42 @@ class ASTUnaryOp(ASTNode):
         """
         self.p = p
         self.value = value
-        self.type = type
-        if self.type not in ASTUnaryOp.TYPES:
-            raise TypeError('Unary operation: %s not supported' % self.type)
+        self.u_type = type
+        if self.u_type not in ASTUnaryOp.TYPES:
+            raise TypeError('Unary operation: %s not supported' % self.u_type)
+
+    def type(self, astc):
+        if self.u_type == '-' and self.value.type(astc) == ('int', 0):
+            return ('int', 0)
+        elif self.u_type == '!' and self.value.type(astc) == ('bool', 0):
+            return ('bool', 0)
+        else:
+            return None
 
     def wellformed(self, astc):
-        return self.value.wellformed(astc)
+        if not self.value.wellformed(astc):
+            return False
+        if self.type(astc) is None:
+            print 'Invalid unrary types'
+            return False
+        return True
 
     def gencode(self, icc):
         var = icc.new_var()
-        icc.add_instruction(ICUnaryOp(var, icc.pop_var(), self.type))
+        icc.add_instruction(ICUnaryOp(var, icc.pop_var(), self.u_type))
         icc.push_var(var)
 
     def to_stack(self):
         return [self] + self.value.to_stack()
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s" % (counter, self.type)
+        name = "%s\n%s" % (counter, self.u_type)
         graph.add_node(name, fillcolor=ASTUnaryOp.COLOR)
         graph.add_edge(parent, name)
         return self.value.add_edges_to_graph(graph, name, counter + 1)
 
     def __str__(self):
-        return '%s: %s' % (self.type, self.value)
+        return '%s: %s' % (self.u_type, self.value)
 
 
 class ASTVariable(ASTNode):
@@ -1298,6 +1441,9 @@ class ASTVariable(ASTNode):
         self.p = p
         self.value = value
         self.dimensions = dimensions
+
+    def type(self, astc):
+        return astc.types[self.value]
 
     def wellformed(self, astc):
         if self.value in astc.rename:
@@ -1355,6 +1501,10 @@ class ASTWhileDo(ASTNode):
         if not self.do_part.wellformed(stmt_astc):
             return False
         astc.counter = stmt_astc.counter
+        if self.while_part.type(astc) != ('bool', 0):
+            # print self.while_part.type(astc)
+            print 'While part of while do is not bool!'
+            return False
         return True
 
     def gencode(self, icc):

@@ -1,15 +1,41 @@
 void main() {
-    int a, b, c;
+    int a, b, c, t, f;
+    t = 1;
+    f = 0;
     a = 1024;
     b = 1023;
     c = 1024;
-    print(a < b);
-    print(a <= b);
-    print(a > b);
-    print(a >= b);
-    print(a < c);
-    print(a <= c);
-    print(a > c);
-    print(a >= c);
+    if (a < b) then
+        print(t);
+    else
+        print(f);
+    if (a <= b) then
+        print(t);
+    else
+        print(f);
+    if (a > b) then
+        print(t);
+    else
+        print(f);
+    if (a >= b) then
+        print(t);
+    else
+        print(f);
+    if (a < c) then
+        print(t);
+    else
+        print(f);
+    if (a <= c) then
+        print(t);
+    else
+        print(f);
+    if (a > c) then
+        print(t);
+    else
+        print(f);
+    if (a >= c) then
+        print(t);
+    else
+        print(f);
     return;
 }

@@ -1,18 +1,56 @@
 void main() {
-    int a, b;
+    int a, b, t, f;
+    t = 1;
+    f = 0;
     a = 1024;
     b = 1023;
-    print(a == 1024);
-    print(a == a);
-    print(1024 == 1024);
-    print(a == 2048);
-    print(1024 == 1023);
-    print(a == b);
-    print(a != 1024);
-    print(a != a);
-    print(1024 != 1024);
-    print(a != 2048);
-    print(1024 != 1023);
-    print(a != b);
+    if (a == 1024) then
+        print(t);
+    else
+        print(f);
+    if (a == a) then
+        print(t);
+    else
+        print(f);
+    if (1024 == 1024) then
+        print(t);
+    else
+        print(f);
+    if (a == 2048) then
+        print(t);
+    else
+        print(f);
+    if (1024 == 1023) then
+        print(t);
+    else
+        print(f);
+    if (a == b) then
+        print(t);
+    else
+        print(f);
+    if (a != 1024) then
+        print(t);
+    else
+        print(f);
+    if (a != a) then
+        print(t);
+    else
+        print(f);
+    if (1024 != 1024) then
+        print(t);
+    else
+        print(f);
+    if (a != 2048) then
+        print(t);
+    else
+        print(f);
+    if (1024 != 1023) then
+        print(t);
+    else
+        print(f);
+    if (a != b) then
+        print(t);
+    else
+        print(f);
     return;
 }

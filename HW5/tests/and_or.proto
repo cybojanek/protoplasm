@@ -1,20 +1,74 @@
 void main() {
-    print(1 && 0);
-    print(0 && 1);
-    print(1 && 1);
-    print(0 && 0);
-    print((3 > 2) && (4 < 5));
-    print((1 > 2) && (5 > 4));
-    print(1 && 1 && 1);
-    print(1 && 0 && 1);
-    print(1 || 0);
-    print(0 || 1);
-    print(1 || 1);
-    print(0 || 0);
-    print((3 > 2) || (4 < 5));
-    print((1 > 2) || (5 > 4));
-    print((1 < 2) || (4 > 5));
-    print(1 || 1 || 1);
-    print(1 || 0 || 1);
+    int t, f;
+    t = 1;
+    f = 0;
+    if (true && false) then
+        print(t);
+    else
+        print(f);
+    if (false && true) then
+        print(t);
+    else
+        print(f);
+    if (true && true) then
+        print(t);
+    else
+        print(f);
+    if (false && false) then
+        print(t);
+    else
+        print(f);
+    if ((3 > 2) && (4 < 5)) then
+        print(t);
+    else
+        print(f);
+    if ((1 > 2) && (5 > 4)) then
+        print(t);
+    else
+        print(f);
+    if (true && true && true) then
+        print(t);
+    else
+        print(f);
+    if (true && false && true) then
+        print(t);
+    else
+        print(f);
+    if (true || false) then
+        print(t);
+    else
+        print(f);
+    if (false || true) then
+        print(t);
+    else
+        print(f);
+    if (true || true) then
+        print(t);
+    else
+        print(f);
+    if (false || false) then
+        print(t);
+    else
+        print(f);
+    if ((3 > 2) || (4 < 5)) then
+        print(t);
+    else
+        print(f);
+    if ((1 > 2) || (5 > 4)) then
+        print(t);
+    else
+        print(f);
+    if ((1 < 2) || (4 > 5)) then
+        print(t);
+    else
+        print(f);
+    if (true || true || true) then
+        print(t);
+    else
+        print(f);
+    if (true || false || true) then
+        print(t);
+    else
+        print(f);
     return;
 }

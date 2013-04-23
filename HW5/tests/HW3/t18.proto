@@ -1,7 +1,10 @@
 void main() {
-    int x;
-    x = 0;
-    x = ! x == 1; // x == 1
-    print(x);
+    bool x;
+    x = false;
+    x = !x == true; // x == 1
+    if x then
+        print(1);
+    else
+        print(0);
     return;
 }
