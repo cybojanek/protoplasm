@@ -154,6 +154,16 @@ class ASTProgram(ASTNode):
     def wellformed(self):
         astc = ASTContext()
         for d in self.declarations:
+            if isinstance(d, ASTFunctionDeclare):
+                if d.name in astc.functions:
+                    print 'Redeclaration of function: %s' % d.name
+                    return False
+                elif d.name in astc.types:
+                    print 'Redeclaration of class as function: %s' % d.name
+                else:
+                    astc.functions[d.name] = d.formals
+                    astc.types[d.name] = d.type(astc)
+        for d in self.declarations:
             if not d.wellformed(astc):
                 return False
         return True
@@ -830,7 +840,7 @@ class ASTFunctionCall(ASTNode):
         return astc.types[self.name]
 
     def wellformed(self, astc):
-        if self.name not in astc.declared:
+        if self.name not in astc.functions:
             print "Missing function: %s" % self.name
             return False
         if len(self.arguments) != len(astc.functions[self.name]):
@@ -898,13 +908,13 @@ class ASTFunctionDeclare(ASTNode):
 
     def wellformed(self, astc):
         astc.current_function = self.name
-        if self.name not in astc.declared:
-            astc.declared.add(self.name)
-        else:
-            new_name = astc.get_new_var_name(self.name)
-            astc.rename[self.name] = new_name
-            self.name = new_name
-            astc.declared.add(self.name)
+        # if self.name not in astc.declared:
+        #     astc.declared.add(self.name)
+        # else:
+        #     new_name = astc.get_new_var_name(self.name)
+        #     astc.rename[self.name] = new_name
+        #     self.name = new_name
+        #     astc.declared.add(self.name)
         astc.types[self.name] = self.f_type
         rest_astc = astc.clone()
         # print self.formals
@@ -913,8 +923,8 @@ class ASTFunctionDeclare(ASTNode):
                 return False
             # All will be defined
             rest_astc.defined.add(f.declarations[0].value)
-        astc.functions[self.name] = self.formals
-        rest_astc.functions[self.name] = self.formals
+        # astc.functions[self.name] = self.formals
+        # rest_astc.functions[self.name] = self.formals
         if not self.body.wellformed(rest_astc):
             return False
         astc.current_function = None
