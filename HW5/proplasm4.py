@@ -73,7 +73,8 @@ def main(args):
         # Output program abstract syntax tree as png
         program.to_png(program_name)
         # Output liveliness coloring of
-        tac.liveliness_graph.to_png(program_name)
+        for i, g in tac.all_graphs:
+            g.to_png("%s_%s" % (program_name, i))
         tac.basic_blocks_to_png(program_name)
     write_asm_to_file(program_name, asm)
     sys.exit(0)

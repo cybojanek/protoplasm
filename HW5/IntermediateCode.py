@@ -1216,6 +1216,7 @@ class ICContext(object):
         self.variables = []
         self.counter = 0
         self.liveliness_graph = UndirectedGraph()
+        self.all_graphs = []
         self.variable_usage = {}
         self.spilled_variables = set()
         self.stack_pointer = 0
@@ -1344,6 +1345,7 @@ class ICContext(object):
             while not allocated:
                 self.update_liveliness(blocks)
                 allocated = self.allocate_registers(blocks)
+            self.all_graphs.append((self.blocks.index(blocks[0]), self.liveliness_graph))
 
     def mipsify(self):
         """Convert from generic intermediate code to mips three address
