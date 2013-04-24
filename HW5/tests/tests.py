@@ -238,7 +238,7 @@ def test_hw4():
     compile_and_run('HW4/t17', [42, 0])
     compile_and_run('HW4/t18', [1])
     compile_and_run('HW4/t19', [-30])
-    # # compile_and_run('HW4/t20', [0])  # Not used
+    compile_and_run('HW4/t20', [0])  # Not used
     compile_and_fail('HW4/t21')
     compile_and_run('HW4/t22', [42, 10, 42])
     compile_and_run('HW4/t23', [42])
@@ -250,6 +250,6 @@ def test_hw4():
     compile_and_run('HW4/t29', [42, 41])
     compile_and_run('HW4/t30', [42, 41])
     compile_and_run('HW4/t31', [24, 42, 42])
-    # # compile_and_run('HW4/t32', [24, 42, 42])  # Not used
-    # compile_and_run('HW4/t33', [1, 1, 1])  # WRONG
-    # compile_and_run('HW4/t34', [RUNTIME_OOB], [5])
+    # compile_and_run('HW4/t32', [24, 42, 42])  # Not used
+    compile_and_run('HW4/t33', [1, 1, 1])  # WRONG-ish
+    compile_and_run('HW4/t34', [RUNTIME_OOB], [5])
