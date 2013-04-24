@@ -1,2 +1,5 @@
-// Number is too small to print
-print(-2147483649);
+void main() {
+    // Number is too small to print
+    print(-2147483649);
+    return;
+}

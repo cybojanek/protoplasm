@@ -18,12 +18,10 @@ precedence = (
 )
 start = 'pgm'
 
-defined = set()
-
 
 def p_pgm(p):
     '''pgm : pgm_seq'''
-    p[0] = ASTProgram(p[1])
+    p[0] = ASTProgram(p, p[1])
 
 
 def p_pgm_decl(p):
@@ -54,7 +52,7 @@ def p_decl_classdecl(p):
 def p_vardecl(p):
     '''vardecl : type varlist SEMICOLON'''
     p[0] = ASTDeclareList(p, p[1][0], p[1][1],
-                          [ASTDeclareVariable(p, d, p[1][1]) for d in p[2]])
+                          [ASTDeclareVariable(p, d, p[1]) for d in p[2]])
 
 
 def p_vardecl_star(p):
@@ -103,10 +101,10 @@ def p_formals(p):
                | type ID'''
     if len(p) == 5:
         p[0] = [ASTDeclareList(p, p[1][0], p[1][1],
-                               [ASTDeclareVariable(p, p[2], p[1][1])])] + p[4]
+                               [ASTDeclareVariable(p, p[2], p[1])])] + p[4]
     else:
         p[0] = [ASTDeclareList(p, p[1][0], p[1][1],
-                               [ASTDeclareVariable(p, p[2], p[1][1])])]
+                               [ASTDeclareVariable(p, p[2], p[1])])]
 
 
 def p_formals_question(p):
@@ -358,12 +356,12 @@ def p_new_object(p):
 
 def p_new_array(p):
     '''newarray : NEW type dimexpr dim_star'''
-    p[0] = ASTAlloc(p, p[2], p[3], p[4])
+    p[0] = ASTAlloc(p, p[2], p[3], p[4] + 1)
 
 
 def p_dimexpr(p):
     '''dimexpr : LBRACE ae RBRACE'''
-    p[0] = p[1]
+    p[0] = p[2]
 
 
 def p_dim(p):

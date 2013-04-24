@@ -1,9 +1,13 @@
-int x[], i;
-x = new int[2];
-x[0] = 0;
-x[1] = 0;
-i = 0;
-x[i] = ++x[i++];
-print(x[0]); // 1
-print(x[1]); // 0
-print(i); // 1
+void main() {
+    int[] x;
+    int i;
+    x = new int[2];
+    x[0] = 0;
+    x[1] = 0;
+    i = 0;
+    x[i] = ++x[i++];
+    print(x[0]); // 1
+    print(x[1]); // 0
+    print(i); // 1
+    return;
+}

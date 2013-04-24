@@ -1,7 +1,0 @@
-void main() {
-    int x, y;
-    x = 42;
-    y = x + 28 - 10 * 10;
-    print(y);
-    return;
-}

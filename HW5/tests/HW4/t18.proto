@@ -1,4 +1,10 @@
-int x;
-x = 0;
-x = ! x == 1; // x == 1
-print(x);
+void main() {
+    bool x;
+    x = false;
+    x = ! x == true; // x == true
+    if x then
+        print(1);
+    else
+        print(0);
+    return;
+}

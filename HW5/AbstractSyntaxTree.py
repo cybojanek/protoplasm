@@ -1,4 +1,5 @@
 from IntermediateCode import *
+from proto4lexer import find_column, colorize
 
 NODE_COLORS = {
     'ASTAlloc': '#FFFFFF',
@@ -36,17 +37,40 @@ class ASTContext(object):
         Keeps track of defined and used variables
 
         """
-        self.defined = set()
-        self.used = set()
+        # Declared variables ie: int a
         self.declared = set()
+        # Defined variables ie: a = 2;
+        self.defined = set()
+        # Used variables ie: print(a);
+        self.used = set()
+        # Used for renaming variables inside nested scopes
+        # old_name -> new_name
         self.rename = dict()
+        # variable_name / function_name -> (type, dimension)
         self.types = {}
+        # function_name -> list of arguments
         self.functions = {}
+        # Current astc scope (so return statement can check for valid type)
         self.current_function = None
+        # Counter for making new variable names
         self.counter = 0
+        # Reference to previous astc
         self.previous = None
 
+        # Other
+        self.debug_functions = {}
+
+
     def get_new_var_name(self, name):
+        """Make a new unique name based on previous name
+
+        Arguments:
+        name - variable string name
+
+        Return:
+        new name
+
+        """
         n = '&%s%s' % (name, self.counter)
         self.counter += 1
         return n
@@ -55,16 +79,17 @@ class ASTContext(object):
         """Clone this ASTContext
 
         Return:
-        ASTContext with the same defined and used sets
+        ASTContext with the same information and
+        a reference to its parent astc
 
         """
         a = ASTContext()
+        for x in self.declared:
+            a.declared.add(x)
         for x in self.defined:
             a.defined.add(x)
         for x in self.used:
             a.used.add(x)
-        for x in self.declared:
-            a.declared.add(x)
         for k, v in self.rename.iteritems():
             a.rename[k] = v
         for k, v in self.types.iteritems():
@@ -94,14 +119,24 @@ class ASTNode(object):
         raise NotImplemented()
 
     def type(self, astc):
-        """Return the resultant type and check children
-        types
+        """Return the type of this expression
+
+        Arguments:
+        astc - ASTContext object
+
+        Return:
+        ('str', dimensions)
+
         """
         raise NotImplemented()
 
     def wellformed(self):
         """Check language semantics.
-        Undefined variables, integers out of range.
+        Undefined variables, integers out of range,
+        types
+
+        Return:
+        True / False for good / bad
 
         """
         raise NotImplemented()
@@ -137,42 +172,89 @@ class ASTNode(object):
         counter
 
         """
-        pass
+        raise NotImplemented()
+
+
+def type_to_string(t):
+    """Convert a ('int', 2) to a -> int[][]
+    """
+    return '%s%s' % (t[0], '[]' * t[1])
+
+
+def function_name_to_string(name, astc):
+    args = ','.join(['%s %s' % (type_to_string(x.type(astc)), x.declarations[0].value) for x in astc.functions[name]])
+    return '%s %s(%s)' % (type_to_string(astc.types[name]), name, args)
+
+
+def function_to_string(d, astc):
+    args = ','.join(['%s %s' % (type_to_string(x.type(astc)), x.declarations[0].value) for x in d.formals])
+    return '%s %s(%s)' % (type_to_string(d.type(astc)), d.name, args)
 
 
 class ASTProgram(ASTNode):
 
-    def __init__(self, declarations):
+    def __init__(self, p, declarations):
         """Encapsulates ASTStatements
 
         Arguments:
         declarations - array of ASTDeclareList, ASTFunc, ASTClass
 
         """
+        self.p = p
         self.declarations = declarations
 
     def wellformed(self):
         astc = ASTContext()
+        ok = True
         # Get all functions
         for d in self.declarations:
             if isinstance(d, ASTFunctionDeclare):
                 if d.name in astc.functions:
-                    print 'Redeclaration of function: %s' % d.name
-                    return False
+                    print '%s %s %s %s' % (
+                        colorize('%s:' % self.p.lexer.proto_file, 'white'),
+                        colorize('error:', 'red'),
+                        colorize('redeclaration of function:', 'white'),
+                        colorize("'%s'" % d.name, 'yellow')
+                        )
+                    print function_to_string(d, astc)
+                    print colorize('previously declared as:', 'white')
+                    print function_name_to_string(d.name, astc)
+                    ok = False
                 elif d.name in astc.types:
                     print 'Redeclaration of class as function: %s' % d.name
                 else:
                     astc.functions[d.name] = d.formals
                     astc.types[d.name] = d.type(astc)
+                    astc.debug_functions[d.name] = d
         # Check for correct main
         if 'main' not in astc.functions:
-            print 'Missing main functions'
+            print '%s %s %s %s' % (
+                colorize('%s:' % self.p.lexer.proto_file, 'white'),
+                colorize('error:', 'red'),
+                colorize("'main'", 'yellow'),
+                colorize("function missing", 'white')
+                )
             return False
         if len(astc.functions['main']) != 0:
-            print 'Main function has arguments!'
-            return False
+            print '%s %s %s %s' % (
+                colorize('%s:' % self.p.lexer.proto_file, 'white'),
+                colorize('error:', 'red'),
+                colorize("'main'", 'yellow'),
+                colorize("function has arguments", 'white')
+                )
+            print function_name_to_string('main', astc)
+            ok = False
         if astc.types['main'] != ('void', 0):
-            print 'Main functoin has non-void return type!'
+            print '%s %s %s %s %s' % (
+                colorize('%s:' % self.p.lexer.proto_file, 'white'),
+                colorize('error:', 'red'),
+                colorize("'main'", 'yellow'),
+                colorize("function has non-void return type:", 'white'),
+                colorize('%s%s' % (astc.types['main'][0], "[]" * astc.types['main'][1]), 'green')
+                )
+            print function_name_to_string('main', astc)
+            ok = False
+        if not ok:
             return False
         # Now do everything else
         for d in self.declarations:
@@ -236,12 +318,12 @@ class ASTAlloc(ASTNode):
 
         """
         self.p = p
-        self.type = a_type
+        self.a_type = a_type[0]
         self.size = size
         self.dimensions = dimensions
 
     def type(self, astc):
-        return (self.type, self.dimensions)
+        return (self.a_type, self.dimensions)
 
     def wellformed(self, astc):
         if not self.size.wellformed(astc):
@@ -290,7 +372,9 @@ class ASTArray(ASTNode):
         self.element = element
 
     def type(self, astc):
-        return self.value.type(astc)
+        # Subtract a dimension because we're accessing
+        t = self.value.type(astc)
+        return (t[0], t[1] - 1)
 
     def wellformed(self, astc):
         if self.element.type(astc) != ('int', 0):
@@ -360,6 +444,8 @@ class ASTAssign(ASTNode):
                 return False
             astc.defined.add(self.left.value)
         if self.left.type(astc) != self.right.type(astc):
+            print self.left, self.left.type(astc)
+            print self.right, self.right.type(astc)
             print 'type mismatch for asisgnment statement!'
             return False
         return True
@@ -597,7 +683,7 @@ class ASTDeclareList(ASTNode):
 class ASTDeclareVariable(ASTNode):
     COLOR = NODE_COLORS['ASTDeclareVariable']
 
-    def __init__(self, p, value, dimensions):
+    def __init__(self, p, value, type):
         """AST variable
 
         Arguments:
@@ -608,7 +694,7 @@ class ASTDeclareVariable(ASTNode):
         """
         self.p = p
         self.value = value
-        self.dimensions = dimensions
+        self.v_type = type
 
     def wellformed(self, astc):
         if self.value not in astc.declared:
@@ -618,6 +704,7 @@ class ASTDeclareVariable(ASTNode):
             astc.rename[self.value] = new_name
             self.value = new_name
             astc.declared.add(self.value)
+        astc.types[self.value] = self.v_type
         return True
 
     def gencode(self, icc):
@@ -627,7 +714,7 @@ class ASTDeclareVariable(ASTNode):
         return [self]
 
     def add_edges_to_graph(self, graph, parent, counter):
-        name = "%s\n%s[%dd]" % (counter, self.value, self.dimensions)
+        name = "%s\n%s" % (counter, type_to_string(self.v_type))
         graph.add_node(name, fillcolor=ASTDeclareVariable.COLOR)
         graph.add_edge(parent, name)
         return counter
@@ -661,7 +748,7 @@ class ASTDoWhile(ASTNode):
         if not self.while_part.wellformed(stmt_astc):
             return False
         if self.while_part.type(astc) != ('bool', 0):
-            print 'while part'
+            print 'while part is not a bool!'
         astc.counter = stmt_astc.counter
         return True
 
@@ -861,9 +948,6 @@ class ASTFunctionCall(ASTNode):
             if arg.type(astc) != formal.type(astc):
                 print 'Argument :%s of function call to %s does not match' % (i, self.name)
                 return False
-        # print astc.functions
-        # print astc.functions[self.name][0].type(astc)
-        # check arguments
         return True
 
     def gencode(self, icc):

@@ -1,7 +1,10 @@
-int x,y,z,w;
-x = -42;
-y = 42;
-z = x + y;
-w = x * 10;
-print(z);
-print(w);
+void main() {
+    int x,y,z,w;
+    x = -42;
+    y = 42;
+    z = x + y;
+    w = x * 10;
+    print(z);
+    print(w);
+    return;
+}

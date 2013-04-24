@@ -129,9 +129,12 @@ def find_column(input, token):
 def colorize(string, color):
     colors = {
         'red': '\033[91m',
-        'white': '\033[97m',
         'green': '\033[92m',
+        'yellow': '\033[93m',
         'blue': '\033[94m',
+        'purple': '\033[95m',
+        'white': '\033[97m',
+
     }
     if not sys.stdout.isatty():
         return string

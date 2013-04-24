@@ -1,2 +1,5 @@
-// Number is too big to print
-print(2147483648);
+void main() {
+    // Number is too big to print
+    print(2147483648);
+    return;
+}

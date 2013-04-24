@@ -1,11 +1,14 @@
-int a;
-a = true;
-if(a) then {
-    int b;
-    b = 1;
-} else {
-    int b;
-    b = 0;
+void main() {
+    bool a;
+    a = true;
+    if(a) then {
+        int b;
+        b = 1;
+    } else {
+        int b;
+        b = 0;
+    }
+    // b is only declared locally in if then else
+    print(b);
+    return;
 }
-// b is only declared locally in if then else
-print(b);

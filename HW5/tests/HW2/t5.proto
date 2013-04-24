@@ -1,9 +1,0 @@
-void main() {
-    int w, x, y, z;
-    x = -42;
-    y = 42;
-    z = x + y;
-    w = x * 10;
-    print(z);
-    print(w);
-}
