@@ -64,8 +64,14 @@ def test_compile_errors():
     compile_and_fail('fail_declare_block_var')
     compile_and_fail('fail_declare_block_var_partial')
     compile_and_fail('fail_declare_global')
+    compile_and_fail('fail_function_num_args')
+    compile_and_fail('fail_function_type_args')
     compile_and_fail('fail_int_too_big')
     compile_and_fail('fail_int_too_small')
+    compile_and_fail('fail_return_flow_if_then_else')
+    compile_and_fail('fail_return_flow_main')
+    compile_and_fail('fail_return_type_function')
+    compile_and_fail('fail_return_type_variable')
     compile_and_fail('fail_use_before_define')
     compile_and_fail('fail_use_before_define_array')
 
@@ -77,6 +83,7 @@ def test_recursion():
     compile_and_run('fibonacci', [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144,
                                   233, 377, 610, 987, 1597, 2584, 4181])
     compile_and_run('arguments', [21, 81])
+
 
 @pre_entry
 def test_liveliness():
@@ -154,6 +161,12 @@ def test_spilling():
     # compile_and_run('spill_five', [120])
     # compile_and_run('spill_many', [681])
     # compile_and_run('spill_array', [86, 0, 1, 2, 3, 4])
+
+
+@pre_entry
+def test_return():
+    """return"""
+    compile_and_run('return', [10, 0, 13, 26, 39, 52, 65, 78, 91, 104, 117])
 
 
 @pre_entry

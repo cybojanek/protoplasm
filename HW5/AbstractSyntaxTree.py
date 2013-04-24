@@ -52,6 +52,8 @@ class ASTContext(object):
         self.functions = {}
         # Current astc scope (so return statement can check for valid type)
         self.current_function = None
+        # Whether there is an all-control flow path return statement
+        self.returns = False
         # Counter for making new variable names
         self.counter = 0
         # Reference to previous astc
@@ -97,6 +99,7 @@ class ASTContext(object):
         for k, v in self.functions.iteritems():
             a.functions[k] = v
         a.current_function = self.current_function
+        a.returns = self.returns
         a.counter = self.counter
         a.previous = self
         return a
@@ -806,6 +809,7 @@ class ASTEndBlock(ASTNode):
 
     def wellformed(self, astc):
         previous = astc.previous
+        previous.returns = astc.returns
         for x in astc.defined:
             if x in previous.declared:
                 previous.defined.add(x)
@@ -944,6 +948,7 @@ class ASTFunctionCall(ASTNode):
             return False
         if len(self.arguments) != len(astc.functions[self.name]):
             print 'Argument number does not match for calling %s' % self.name
+            return False
         for i, (arg, formal) in enumerate(zip(self.arguments, astc.functions[self.name])):
             if arg.type(astc) != formal.type(astc):
                 print 'Argument :%s of function call to %s does not match' % (i, self.name)
@@ -1021,8 +1026,13 @@ class ASTFunctionDeclare(ASTNode):
             rest_astc.defined.add(f.declarations[0].value)
         # astc.functions[self.name] = self.formals
         # rest_astc.functions[self.name] = self.formals
+        rest_astc.returns = False
         if not self.body.wellformed(rest_astc):
             return False
+        if not rest_astc.returns:
+            print "%s lacks an all-control flow return!" % self.name
+            return False
+        astc.returns = False
         astc.current_function = None
         return True
 
@@ -1085,6 +1095,7 @@ class ASTFunctionReturn(ASTNode):
         if self.type(astc) != astc.types[astc.current_function]:
             print 'Return type mismtch in function %s' % (astc.current_function)
             return False
+        astc.returns = True
         return True
 
     def gencode(self, icc):
@@ -1151,6 +1162,7 @@ class ASTIf(ASTNode):
                 # And make sure they weren't redefined
                 if x not in then_astc.rename and x not in else_astc.rename:
                     astc.defined.add(x)
+            astc.returns = then_astc.returns and else_astc.returns
             # for x in then_astc.declared.intersection(else_astc.declared):
             #     astc.declared.add(x)
         return True

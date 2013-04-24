@@ -28,4 +28,5 @@ void main() {
     } while(a < 3);
     // 5
     print(b);
+    return;
 }
