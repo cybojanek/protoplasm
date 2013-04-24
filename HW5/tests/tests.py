@@ -156,11 +156,11 @@ def test_for():
 @pre_entry
 def test_spilling():
     """spill"""
-    pass
-    # compile_and_run('spill_one', [66])
-    # compile_and_run('spill_five', [120])
-    # compile_and_run('spill_many', [681])
-    # compile_and_run('spill_array', [86, 0, 1, 2, 3, 4])
+    compile_and_run('spill_one', [66])
+    compile_and_run('spill_five', [120])
+    compile_and_run('spill_many', [681])
+    compile_and_run('spill_array', [86, 0, 1, 2, 3, 4])
+    compile_and_run('spill_across_functions', [1056, 253])
 
 
 @pre_entry
@@ -229,7 +229,7 @@ def test_hw4():
     compile_and_run('HW4/t8', [70])
     compile_and_fail('HW4/t9')
     compile_and_fail('HW4/t10')
-    # compile_and_run('HW4/t11', [528])
+    compile_and_run('HW4/t11', [528])
     compile_and_run('HW4/t12', [1])
     compile_and_run('HW4/t13', [11])
     compile_and_fail('HW4/t14')

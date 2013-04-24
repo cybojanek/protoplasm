@@ -60,6 +60,18 @@ class IC(object):
                            'defined': set()}
         self.register_map = {}
         self.context = None
+        self.stack_offset = 0
+
+    def set_stack_offset(self, offset):
+        """Set the additional stack offset to be used
+        by the function of these blocks to accont
+        for spilled variables
+
+        Arguments:
+        offset - offset in bytes
+
+        """
+        self.stack_offset = offset
 
     def set_context(self, context, block):
         """Set the context and block of this instruction
@@ -427,6 +439,7 @@ class ICFunctionDeclare(IC):
             a.append(AsmInstruction('sw', v, '%s($sp)' % (i * 4), comment='Save: %s' % v))
         a.append(AsmInstruction('sw', '$ra', '%s($sp)' % (4 * (len(used_registers))), comment='Save return address'))
         a.append(AsmInstruction('sw', '$fp', '%s($sp)' % (4 * (len(used_registers) + 1)), comment='Save frame pointer'))
+        a.append(AsmInstruction('addi', '$sp', '$sp', -self.stack_offset))
         return a
 
     def __str__(self):
@@ -457,6 +470,7 @@ class ICFunctionReturn(IC):
             src = self.get_register_or_value(self.variable)
             a = [AsmInstruction('move', '$v0', src, comment=str(self))]
         # Restore ra and sp
+        a.append(AsmInstruction('addi', '$sp', '$sp', self.stack_offset))
         used_registers = set(self.register_map.values()).intersection(ICContext.ALL_TEMP_REGS)
         for i, v in enumerate(used_registers):
             a.append(AsmInstruction('lw', v, '%s($sp)' % (i * 4)))
@@ -752,7 +766,7 @@ class ICLoadWord(IC):
 
 
 class ICAllocMemory(IC):
-    """Allocate memory 
+    """Allocate memory
     """
 
     def __init__(self, dest, length):
@@ -1496,6 +1510,7 @@ class ICContext(object):
         for block in blocks:
             for ic in block.instructions:
                 ic.set_register_map(var_map)
+                ic.set_stack_offset(self.stack_pointer)
         return True
 
     def spill_variable(self, var, blocks):
