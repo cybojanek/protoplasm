@@ -185,7 +185,8 @@ def test_scope():
 @pre_entry
 def test_global():
     """global variables"""
-    compile_and_run('scope_functions_global', [5, 6, 6, 3, 6, 12, 6])
+    compile_and_run('scope_functions_global', [5, 6, 6, 3, 6, 12, 6, 0, 1, 2,
+                    3, 4, 7, 8, 9, 10, 11])
 
 
 @pre_entry

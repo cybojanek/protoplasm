@@ -1,0 +1,69 @@
+int i;
+int[] a;
+int length;
+
+void main() {
+    void v;
+    int j;
+    i = 5;
+    // 5
+    print(i);
+    // 6
+    print(foo());
+    // 6
+    print(i);
+    // 3
+    print(bar());
+    // 6
+    print(i);
+    // 12
+    print(meow(i));
+    // 6
+    print(i);
+    /////////////////////////////
+    v = set(5);
+    // 0 1 2 3 4
+    for(j = 0; j < length; j++) {
+        print(a[j]);
+    }
+    v = augment(7);
+    // 7 8 9 10 11
+    for(j = 0; j < length; j++) {
+        print(a[j]);
+    }
+    return;
+}
+
+int foo() {
+    i = i + 1;
+    return i;
+}
+
+int bar() {
+    int i;
+    i = 3;
+    return i;
+}
+
+int meow(int i) {
+    i = i * 2;
+    return i;
+}
+
+void set(int i) {
+    int j;
+    length = i;
+    a = new int[length];
+    for(j = 0; j < length; j++) {
+        a[j] = j;
+    }
+    return;
+}
+
+void augment(int n) {
+    int j;
+    for(j = 0; j < length; j++) {
+        a[j] = a[j] + n;
+    }
+    return;
+}
