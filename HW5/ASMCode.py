@@ -19,7 +19,7 @@ class AsmInstruction(object):
             return comment(self.op)
 
 
-def write_asm_to_file(program_name, asm):
+def write_asm_to_file(program_name, asm, icc):
     """Write out program to a file called
     program_name.asm
 
@@ -29,6 +29,8 @@ def write_asm_to_file(program_name, asm):
     """
     out = open('%s.asm' % program_name, 'w')
     out.write('.data\n')
+    for g in icc.globals:
+        out.write('global_%s: .word 0\n' % g)
     out.write('out_of_bounds: .asciiz "Proto Runtime Error: Attempt to access array out of bounds.\\n"\n')
     out.write('.text\n')
     out.write('# Exception handler\n');

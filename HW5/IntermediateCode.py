@@ -439,7 +439,7 @@ class ICFunctionDeclare(IC):
             a.append(AsmInstruction('sw', v, '%s($sp)' % (i * 4), comment='Save: %s' % v))
         a.append(AsmInstruction('sw', '$ra', '%s($sp)' % (4 * (len(used_registers))), comment='Save return address'))
         a.append(AsmInstruction('sw', '$fp', '%s($sp)' % (4 * (len(used_registers) + 1)), comment='Save frame pointer'))
-        a.append(AsmInstruction('addi', '$sp', '$sp', -self.stack_offset))
+        a.append(AsmInstruction('addi', '$sp', '$sp', -self.stack_offset, comment='Offset for spilled variables'))
         return a
 
     def __str__(self):
@@ -473,10 +473,10 @@ class ICFunctionReturn(IC):
         a.append(AsmInstruction('addi', '$sp', '$sp', self.stack_offset))
         used_registers = set(self.register_map.values()).intersection(ICContext.ALL_TEMP_REGS)
         for i, v in enumerate(used_registers):
-            a.append(AsmInstruction('lw', v, '%s($sp)' % (i * 4)))
-        a.append(AsmInstruction('lw', '$ra', '%s($sp)' % (4 * (len(used_registers)))))
-        a.append(AsmInstruction('lw', '$fp', '%s($sp)' % (4 * (len(used_registers) + 1))))
-        a.append(AsmInstruction('move', '$sp', '$fp'))
+            a.append(AsmInstruction('lw', v, '%s($sp)' % (i * 4), comment='Load: $s%s' % i))
+        a.append(AsmInstruction('lw', '$ra', '%s($sp)' % (4 * (len(used_registers))), comment='Load return address'))
+        a.append(AsmInstruction('lw', '$fp', '%s($sp)' % (4 * (len(used_registers) + 1)), comment='Load frame pointer'))
+        a.append(AsmInstruction('move', '$sp', '$fp', comment='Restore stack pointer'))
         # a.append(AsmInstruction('addi', '$sp', '$sp', 4 * (len(used_registers) + 1), comment=str(self)))
         return a + [AsmInstruction('jr', '$ra')]
 
@@ -754,7 +754,7 @@ class ICLoadWord(IC):
                 arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
             elif isinstance(self.base, Label):
                 # base is label
-                arg2 = '%s'
+                arg2 = '%s' % (self.base)
             elif isinstance(self.offset, Variable):
                 # offset is register
                 arg2 = '(%s)' % (self.get_register_or_value(self.offset))
@@ -763,6 +763,17 @@ class ICLoadWord(IC):
 
     def __str__(self):
         return "%s = %s[%s]" % (self.dest, self.base, self.offset)
+
+
+class ICLoadGlobal(ICLoadWord):
+    """Load a global argument
+    """
+    def __init__(self, variable):
+        super(ICLoadGlobal, self).__init__(variable, base=Label('global_%s' % variable))
+        self.variable = variable
+
+    def __str__(self):
+        return "%s = global %s" % (self.variable, self.variable)
 
 
 class ICAllocMemory(IC):
@@ -988,7 +999,7 @@ class ICStoreWord(IC):
                 arg2 = '%s(%s)' % (self.offset, self.get_register_or_value(self.base))
             elif isinstance(self.base, Label):
                 # base is label
-                arg2 = '%s'
+                arg2 = '%s' % self.base
             elif isinstance(self.offset, Variable):
                 # offset is register
                 arg2 = '(%s)' % (self.get_register_or_value(self.offset))
@@ -996,6 +1007,18 @@ class ICStoreWord(IC):
 
     def __str__(self):
         return "*(%s+%s) = %s" % (self.base, self.offset, self.src)
+
+
+class ICStoreGlobal(ICStoreWord):
+    """Store a global
+    """
+
+    def __init__(self, src, dest):
+        super(ICStoreGlobal, self).__init__(src, base=Label('global_%s' % dest))
+        self.src, self.dest = src, dest
+
+    def __str__(self):
+        return "global %s = %s" % (self.dest, self.src)
 
 
 class ICUnaryOp(IC):
@@ -1191,7 +1214,7 @@ class ICContextBasicBlock(object):
         for x in self.instructions:
             line = '%s' % x
             line = '%s%s\l' % (line, ' ' * (15 - len(line)))
-            # line = '%sOut: %s  In: %s\l' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            line = '%sOut: %s  In: %s\l' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
             s += line
             #s += '%s\t%s\n' % (x, x.liveliness['out'])
         return s
@@ -1222,7 +1245,7 @@ class ICContext(object):
     }
     ALL_TEMP_REGS = set(TEMP_REGS.keys())
 
-    def __init__(self):
+    def __init__(self, globals):
         """Keeps track of the ASTNode to address context translation
 
         """
@@ -1234,6 +1257,7 @@ class ICContext(object):
         self.variable_usage = {}
         self.spilled_variables = set()
         self.stack_pointer = 0
+        self.globals = globals
 
     def new_block(self, auto_follow=True):
         """Create a new instruction block
@@ -1326,8 +1350,6 @@ class ICContext(object):
             for ins in block.instructions:
                 ins.first_pass()
         asm = []
-        if self.stack_pointer > 0:
-            asm.append(AsmInstruction('addi', '$sp', '$sp', -self.stack_pointer))
         for block in self.blocks:
             asm = asm + block.generate_start_assembly()
             for ins in block.instructions:

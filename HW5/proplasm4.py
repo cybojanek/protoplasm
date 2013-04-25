@@ -76,7 +76,7 @@ def main(args):
         for i, g in tac.all_graphs:
             g.to_png("%s_%s" % (program_name, i))
         tac.basic_blocks_to_png(program_name)
-    write_asm_to_file(program_name, asm)
+    write_asm_to_file(program_name, asm, program.icc)
     sys.exit(0)
 
 if __name__ == '__main__':

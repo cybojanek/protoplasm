@@ -37,6 +37,8 @@ class ASTContext(object):
         Keeps track of defined and used variables
 
         """
+        # Global variables
+        self.globals = set()
         # Declared variables ie: int a
         self.declared = set()
         # Defined variables ie: a = 2;
@@ -207,7 +209,8 @@ class ASTProgram(ASTNode):
         self.declarations = declarations
 
     def wellformed(self):
-        astc = ASTContext()
+        self.astc = ASTContext()
+        astc = self.astc
         ok = True
         # Get all functions
         for d in self.declarations:
@@ -229,6 +232,17 @@ class ASTProgram(ASTNode):
                     astc.functions[d.name] = d.formals
                     astc.types[d.name] = d.type(astc)
                     astc.debug_functions[d.name] = d
+            elif isinstance(d, ASTDeclareList):
+                for dec in d.declarations:
+                    if dec.value in astc.globals:
+                        print 'Redefinition of global variable: %s' % dec.value
+                        return False
+                    print "Global: %s" % dec.value
+                    astc.types[dec.value] = (d.dec_type, d.dimensions)
+                    astc.defined.add(dec.value)
+                    astc.globals.add(dec.value)
+                # print d.declarations[0].value
+                # astc.defined.add(d.declarations[0].value)
         # Check for correct main
         if 'main' not in astc.functions:
             print '%s %s %s %s' % (
@@ -266,7 +280,8 @@ class ASTProgram(ASTNode):
         return True
 
     def gencode(self):
-        icc = ICContext()
+        icc = ICContext(self.astc.globals)
+        self.icc = icc
         stack = self.to_stack()
         while len(stack) != 0:
             s = stack.pop()
@@ -360,7 +375,7 @@ class ASTAlloc(ASTNode):
 
 
 class ASTArray(ASTNode):
-    COLOR = NODE_COLORS['ASTVariable']
+    COLOR = NODE_COLORS['ASTArray']
 
     def __init__(self, p, value, element):
         """AST variable
@@ -435,7 +450,6 @@ class ASTAssign(ASTNode):
         return self.right.type(astc)
 
     def wellformed(self, astc):
-        # print self.left.type(astc), self.right.type(astc)
         if not self.right.wellformed(astc):
             return False
         if not isinstance(self.left, ASTArray):
@@ -456,13 +470,15 @@ class ASTAssign(ASTNode):
     def gencode(self, icc):
         dest = icc.pop_var()
         src = icc.pop_var()
-
-        if not isinstance(self.left, ASTArray):
-            icc.add_instruction(ICAssign(dest, src))
-            icc.push_var(dest)
-        elif isinstance(self.left, ASTArray):
+        if isinstance(self.left, ASTArray):
             icc.add_instruction(ICStoreWord(src, dest._base, Integer(0), dest._elem))
             icc.push_var(src)
+        else:
+            if dest.value in icc.globals:
+                icc.add_instruction(ICStoreGlobal(src, dest))
+            else:
+                icc.add_instruction(ICAssign(dest, src))
+                icc.push_var(dest)
 
     def to_stack(self):
         return [self] + self.left.to_stack() + self.right.to_stack()
@@ -1103,6 +1119,7 @@ class ASTFunctionReturn(ASTNode):
             icc.add_instruction(ICFunctionReturn(None))
         else:
             icc.add_instruction(ICFunctionReturn(icc.pop_var()))
+        # icc.new_block()
 
     def to_stack(self):
         return [self] + self.value.to_stack()
@@ -1579,6 +1596,9 @@ class ASTVariable(ASTNode):
         return True
 
     def gencode(self, icc):
+        # Its a global - so load it first
+        if self.value in icc.globals:
+            icc.add_instruction(ICLoadGlobal(Variable(self.value)))
         icc.push_var(Variable(self.value))
 
     def to_stack(self):
