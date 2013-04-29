@@ -1,0 +1,56 @@
+class Point {
+    int x;
+    int y;
+    int z;
+}
+
+class PointList {
+    Point value;
+    PointList next;
+}
+
+void main() {
+    int i, s;
+    Point[] points;
+    PointList pl, pln;
+
+    points = new Point[10];
+    for(i = 0; i < 10; i++) {
+        points[i] = new Point();
+        points[i].x = i;
+        points[i].y = 10 + i;
+        points[i].z = 20 + i;
+    }
+    s = 0;
+    for(i = 0; i < 10; i++) {
+        s = s + points[i].x + points[i].y + points[i].z;
+    }
+    // 435
+    print(s);
+
+    i = foo()[0].x;
+    // 4
+    print(i);
+
+    pl = new PointList();
+    pln = new PointList();
+    pl.value = points[0];
+    pl.next = pln;
+    pln.value = points[1];
+    // 0
+    print(pl.value.x);
+    // 1
+    print(pl.next.value.x);
+    // 1
+    print(pln.value.x);
+
+    return;
+}
+
+Point[] foo() {
+    Point[] ps;
+    ps = new Point[2];
+    ps[0] = new Point();
+    ps[0].x = 4;
+    return ps;
+}

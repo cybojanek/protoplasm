@@ -21,10 +21,17 @@ def main(args):
     program_name = os.path.splitext(args.file)[0]
     # Load lexer
     lexer = lex.lex(module=proto4lexer)
+    lexer.proto_classes = set()
     lexer.proto_file = args.file
     lexer.proto_errors = 0
     # Tokenize file
     lexer.input(open(args.file, 'r').read())
+    # Tokenize to get all classes
+    while True:
+        tok = lexer.token()
+        if not tok:
+            break
+    # Reset line number
     lexer.lineno = 0
     # Load parser
     parser = yacc.yacc(module=proto4parser)

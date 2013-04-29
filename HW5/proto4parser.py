@@ -70,8 +70,8 @@ def p_fundecl(p):
 
 
 def p_classdecl(p):
-    '''classdecl : CLASS ID LCURLY vardecl_star RCURLY'''
-    raise NotImplementedError("Fix me")
+    '''classdecl : CLASS CLASSID LCURLY vardecl_star RCURLY'''
+    p[0] = ASTDeclareClass(p, p[2], p[4])
 
 
 def p_type(p):
@@ -317,7 +317,7 @@ def p_array_acccess(p):
 
 def p_field_acccess(p):
     '''fieldaccess : primary DOT ID'''
-    raise NotImplementedError("Fix me")
+    p[0] = ASTFieldAccess(p, p[1], p[3])
 
 
 def p_field_access_id(p):
@@ -350,8 +350,8 @@ def p_args_question_empty(p):
 
 
 def p_new_object(p):
-    '''newobject : NEW ID LPAREN RPAREN'''
-    raise NotImplementedError("Fix me")
+    '''newobject : NEW CLASSID LPAREN RPAREN'''
+    p[0] = ASTAllocObject(p, p[2])
 
 
 def p_new_array(p):

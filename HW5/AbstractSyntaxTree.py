@@ -3,15 +3,18 @@ from proto4lexer import find_column, colorize
 
 NODE_COLORS = {
     'ASTAlloc': '#FFFFFF',
+    'ASTAllocObject': '#FFFFFF',
     'ASTArray': '#FFFFFF',
     'ASTAssign': '#269926',
     'ASTBinaryOp': '#CC0909',
     'ASTBlock': '#FF7400',
     'ASTBoolean': '#C0C0C0',
+    'ASTDeclareClass': '#FFFFFF',
     'ASTDeclareList': '#38a0ad',
     'ASTDeclareVariable': '#4380D3',
     'ASTDoWhile': '#009999',
     'ASTEndBlock': '#FFFFFF',
+    'ASTFieldAccess': '#FFFFFF',
     'ASTFor': '#009999',
     'ASTFunctionCall': '#CD1076',
     'ASTFunctionDeclare': '#CD1076',
@@ -39,6 +42,8 @@ class ASTContext(object):
         """
         # Global variables
         self.globals = set()
+        # Classes
+        self.classes = {}
         # Declared variables ie: int a
         self.declared = set()
         # Defined variables ie: a = 2;
@@ -88,6 +93,10 @@ class ASTContext(object):
 
         """
         a = ASTContext()
+        for x in self.globals:
+            a.globals.add(x)
+        for k, v in self.classes.iteritems():
+            a.classes[k] = v
         for x in self.declared:
             a.declared.add(x)
         for x in self.defined:
@@ -243,6 +252,15 @@ class ASTProgram(ASTNode):
                     astc.globals.add(dec.value)
                 # print d.declarations[0].value
                 # astc.defined.add(d.declarations[0].value)
+            elif isinstance(d, ASTDeclareClass):
+                # Set all classes for lookup
+                # astc.classes[d.name] = None
+                if not d.first_pass(astc):
+                    return False
+        # Now loop through and set class variables
+        # for d in self.declarations:
+        #     if isinstance(d, ASTDeclareClass):
+        #         d.first_pass(astc)
         # Check for correct main
         if 'main' not in astc.functions:
             print '%s %s %s %s' % (
@@ -374,6 +392,39 @@ class ASTAlloc(ASTNode):
         return 'ALLOC: %s' % self.size
 
 
+class ASTAllocObject(ASTNode):
+    COLOR = NODE_COLORS['ASTAllocObject']
+
+    def __init__(self, p, name):
+        """Allocate a new object of type name
+
+        Arguments:
+        p - pyl object
+        name - class name
+
+        """
+        self.p = p
+        self.name = name
+        self.size = 0
+
+    def type(self, astc):
+        return (self.name, 0)
+
+    def wellformed(self, astc):
+        if self.name not in astc.classes:
+            return False
+        self.size = len(astc.classes[self.name]['types'].keys())
+        return True
+
+    def gencode(self, icc):
+        var = icc.new_var()
+        icc.add_instruction(ICAllocMemory(var, Integer(self.size)))
+        icc.push_var(var)
+
+    def to_stack(self):
+        return [self]
+
+
 class ASTArray(ASTNode):
     COLOR = NODE_COLORS['ASTArray']
 
@@ -452,11 +503,10 @@ class ASTAssign(ASTNode):
     def wellformed(self, astc):
         if not self.right.wellformed(astc):
             return False
-        if not isinstance(self.left, ASTArray):
+        if not isinstance(self.left, ASTArray) and not isinstance(self.left, ASTFieldAccess):
             if self.left.value in astc.rename:
                 self.left.value = astc.rename[self.left.value]
             if self.left.value not in astc.declared:
-                print astc
                 print "%s assigned but not declared!" % self.left.value
                 return False
             astc.defined.add(self.left.value)
@@ -465,12 +515,14 @@ class ASTAssign(ASTNode):
             print self.right, self.right.type(astc)
             print 'type mismatch for asisgnment statement!'
             return False
+        if not self.left.wellformed(astc):
+            return False
         return True
 
     def gencode(self, icc):
         dest = icc.pop_var()
         src = icc.pop_var()
-        if isinstance(self.left, ASTArray):
+        if isinstance(self.left, ASTArray) or isinstance(self.left, ASTFieldAccess):
             icc.add_instruction(ICStoreWord(src, dest._base, Integer(0), dest._elem))
             icc.push_var(src)
         else:
@@ -650,6 +702,45 @@ class ASTBoolean(ASTNode):
 
     def __str__(self):
         return 'BOOLEAN: %s' % self.value
+
+
+class ASTDeclareClass(ASTNode):
+    COLOR = NODE_COLORS['ASTDeclareClass']
+
+    def __init__(self, p, name, declarations):
+        """AST Class Declaration
+        """
+        self.p = p
+        self.name = name
+        self.declarations = declarations
+
+    def first_pass(self, astc):
+        astc.classes[self.name] = {'types': {}, 'positions': {}}
+        for i, d in enumerate(self.declarations):
+            var_name, var_type = d.declarations[0].value, (d.dec_type, d.dimensions)
+            if var_name in astc.classes[self.name]['types']:
+                print 'Redeclarations of variable name: %s in class: %s' % (var_name, self.name)
+                return False
+            astc.classes[self.name]['types'][var_name] = var_type
+            astc.classes[self.name]['positions'][var_name] = i
+        return True
+
+    def wellformed(self, astc):
+        for d in self.declarations:
+            if not d.wellformed(astc):
+                return False
+        return True
+
+    def gencode(self, icc):
+        pass
+
+    def to_stack(self):
+        return []
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\nclass: %s" % (counter, self.name)
+        graph.add_node(name, fillcolor=ASTDeclareClass.COLOR)
+        graph.add_edge(parent, name)
 
 
 class ASTDeclareList(ASTNode):
@@ -848,6 +939,47 @@ class ASTEndBlock(ASTNode):
 
     def __str__(self):
         return ''
+
+
+class ASTFieldAccess(ASTNode):
+    COLOR = NODE_COLORS['ASTFieldAccess']
+
+    def __init__(self, p, value, field):
+        self.p = p
+        self.value = value
+        self.field = field
+        self.offset = 0
+
+    def type(self, astc):
+        value_type, dimensions = self.value.type(astc)
+        return astc.classes[value_type]['types'][self.field]
+
+    def wellformed(self, astc):
+        if not self.value.wellformed(astc):
+            return False
+        value_type, dimensions = self.value.type(astc)
+        if dimensions > 0:
+            print 'Filed access for arrays not allowed!'
+            return False
+        if value_type not in astc.classes:
+            print '%s is not a class type' % (value_type)
+            return False
+        if self.field not in astc.classes[value_type]['types']:
+            print 'Field %s not in class: %s' % (self.field, value_type)
+            return False
+        self.offset = astc.classes[value_type]['positions'][self.field]
+        return True
+
+    def gencode(self, icc):
+        base = icc.pop_var()
+        val = icc.new_var()
+        icc.add_instruction(ICLoadWord(val, base, Integer(0), Integer(self.offset)))
+        icc.push_var(val)
+        val._base = base
+        val._elem = Integer(self.offset)
+
+    def to_stack(self):
+        return [self] + self.value.to_stack()
 
 
 class ASTFor(ASTNode):

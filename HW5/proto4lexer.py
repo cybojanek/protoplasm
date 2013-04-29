@@ -66,15 +66,13 @@ def t_COMMENT(t):
     # Increment line number and don't return these tokens
     t.lexer.lineno += t.value.count('\n')
 
-# Variables and reserved words
-classes = set()
+# For class keyword look-back
 state = 'INITIAL'
 
 
 def t_ID(t):
     r'[_a-zA-Z]\w*'
     global state
-    global classes
     # If its in reserved, get the type
     # otherwise, its just an ID
     t.type = reserved.get(t.value, 'ID')
@@ -87,12 +85,12 @@ def t_ID(t):
     # Go back to initial state
     if t.type == 'ID' and state == 'CLASS':
         t.type = 'CLASSID'
-        classes.add(t.value)
+        t.lexer.proto_classes.add(t.value)
         state = 'INITIAL'
         return t
     # Check if its a class name - if it is,
     # assign it type CLASSID
-    if t.type == 'ID' and t.value in classes:
+    if t.type == 'ID' and t.value in t.lexer.proto_classes:
         t.type = 'CLASSID'
         return t
     return t
