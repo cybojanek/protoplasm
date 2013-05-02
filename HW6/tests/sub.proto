@@ -1,0 +1,24 @@
+void main() {
+    int a, b, c;
+    a = 10000000;
+    b =  2345678;
+    c = -2345678;
+    print(a - b);
+    print(b - a);
+    print(a - c);
+    print(b - c);
+    print(a - 2345678);
+    print(a - -2345678);
+    print(2345678 - a);
+    print(-2345678 - a);
+    print(10000000 - b);
+    print(10000000 - c);
+    print(b - 10000000);
+    print(c - 10000000);
+    print(0 - -2345678);
+    print(-2345678 - 0);
+    print(-2345678 - -2345678);
+    print(-2345678 - c);
+    print(c - -2345678);
+    return;
+}

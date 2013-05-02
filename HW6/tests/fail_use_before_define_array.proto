@@ -1,0 +1,7 @@
+void main() {
+    int a;
+    int[] b;
+    a = 0;
+    print(b[0]);
+    return;
+}

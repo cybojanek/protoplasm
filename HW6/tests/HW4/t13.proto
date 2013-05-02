@@ -1,0 +1,7 @@
+void main() {
+    int x;
+    x = 10;
+    if x < 42 then // print(x);
+       {x = x + 1; print(x);}
+    return;
+}

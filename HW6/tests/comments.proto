@@ -1,0 +1,10 @@
+// meow!
+void main() { // main method
+    // wat
+    int a;
+    a = 1;
+    print(a);
+    // done
+    return;
+}
+// no really - done

@@ -1,0 +1,11 @@
+void main() {
+    int x;
+    x = 42;
+    print(x);
+    { int x;
+      x = 10;
+      print(x);
+    }
+    print(x);
+    return;
+}

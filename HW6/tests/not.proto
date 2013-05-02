@@ -1,0 +1,8 @@
+void main() {
+    bool b;
+    b = true;
+    if !!b then print(0);
+    b = false;
+    if !b then print(1); else print(0);
+    return;
+}

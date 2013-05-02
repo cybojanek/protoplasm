@@ -1,0 +1,74 @@
+void main() {
+    int t, f;
+    t = 1;
+    f = 0;
+    if (true && false) then
+        print(t);
+    else
+        print(f);
+    if (false && true) then
+        print(t);
+    else
+        print(f);
+    if (true && true) then
+        print(t);
+    else
+        print(f);
+    if (false && false) then
+        print(t);
+    else
+        print(f);
+    if ((3 > 2) && (4 < 5)) then
+        print(t);
+    else
+        print(f);
+    if ((1 > 2) && (5 > 4)) then
+        print(t);
+    else
+        print(f);
+    if (true && true && true) then
+        print(t);
+    else
+        print(f);
+    if (true && false && true) then
+        print(t);
+    else
+        print(f);
+    if (true || false) then
+        print(t);
+    else
+        print(f);
+    if (false || true) then
+        print(t);
+    else
+        print(f);
+    if (true || true) then
+        print(t);
+    else
+        print(f);
+    if (false || false) then
+        print(t);
+    else
+        print(f);
+    if ((3 > 2) || (4 < 5)) then
+        print(t);
+    else
+        print(f);
+    if ((1 > 2) || (5 > 4)) then
+        print(t);
+    else
+        print(f);
+    if ((1 < 2) || (4 > 5)) then
+        print(t);
+    else
+        print(f);
+    if (true || true || true) then
+        print(t);
+    else
+        print(f);
+    if (true || false || true) then
+        print(t);
+    else
+        print(f);
+    return;
+}

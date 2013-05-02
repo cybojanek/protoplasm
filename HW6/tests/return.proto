@@ -1,0 +1,53 @@
+void main() {
+    int s;
+    int[] ns;
+    s = one() + two() + three() + four();
+    // 10
+    print(s);
+
+    // 0 13 26 39 52 65 78 91 104 117
+    ns = numbers(10, 13);
+    for(s = 0; s < 10; s++) {
+        print(ns[s]);
+    }
+    return;
+}
+
+int one() {
+    return 1;
+}
+
+int two() {
+    if true then
+        return 2;
+    else
+        return 3;
+}
+
+int three() {
+    if false then
+        return 0;
+    return 3;
+}
+
+int four() {
+    int a;
+    a = 3;
+    {
+        {
+            int a;
+            a = 4;
+            return 4;
+        }
+    }
+}
+
+int[] numbers(int n, int m) {
+    int[] a;
+    int i;
+    a = new int[n];
+    for(i = 0; i < n; i++) {
+        a[i] = m * i;
+    }
+    return a;
+}

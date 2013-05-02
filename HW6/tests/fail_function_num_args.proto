@@ -1,0 +1,9 @@
+void main() {
+    int i;
+    i = foo(20, 10);
+    return;
+}
+
+int foo(int i) {
+    return i * 2;
+}

@@ -1,0 +1,11 @@
+void main() {
+    int b;
+    int[] a;
+    a = new int[5];
+    b = 1;
+    a[0] = a[1] = b;
+    print(b);
+    print(a[0]);
+    print(a[1]);
+    return;
+}

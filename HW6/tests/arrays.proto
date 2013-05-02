@@ -1,0 +1,65 @@
+void main() {
+    int i, j;
+    int[] a, d, e;
+    int[][] b;
+    a = new int [5];
+    b = new int [2][];
+    for(i = 0; i < 5; i = i + 1) {
+        a[i] = i;
+    }
+
+    // 0 1 2 3 4
+    for(i = 0; i < 5; i = i + 1) {
+        print(a[i]);
+    }
+
+    for(i = 0; i < 2; i = i + 1) {
+        int[] c;
+        b[i] = new int[2];
+        c = b[i];
+        for(j = 0; j < 2; j = j + 1) {
+            c[j] = i + j;
+        }
+    }
+
+    // 0 1 1 2
+    for(i = 0; i < 2; i = i + 1) {
+        int[] c;
+        c = b[i];
+        for(j = 0; j < 2; j = j + 1) {
+            print(c[j]);
+        }
+    }
+
+    // Now write out these numbers again
+    // and check the next array
+    // to make sure we're ok with memory
+    for(i = 0; i < 5; i = i + 1) {
+        a[i] = i;
+    }
+
+    // 0 1 1 2
+    for(i = 0; i < 2; i = i + 1) {
+        int[] c;
+        c = b[i];
+        for(j = 0; j < 2; j = j + 1) {
+            print(c[j]);
+        }
+    }
+
+    // 0 1 2 3 4
+    d = a;
+    for(i = 0; i < 5; i = i + 1) {
+        print(d[i]);
+    }
+
+    // Define with control flow
+    if(true) then {
+        e = new int[10];
+    } else {
+        e = new int[5];
+    }
+    e[0] = 1;
+    print(e[0]);
+    return;
+}

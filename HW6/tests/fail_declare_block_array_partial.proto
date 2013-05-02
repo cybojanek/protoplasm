@@ -1,0 +1,16 @@
+void main() {
+    bool a;
+    int[] b;
+    a = true;
+    if(a) then {
+        b = new int[10];
+    } else {
+        int[] b;
+        b = new int[10];
+    }
+    // b is set in only one control flow
+    // and redeclared as local in the other
+    // so it should not be defined
+    print(b);
+    return;
+}

@@ -1,0 +1,13 @@
+void main() {
+    int b;
+    int[] a;
+
+    b = 10;
+    a = new int[b];
+
+    // 0
+    print(a[--b]);
+    // RUNTIME ERROR
+    print(a[++b]);
+    return;
+}

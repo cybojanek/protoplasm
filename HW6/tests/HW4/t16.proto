@@ -1,0 +1,8 @@
+void main() {
+    int x,y;
+    x = 42;
+    y = x - 40 - 2;
+    if y != 0 then print(y);
+    else print(0);
+    return;
+}

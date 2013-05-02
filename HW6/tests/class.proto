@@ -1,0 +1,42 @@
+class Point {
+    int x;
+    int y;
+    int z;
+}
+
+void main() {
+    Point a, b, vector;
+    a = new Point();
+    b = new Point();
+    a.x = 1; a.y = 2; a.z = 3;
+    b.x = 4; b.y = 5; b.z = 6;
+    vector = sum(a, b);
+    // 1
+    print(a.x);
+    // 2
+    print(a.y);
+    // 3
+    print(a.z);
+    // 4
+    print(b.x);
+    // 5
+    print(b.y);
+    // 6
+    print(b.z);
+    // 5
+    print(vector.x);
+    // 7
+    print(vector.y);
+    // 9
+    print(vector.z);
+    return;
+}
+
+Point sum(Point p1, Point p2) {
+    Point v;
+    v = new Point();
+    v.x = p1.x + p2.x;
+    v.y = p1.y + p2.y;
+    v.z = p1.z + p2.z;
+    return v;
+}
