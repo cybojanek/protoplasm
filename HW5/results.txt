@@ -1,0 +1,104 @@
+t1: Correct, answer was 52
+t2: Correct, answer was not well-formed
+t3: Correct, answer was 52 42
+t4: Correct, answer was syntax error
+t5: Correct, answer was 0 -420
+t6: Correct, answer was 5 0
+t7: Correct, answer was -18 -330
+t8: Correct, answer was 70
+t9: Correct, answer was syntax error
+t10: Correct, answer was syntax error
+t11: Correct, answer was 528
+t12: Correct, answer was 1
+t13: Correct, answer was 11
+t14: Correct, answer was not well-formed
+t15: Correct, answer was type error
+t16: Correct, answer was 0
+t17: Correct, answer was 42 0
+t18: Correct, answer was type error
+t19: Correct, answer was -30
+t21: Correct, answer was declare-first error
+t22: Correct, answer was 42 10 42
+t23: Correct, answer was 42
+t24: Correct, answer was 0 1 2
+t25: Correct, answer was 0 1 2
+t26: Correct, answer was 1 2 3 4
+t27: Correct, answer was Proto Runtime Error: Attempt to access array out of bounds
+t28: Correct, answer was 42 42
+t29: Correct, answer was 42 41
+t30: Correct, answer was 42 41
+t31: Correct, answer was 24 42 42
+t32: Correct, answer was syntax error
+t33: Correct, answer was 1 1 1
+t34: Correct, answer was Proto Runtime Error: Attempt to access array out of bounds
+t35: Correct, answer was syntax error
+t36: Correct, answer was not well-formed
+t37: Correct, answer was not well-formed
+t38: Correct, answer was type error
+t39: Correct, answer was type error
+t40: Correct, answer was type error
+t41: Correct, answer was type error
+t42: Correct, answer was type error
+t43: Correct, answer was type error
+t44: Correct, answer was type error
+t45: Correct, answer was type error
+t46: Correct, answer was type error
+t47: Correct, answer was type error
+t48: Correct, answer was type error
+t49: Correct, answer was type error
+t50: Correct, answer was type error
+t51: Correct, answer was type error
+t52: Correct, answer was type error
+t53: Correct, answer was type error
+t54: Correct, answer was type error
+t55: Correct, answer was type error
+t56: Correct, answer was type error
+t57: Correct, answer was type error
+t58: See comment #2, answer was type error
+t59: Correct, answer was not well-formed
+t60: Wrong, erroneously detected a not well-formed error, answer should be 0 1 2 3 4 5 6 7 8 9
+t61: Correct, answer was 42 43
+t62: Correct, answer was 41 42
+t63: Correct, answer was 38 40 42
+t64: Correct, answer was 1 3 5 7 9 11 13 15 17 19
+t65: Correct, answer was 42
+t66: Correct, answer was 42
+t67: Correct, answer was 42
+t68: See comment #2
+t69: Correct, answer was 42
+
+
+Syntax Checking  :  2/2
+Static Semantics :  
+	Primitive/array types : 5/5
+	Control flow to return : 3/3
+	Class types : 4.5/5
+Dynamic Semantics : 
+	New object creation, field access : 5/5
+	Function calls and returns : 5/5
+	Other remaining constructs : 5/5
+Total : 29.5/30
+
+Comments:
+1. Really *AMAZING* job guys!
+2. I got this python traceback:
+Traceback (most recent call last):
+  File "protoplasm4.py", line 112, in <module>
+    main(args)
+  File "protoplasm4.py", line 54, in main
+    if not program.wellformed():
+  File "/Users/spyros/SUNYSB/CSE504/temp3/biondo-kasiak/HW5/AbstractSyntaxTree.py", line 296, in wellformed
+    if not d.wellformed(astc):
+  File "/Users/spyros/SUNYSB/CSE504/temp3/biondo-kasiak/HW5/AbstractSyntaxTree.py", line 1178, in wellformed
+    if not self.body.wellformed(rest_astc):
+  File "/Users/spyros/SUNYSB/CSE504/temp3/biondo-kasiak/HW5/AbstractSyntaxTree.py", line 1625, in wellformed
+    return self.value.wellformed(astc)
+  File "/Users/spyros/SUNYSB/CSE504/temp3/biondo-kasiak/HW5/AbstractSyntaxTree.py", line 640, in wellformed
+    if not s.wellformed(astc_clone):
+  File "/Users/spyros/SUNYSB/CSE504/temp3/biondo-kasiak/HW5/AbstractSyntaxTree.py", line 1625, in wellformed
+    return self.value.wellformed(astc)
+  File "/Users/spyros/SUNYSB/CSE504/temp3/biondo-kasiak/HW5/AbstractSyntaxTree.py", line 513, in wellformed
+    if self.left.type(astc) != self.right.type(astc):
+  File "/Users/spyros/SUNYSB/CSE504/temp3/biondo-kasiak/HW5/AbstractSyntaxTree.py", line 955, in type
+    return astc.classes[value_type]['types'][self.field]
+KeyError: 'y'
