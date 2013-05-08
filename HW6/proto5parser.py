@@ -79,9 +79,25 @@ def p_fundecl(p):
     elif len(p) == 8:
         p[0] = ASTFunctionDeclare(p, (p[1][0], (p[2] if p[2] else 0)), p[3], p[5], p[7])
 
+def p_memberdecl_vardecl(p):
+    '''memberdecl : vardecl'''
+    p[0] = p[1]
+
+def p_memberdecl_fundecl(p):
+    '''memberdecl : fundecl'''
+    p[0] = p[1]
+
+def p_memberdecl_star(p):
+    '''memberdecl_star : memberdecl memberdecl_star
+                    | empty'''
+    if len(p) == 3:
+        p[0] = [p[1]] + p[2]
+    else:
+        p[0] = []
+        
 def p_classdecl(p):
-    '''classdecl : CLASS CLASSID EXTENDS CLASSID LCURLY vardecl_star  RCURLY
-                 | CLASS CLASSID LCURLY vardecl_star  RCURLY'''
+    '''classdecl : CLASS CLASSID EXTENDS CLASSID LCURLY memberdecl_star  RCURLY
+                 | CLASS CLASSID LCURLY memberdecl_star  RCURLY'''
     if len(p) == 6:            
         p[0] = ASTDeclareClass(p, p[2], p[4])
     elif len(p) == 8:
