@@ -115,6 +115,20 @@ class ASTContext(object):
         a.previous = self
         return a
 
+    def classes_castable(self, l, r):
+        lt = l.type(self)
+        rt = r.type(self)
+        if lt != rt:
+            # handle superclasses
+            if ( lt[0] in self.classes and rt[0] in self.classes
+                     and lt[1] == 0 and rt[1] == 0):
+                s = self.classes[rt[0]]['super']
+                while s!= None:
+                    if s == lt[0]: return True
+                    s = self.classes[s]['super']
+            return False
+        return True
+
     def __str__(self):
         return 'Declared: [%s], Defined: [%s]' % (
                ','.join([repr(x) for x in self.declared]),
@@ -513,16 +527,7 @@ class ASTAssign(ASTNode):
         if not self.left.wellformed(astc):
             return False
 
-        lt = self.left.type(astc)
-        rt = self.right.type(astc)
-        if lt != rt:
-            # handle superclasses
-            if ( lt[0] in astc.classes and rt[0] in astc.classes
-                     and lt[1] == 0 and rt[1] == 0):
-                s = astc.classes[rt[0]]['super']
-                while s!= None:
-                    if s == lt[0]: return True
-                    s = astc.classes[s]['super']
+        if not astc.classes_castable(self.left, self.right):
             print self.left, self.left.type(astc)
             print self.right, self.right.type(astc)
             print 'type mismatch for asisgnment statement!'
@@ -744,10 +749,20 @@ class ASTDeclareClass(ASTNode):
                 astc.classes[self.name]['positions'][var_name] = i
                 i += 1;
         astc.classes[self.name]['prop_decl'] = self.prop_decl
+        
+        astc.classes[self.name]['fun_decl'] = { i.name: "__"+self.name+"___"+i.name 
+                                                        for i in self.fun_decl};
+        for d in self.fun_decl:
+            d.name = "__"+self.name+"___"+d.name
+            d.formals = [ASTDeclareVariable(None, "this", (self.name, 0))]+d.formals
+            astc.functions[d.name] = d.formals
+            astc.types[d.name] = d.type(astc)
+            astc.debug_functions[d.name] = d
 
-        for i in self.fun_decl:
-            i.name = "__"+self.name+"___"+i.name
-            i.this = self.name
+        if self.super:
+            for i in astc.classes[self.super]['fun_decl']:
+                if i not in astc.classes[self.name]['fun_decl']:
+                    astc.classes[self.name]['fun_decl'][i] = astc.classes[self.super]['fun_decl'][i]
 
         return True
 
@@ -755,6 +770,9 @@ class ASTDeclareClass(ASTNode):
         for d in self.prop_decl:
             if not d.wellformed(astc):
                 return False
+        for f in self.fun_decl:
+            if not f.wellformed(astc):
+                return False            
         return True
 
     def gencode(self, icc):
@@ -1102,7 +1120,7 @@ class ASTFor(ASTNode):
 class ASTFunctionCall(ASTNode):
     COLOR = NODE_COLORS['ASTFunctionCall']
 
-    def __init__(self, p, name, arguments):
+    def __init__(self, p, name, arguments, cl=None):
         """AST function call
 
         Arguments:
@@ -1114,23 +1132,35 @@ class ASTFunctionCall(ASTNode):
         self.p = p
         self.name = name
         self.arguments = arguments
+        self.cl = cl
 
     def type(self, astc):
         return astc.types[self.name]
 
     def wellformed(self, astc):
-        if self.name not in astc.functions:
-            print "Missing function: %s" % self.name
-            return False
+        if self.cl:
+            print astc.functions
+            if self.name in astc.classes[self.cl.type(astc)[0]]['fun_decl']:
+                self.name = astc.classes[self.cl.type(astc)[0]]['fun_decl'][self.name]
+                self.arguments = [self.cl] + self.arguments
+            else:
+                print "Missing function: %s.%s" % (self.cl.value, self.name)
+                return False  
+        else:
+            if self.name not in astc.functions:
+                print "Missing function: %s" % self.name
+                return False
+
         if len(self.arguments) != len(astc.functions[self.name]):
             print 'Argument number does not match for calling %s' % self.name
             return False
         for i, (arg, formal) in enumerate(zip(self.arguments, astc.functions[self.name])):
             if not arg.wellformed(astc):
-                print 'Argument :%s of function call to %s not well formed' % (i, self.name)
+                print 'Argument %s of function call to %s not well formed' % (i, self.name)
                 return False
-            if arg.type(astc) != formal.type(astc):
-                print 'Argument :%s of function call to %s does not match' % (i, self.name)
+
+            if not astc.classes_castable(formal, arg):
+                print 'Argument %s of function call to %s does not match' % (i, self.name)
                 return False
         return True
 

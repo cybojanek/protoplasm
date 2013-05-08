@@ -1,0 +1,45 @@
+class Point {
+    int x;
+    int awesome() { 
+        return this.x; 
+    }
+    int meaning_of_life() { 
+        return this.x+42; 
+    }
+}
+
+class Point2D extends Point {
+    int y;
+    int awesome() { 
+        return this.x+this.y; 
+    }
+}
+
+class Point3D extends Point2D {
+    int z;
+    int awesome() { 
+        return this.x+this.y+this.z; 
+    }
+}
+
+void main() {
+    Point3D p3d;
+    Point p;
+
+    p3d = new Point3D();
+    p3d.x = 20;
+    p3d.y = 30;
+    p3d.z = 40;
+
+    p = p3d;
+
+    print(p.x);
+    print(p3d.y);
+    print(p3d.z);
+
+    print(p3d.awesome());
+    print(p.awesome());
+    print(p3d.meaning_of_life());
+    print(p.meaning_of_life());
+    return;
+}

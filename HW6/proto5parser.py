@@ -349,6 +349,9 @@ def p_function_call(p):
     '''functioncall : ID LPAREN args_question RPAREN'''
     p[0] = ASTFunctionCall(p, p[1], p[3])
 
+def p_field_call(p):
+    '''functioncall : primary DOT ID LPAREN args_question RPAREN'''
+    p[0] = ASTFunctionCall(p, p[3], p[5], p[1])
 
 def p_args(p):
     '''args : ae COMMA args
