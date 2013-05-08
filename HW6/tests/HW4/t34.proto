@@ -1,7 +1,0 @@
-void main() {
-    int x[];
-    x = new int[2];
-    x[input()] = 0;
-    print(x[0]);
-    return;
-}

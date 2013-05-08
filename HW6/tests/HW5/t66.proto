@@ -1,0 +1,16 @@
+int foo(int x) {
+    return x + 1;
+}
+
+int bar(int x) {
+    return x + 2;
+}
+
+int baz(int x) {
+    return x + 3;
+}
+
+void main() {
+     print(foo(bar(baz(36))));
+     return;
+}

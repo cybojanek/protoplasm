@@ -1,0 +1,21 @@
+bool foo(int x1, int x2, int x3, int x4, int x5, int x6, int x7) {
+    if (x1 + x2 + x3 + x4 + x5 + x6 + x7) > 42
+        then return true;
+    else
+        return false;
+}
+
+void main() {
+    int x;
+    bool y;
+
+    x = input();
+    y = foo(x,x+1,x+2,x+3,x+4,x+5,x+6);
+
+    if y then 
+        print(42);
+    else
+        print(24);
+
+    return;
+}

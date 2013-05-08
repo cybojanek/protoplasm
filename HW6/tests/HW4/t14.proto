@@ -1,7 +1,0 @@
-void main() {
-    int y,x;
-    y = input();
-    if y != 42 then x = 0;
-    print(x);
-    return;
-}

@@ -1,6 +1,0 @@
-void main() {
-    int 42x;
-    42x = 24;
-    print(42x);
-    return;
-}

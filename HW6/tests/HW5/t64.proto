@@ -1,0 +1,17 @@
+int foo(int n1, int n2) {
+    return n1 + n2;
+}
+
+void main() {
+     int x[];
+     int i;
+
+     x = new int[10];
+     
+     for (i = 0; i < 10; i++) {
+         x[i] = foo(i,i+1);
+         print(x[i]);
+     }    
+     
+     return;
+}

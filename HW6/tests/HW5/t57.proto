@@ -1,0 +1,12 @@
+bool foo() {
+     return false;
+}
+
+void main() {
+     int x[], y;
+
+     x = new int[10];
+     y = x[foo()];
+
+     return;
+}

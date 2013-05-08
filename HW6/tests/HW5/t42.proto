@@ -1,0 +1,8 @@
+void main() {
+     bool y;
+
+     y = true;
+     print(y);
+
+     return;
+}

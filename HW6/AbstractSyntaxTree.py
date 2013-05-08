@@ -880,6 +880,7 @@ class ASTDoWhile(ASTNode):
             return False
         if self.while_part.type(astc) != ('bool', 0):
             print 'while part is not a bool!'
+            return False
         astc.counter = stmt_astc.counter
         return True
 

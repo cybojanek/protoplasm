@@ -1,0 +1,11 @@
+void main() {
+     int x,y;
+
+     x = input();
+
+     if x then y = x + 1;
+          else y = x - 1;
+
+     print(y);
+     return;
+}

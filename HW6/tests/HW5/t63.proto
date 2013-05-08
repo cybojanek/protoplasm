@@ -1,0 +1,33 @@
+class foo {
+      int x;
+      int y;
+      int z;
+}
+
+int bar[](foo F) {
+    int array[];
+
+    array = new int[3];
+    array[0] = F.x + 1;
+    array[1] = F.y + 2;
+    array[2] = F.z + 3;
+
+    return array;
+}
+
+void main() {
+     foo F;
+     int arr[];
+
+     F = new foo();
+     F.x = 37;
+     F.y = 38;
+     F.z = 39;
+     
+     arr = bar(F);
+     print(arr[0]);
+     print(arr[1]);
+     print(arr[2]);
+
+     return;
+}

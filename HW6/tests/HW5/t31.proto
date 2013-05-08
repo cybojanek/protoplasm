@@ -1,0 +1,13 @@
+void main() {
+     int x[], y, z;
+
+     x = new int[1];
+     x[0] = 10;
+     z = 24;
+     y = x[0] = z + 18;
+     print(z);
+     print(x[0]);
+     print(y);
+
+     return;
+}
