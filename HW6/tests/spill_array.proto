@@ -1,6 +1,6 @@
 void main() {
     int a, b, c, d, e, f, g, h, i, j, k, l, m, n;
-    int[] z;
+    int z[];
     a = 1;
     b = 2;
     c = 3;

@@ -17,6 +17,9 @@ reserved = {
     'true': 'TRUE',
     'false': 'FALSE',
     'class': 'CLASS',
+    'extends': 'EXTENDS',
+    'this': 'THIS',
+    'super': 'SUPER',
     'return': 'RETURN',
     'void': 'VOID'
 }

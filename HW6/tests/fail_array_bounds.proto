@@ -1,6 +1,6 @@
 void main() {
     int b;
-    int[] a;
+    int a[];
 
     b = 10;
     a = new int[b];

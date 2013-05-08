@@ -247,7 +247,7 @@ class ASTProgram(ASTNode):
                         print 'Redefinition of global variable: %s' % dec.value
                         return False
                     print "Global: %s" % dec.value
-                    astc.types[dec.value] = (d.dec_type, d.dimensions)
+                    astc.types[dec.value] = dec.type(astc)
                     astc.defined.add(dec.value)
                     astc.globals.add(dec.value)
                 # print d.declarations[0].value
@@ -414,6 +414,7 @@ class ASTAllocObject(ASTNode):
         if self.name not in astc.classes:
             return False
         self.size = len(astc.classes[self.name]['types'].keys())
+        print self.size
         return True
 
     def gencode(self, icc):
@@ -510,12 +511,22 @@ class ASTAssign(ASTNode):
                 print "%s assigned but not declared!" % self.left.value
                 return False
             astc.defined.add(self.left.value)
-        if self.left.type(astc) != self.right.type(astc):
+        if not self.left.wellformed(astc):
+            return False
+
+        lt = self.left.type(astc)
+        rt = self.right.type(astc)
+        if lt != rt:
+            # handle superclasses
+            if ( lt[0] in astc.classes and rt[0] in astc.classes
+                     and lt[1] == 0 and rt[1] == 0):
+                s = astc.classes[rt[0]]['super']
+                while s!= None:
+                    if s == lt[0]: return True
+                    s = astc.classes[s]['super']
             print self.left, self.left.type(astc)
             print self.right, self.right.type(astc)
             print 'type mismatch for asisgnment statement!'
-            return False
-        if not self.left.wellformed(astc):
             return False
         return True
 
@@ -707,22 +718,31 @@ class ASTBoolean(ASTNode):
 class ASTDeclareClass(ASTNode):
     COLOR = NODE_COLORS['ASTDeclareClass']
 
-    def __init__(self, p, name, declarations):
+    def __init__(self, p, name, declarations, superclass=None):
         """AST Class Declaration
         """
         self.p = p
         self.name = name
         self.declarations = declarations
+        self.super = superclass
 
     def first_pass(self, astc):
-        astc.classes[self.name] = {'types': {}, 'positions': {}}
-        for i, d in enumerate(self.declarations):
-            var_name, var_type = d.declarations[0].value, (d.dec_type, d.dimensions)
-            if var_name in astc.classes[self.name]['types']:
-                print 'Redeclarations of variable name: %s in class: %s' % (var_name, self.name)
-                return False
-            astc.classes[self.name]['types'][var_name] = var_type
-            astc.classes[self.name]['positions'][var_name] = i
+        astc.classes[self.name] = { 'super': None, 'types': {}, 'positions': {}}
+        if self.super:
+            self.declarations = astc.classes[self.super]['declarations'] + self.declarations
+            astc.classes[self.name]['super'] = self.super
+
+        i = 0
+        for vl in self.declarations:
+            for d in vl.declarations:
+                var_name, var_type = d.value, d.v_type
+                if var_name in astc.classes[self.name]['types']:
+                    print 'Redeclarations of variable name: %s in class: %s' % (var_name, self.name)
+                    return False
+                astc.classes[self.name]['types'][var_name] = var_type
+                astc.classes[self.name]['positions'][var_name] = i
+                i += 1;
+        astc.classes[self.name]['declarations'] = self.declarations
         return True
 
     def wellformed(self, astc):
@@ -742,11 +762,10 @@ class ASTDeclareClass(ASTNode):
         graph.add_node(name, fillcolor=ASTDeclareClass.COLOR)
         graph.add_edge(parent, name)
 
-
 class ASTDeclareList(ASTNode):
     COLOR = NODE_COLORS['ASTDeclareList']
 
-    def __init__(self, p, dec_type, dimensions, declarations):
+    def __init__(self, p, dec_type, declarations):
         """AST Declaration list
 
         Arguments:
@@ -756,17 +775,16 @@ class ASTDeclareList(ASTNode):
         """
         self.p = p
         self.dec_type = dec_type
-        self.dimensions = dimensions
         self.declarations = declarations
 
     def type(self, astc):
-        return (self.dec_type, self.dimensions)
+        return self.dec_type
 
     def wellformed(self, astc):
         for d in self.declarations:
             if not d.wellformed(astc):
                 return False
-            astc.types[d.value] = (self.dec_type, self.dimensions)
+            astc.types[d.value] = d.v_type
         return True
 
     def gencode(self, icc):
@@ -793,7 +811,7 @@ class ASTDeclareList(ASTNode):
 class ASTDeclareVariable(ASTNode):
     COLOR = NODE_COLORS['ASTDeclareVariable']
 
-    def __init__(self, p, value, type):
+    def __init__(self, p, value, mytype):
         """AST variable
 
         Arguments:
@@ -804,7 +822,10 @@ class ASTDeclareVariable(ASTNode):
         """
         self.p = p
         self.value = value
-        self.v_type = type
+        self.v_type = mytype
+
+    def type(self, astc):
+        return self.v_type
 
     def wellformed(self, astc):
         if self.value not in astc.declared:
@@ -1171,7 +1192,7 @@ class ASTFunctionDeclare(ASTNode):
             if not f.wellformed(rest_astc):
                 return False
             # All will be defined
-            rest_astc.defined.add(f.declarations[0].value)
+            rest_astc.defined.add(f.value)
         # astc.functions[self.name] = self.formals
         # rest_astc.functions[self.name] = self.formals
         rest_astc.returns = False
@@ -1196,7 +1217,7 @@ class ASTFunctionDeclare(ASTNode):
             s = formal_stack.pop()
             s.gencode(icc)
         for i, arg in enumerate(self.formals):
-            variable = Variable(arg.declarations[0].value)
+            variable = Variable(arg.value)
             icc.add_instruction(ICFunctionArgumentLoad(variable, i))
 
         body_stack = self.body.to_stack()

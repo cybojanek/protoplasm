@@ -717,6 +717,7 @@ class ASTDeclareClass(ASTNode):
     def first_pass(self, astc):
         astc.classes[self.name] = {'types': {}, 'positions': {}}
         for i, d in enumerate(self.declarations):
+            print i
             var_name, var_type = d.declarations[0].value, (d.dec_type, d.dimensions)
             if var_name in astc.classes[self.name]['types']:
                 print 'Redeclarations of variable name: %s in class: %s' % (var_name, self.name)

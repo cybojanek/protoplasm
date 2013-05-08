@@ -1,7 +1,7 @@
 void main() {
     int i, j;
-    int[] a, d, e;
-    int[][] b;
+    int a[], d[], e[];
+    int b[][];
     a = new int [5];
     b = new int [2][];
     for(i = 0; i < 5; i = i + 1) {
@@ -14,7 +14,7 @@ void main() {
     }
 
     for(i = 0; i < 2; i = i + 1) {
-        int[] c;
+        int c[];
         b[i] = new int[2];
         c = b[i];
         for(j = 0; j < 2; j = j + 1) {
@@ -24,7 +24,7 @@ void main() {
 
     // 0 1 1 2
     for(i = 0; i < 2; i = i + 1) {
-        int[] c;
+        int c[];
         c = b[i];
         for(j = 0; j < 2; j = j + 1) {
             print(c[j]);
@@ -40,7 +40,7 @@ void main() {
 
     // 0 1 1 2
     for(i = 0; i < 2; i = i + 1) {
-        int[] c;
+        int c[];
         c = b[i];
         for(j = 0; j < 2; j = j + 1) {
             print(c[j]);

@@ -1,6 +1,6 @@
 void main() {
     int s;
-    int[] ns;
+    int ns[];
     s = one() + two() + three() + four();
     // 10
     print(s);
@@ -43,7 +43,7 @@ int four() {
 }
 
 int[] numbers(int n, int m) {
-    int[] a;
+    int a[];
     int i;
     a = new int[n];
     for(i = 0; i < n; i++) {

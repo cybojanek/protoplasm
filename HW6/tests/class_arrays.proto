@@ -11,7 +11,7 @@ class PointList {
 
 void main() {
     int i, s;
-    Point[] points;
+    Point points[];
     PointList pl, pln;
 
     points = new Point[10];
@@ -48,7 +48,7 @@ void main() {
 }
 
 Point[] foo() {
-    Point[] ps;
+    Point ps[];
     ps = new Point[2];
     ps[0] = new Point();
     ps[0].x = 4;

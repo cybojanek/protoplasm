@@ -1,5 +1,5 @@
 int i;
-int[] a;
+int a[];
 int length;
 
 void main() {

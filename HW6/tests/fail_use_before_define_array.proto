@@ -1,6 +1,6 @@
 void main() {
     int a;
-    int[] b;
+    int b[];
     a = 0;
     print(b[0]);
     return;

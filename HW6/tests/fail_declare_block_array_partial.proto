@@ -1,11 +1,11 @@
 void main() {
     bool a;
-    int[] b;
+    int b[];
     a = true;
     if(a) then {
         b = new int[10];
     } else {
-        int[] b;
+        int b[];
         b = new int[10];
     }
     // b is set in only one control flow

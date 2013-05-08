@@ -23,7 +23,6 @@ def p_pgm(p):
     '''pgm : pgm_seq'''
     p[0] = ASTProgram(p, p[1])
 
-
 def p_pgm_decl(p):
     '''pgm_seq : decl pgm_seq'''
     p[0] = [p[1]] + p[2]
@@ -48,12 +47,21 @@ def p_decl_classdecl(p):
     '''decl : classdecl'''
     p[0] = p[1]
 
+def p_dimstar_d(p):
+    '''dimstar : LBRACE RBRACE dimstar
+               | empty'''
+    if len(p) == 4:  # Count how many dimensions
+        p[0] = 1 + (p[3] if p[3] else 0);
+
+def p_var(p):
+    '''var : ID dimstar'''
+    p[0] = (p[1], (p[2] if p[2] else 0))
+
 
 def p_vardecl(p):
     '''vardecl : type varlist SEMICOLON'''
-    p[0] = ASTDeclareList(p, p[1][0], p[1][1],
-                          [ASTDeclareVariable(p, d, p[1]) for d in p[2]])
-
+    p[0] = ASTDeclareList(p, p[1][0], 
+        [ASTDeclareVariable(v, v[0], (p[1][0], v[1])) for v in p[2]] )
 
 def p_vardecl_star(p):
     '''vardecl_star : vardecl vardecl_star
@@ -63,16 +71,21 @@ def p_vardecl_star(p):
     else:
         p[0] = []
 
-
 def p_fundecl(p):
-    '''fundecl : type ID LPAREN formals_question RPAREN stmt'''
-    p[0] = ASTFunctionDeclare(p, p[1], p[2], p[4], p[6])
-
+    '''fundecl : type dimstar ID LPAREN formals_question RPAREN stmt
+               | type ID LPAREN formals_question RPAREN stmt'''
+    if len(p) == 7:
+        p[0] = ASTFunctionDeclare(p, p[1], p[2], p[4], p[6])
+    elif len(p) == 8:
+        p[0] = ASTFunctionDeclare(p, (p[1][0], (p[2] if p[2] else 0)), p[3], p[5], p[7])
 
 def p_classdecl(p):
-    '''classdecl : CLASS CLASSID LCURLY vardecl_star RCURLY'''
-    p[0] = ASTDeclareClass(p, p[2], p[4])
-
+    '''classdecl : CLASS CLASSID EXTENDS CLASSID LCURLY vardecl_star  RCURLY
+                 | CLASS CLASSID LCURLY vardecl_star  RCURLY'''
+    if len(p) == 6:            
+        p[0] = ASTDeclareClass(p, p[2], p[4])
+    elif len(p) == 8:
+        p[0] = ASTDeclareClass(p, p[2], p[6], p[4])
 
 def p_type(p):
     '''type : INT
@@ -81,15 +94,9 @@ def p_type(p):
             | CLASSID'''
     p[0] = (p[1], 0)
 
-
-def p_type_brace(p):
-    ''' type : type LBRACE RBRACE'''
-    p[0] = (p[1][0], p[1][1] + 1)
-
-
 def p_varlist(p):
-    '''varlist : ID COMMA varlist
-               | ID'''
+    '''varlist : var COMMA varlist
+               | var'''
     if len(p) == 4:
         p[0] = [p[1]] + p[3]
     else:
@@ -97,15 +104,12 @@ def p_varlist(p):
 
 
 def p_formals(p):
-    '''formals : type ID COMMA formals
-               | type ID'''
+    '''formals : type var COMMA formals
+               | type var'''
     if len(p) == 5:
-        p[0] = [ASTDeclareList(p, p[1][0], p[1][1],
-                               [ASTDeclareVariable(p, p[2], p[1])])] + p[4]
+        p[0] = [ASTDeclareVariable(p, p[2][0], (p[1][0], p[2][1]))] + p[4]
     else:
-        p[0] = [ASTDeclareList(p, p[1][0], p[1][1],
-                               [ASTDeclareVariable(p, p[2], p[1])])]
-
+        p[0] = [ASTDeclareVariable(p, p[2][0], (p[1][0], p[2][1]))] 
 
 def p_formals_question(p):
     '''formals_question : formals'''
@@ -425,7 +429,7 @@ def p_type_lbrace_error(p):
 
 
 def p_varlist_error(p):
-    '''varlist : ID COMMA error'''
+    '''varlist : var COMMA error'''
     print_expected_error(p, 2, "expected variable after ','")
 
 

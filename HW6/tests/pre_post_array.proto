@@ -1,7 +1,6 @@
 void main() {
     int i, j;
-    int[] a;
-    int[][] b;
+    int a[],b[][];
 
     a = new int [10];
     b = new int [10][];
