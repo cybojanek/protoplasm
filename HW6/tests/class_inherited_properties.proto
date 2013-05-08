@@ -1,0 +1,31 @@
+class Point {
+    int x;
+}
+
+class Point2D extends Point {
+    int y;
+}
+
+class Point3D extends Point2D {
+    int z;
+}
+
+void main() {
+    Point3D p3d;
+    Point p;
+
+    p3d = new Point3D();
+    p3d.x = 20;
+    p3d.y = 30;
+    p3d.z = 40;
+
+    p = p3d;
+
+    print(p3d.x);
+    print(p3d.y);
+    print(p3d.z);
+
+    print(p.x);
+
+    return;
+}
