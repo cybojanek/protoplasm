@@ -1,0 +1,14 @@
+class A {
+      int x;
+}
+
+void main() {
+     A z;
+
+     z = new A();
+
+     z.y = 42;
+
+     return;
+}     
+     

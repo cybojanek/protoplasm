@@ -1,0 +1,8 @@
+void main() {
+     int x[];
+
+     x = new int[10];
+     x[42] = 0;
+
+     return;
+}

@@ -1,0 +1,17 @@
+int foo(int x) {
+    bool y;
+    
+    if (x > 42)
+       then x = x + 1;
+       else x = x - 1;
+
+     y = false;
+     return y;
+}
+
+void main() {
+     int x;
+     x = foo(x);
+
+     return;
+}

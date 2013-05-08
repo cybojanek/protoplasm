@@ -1,9 +1,0 @@
-void main() {
-    int x,y;
-    x = 41;
-    y = ++x; // y = 42, x = 42
-    x = y--; // x = 42, y = 41
-    print(x);
-    print(y);
-    return;
-}

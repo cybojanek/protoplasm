@@ -1,0 +1,17 @@
+int x;
+
+int foo() {
+    x = 41;
+    return x + 1;    
+}
+
+void main() {
+     int y;
+     
+     x = 42;
+     y = foo();
+     print(x);
+     print(y);
+
+     return;
+}

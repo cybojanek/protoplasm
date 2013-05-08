@@ -1,0 +1,10 @@
+void main() {
+     int x;
+     bool y;
+
+     x = input();
+     y = x;
+     print(y);
+     
+     return;
+}

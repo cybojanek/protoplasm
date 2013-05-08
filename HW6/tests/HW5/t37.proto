@@ -1,0 +1,9 @@
+int main() {
+    int x;
+    
+    x = input();
+    if (x > 42) then
+       return;
+    else
+       print(x);
+}

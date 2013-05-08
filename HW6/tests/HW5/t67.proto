@@ -1,0 +1,20 @@
+class A {
+      int x;
+      int y;
+      bool z;
+}
+
+void main() {
+     A a;
+
+     a = new A();
+
+     a.x = 41;
+     a.y = 42;
+     a.z = false;
+
+     if (a.z) then print(a.x);
+     else print(a.y);
+     
+     return;
+}

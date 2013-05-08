@@ -492,7 +492,7 @@ def print_expected_error(p, t, message, missing=None, aug=1):
 # Syntax errors
 def p_error(p):
     p.lexer.proto_errors += 1
-    print colorize(str(ValueError("Synax error!: %r" % p)), 'blue')
+    print colorize(str(ValueError("Syntax error!: %r" % p)), 'blue')
     # print colorize("Somewhere here", 'blue')
     # print colorize("##")
     # print '\n'.join(p.lexer.lexdata.split('\n')[p.lineno - 1:p.lineno + 1])

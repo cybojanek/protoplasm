@@ -1,0 +1,12 @@
+void main() {
+     int x;
+     x = 41;
+
+     while (x > 1)
+     do {
+        x = true;
+        print(x);
+     }
+
+     return;
+}

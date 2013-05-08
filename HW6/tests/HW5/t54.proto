@@ -1,0 +1,11 @@
+bool foo(int x) {
+     return x == 1;
+}
+
+void main() {
+     int x;
+
+     x = foo(x);
+
+     return;
+}    

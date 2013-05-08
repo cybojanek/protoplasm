@@ -1,0 +1,18 @@
+class A {
+      int x;
+}
+
+A foo(bool x) {
+  A y;
+  
+  return y;
+}
+
+void main() {
+     int x;
+     
+     x = 42;
+     print(x);
+     
+     return;
+}

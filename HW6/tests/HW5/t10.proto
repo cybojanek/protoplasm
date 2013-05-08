@@ -1,0 +1,7 @@
+void main() {
+     int x;
+
+     x = print(42);
+
+     return;
+}

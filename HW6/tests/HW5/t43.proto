@@ -1,0 +1,14 @@
+void main() {
+     int x;
+
+     x = 42;
+     print(x);
+
+     {
+        bool x;
+        x = false;
+        print(x);
+     }
+
+     return;
+}
