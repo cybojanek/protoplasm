@@ -1119,6 +1119,9 @@ class ASTFunctionCall(ASTNode):
             print 'Argument number does not match for calling %s' % self.name
             return False
         for i, (arg, formal) in enumerate(zip(self.arguments, astc.functions[self.name])):
+            if not arg.wellformed(astc):
+                print 'Argument :%s of function call to %s not well formed' % (i, self.name)
+                return False
             if arg.type(astc) != formal.type(astc):
                 print 'Argument :%s of function call to %s does not match' % (i, self.name)
                 return False
