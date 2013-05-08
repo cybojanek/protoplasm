@@ -722,17 +722,19 @@ class ASTDeclareClass(ASTNode):
         """
         self.p = p
         self.name = name
-        self.declarations = declarations
+        self.prop_decl = [d for d in declarations if isinstance(d, ASTDeclareList)]
+        self.fun_decl = [d for d in declarations if isinstance(d, ASTFunctionDeclare)]
         self.super = superclass
 
     def first_pass(self, astc):
         astc.classes[self.name] = { 'super': None, 'types': {}, 'positions': {}}
         if self.super:
-            self.declarations = astc.classes[self.super]['declarations'] + self.declarations
+            self.prop_decl = astc.classes[self.super]['prop_decl'] + self.prop_decl
             astc.classes[self.name]['super'] = self.super
 
+        # properties
         i = 0
-        for vl in self.declarations:
+        for vl in self.prop_decl:
             for d in vl.declarations:
                 var_name, var_type = d.value, d.v_type
                 if var_name in astc.classes[self.name]['types']:
@@ -741,11 +743,16 @@ class ASTDeclareClass(ASTNode):
                 astc.classes[self.name]['types'][var_name] = var_type
                 astc.classes[self.name]['positions'][var_name] = i
                 i += 1;
-        astc.classes[self.name]['declarations'] = self.declarations
+        astc.classes[self.name]['prop_decl'] = self.prop_decl
+
+        for i in self.fun_decl:
+            i.name = "__"+self.name+"___"+i.name
+            i.this = self.name
+
         return True
 
     def wellformed(self, astc):
-        for d in self.declarations:
+        for d in self.prop_decl:
             if not d.wellformed(astc):
                 return False
         return True
@@ -754,7 +761,7 @@ class ASTDeclareClass(ASTNode):
         pass
 
     def to_stack(self):
-        return []
+        return [] + self.fun_decl
 
     def add_edges_to_graph(self, graph, parent, counter):
         name = "%s\nclass: %s" % (counter, self.name)
