@@ -414,7 +414,6 @@ class ASTAllocObject(ASTNode):
         if self.name not in astc.classes:
             return False
         self.size = len(astc.classes[self.name]['types'].keys())
-        print self.size
         return True
 
     def gencode(self, icc):
