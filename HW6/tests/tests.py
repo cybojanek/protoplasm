@@ -233,6 +233,7 @@ def test_inheritance():
     """class functions & inheritance"""
     compile_and_run('class_inherited_properties', [20, 30, 40])
     compile_and_run('class_functions', [20,30,40,90,20,62,62])
+    compile_and_run('class_functions_inheritence', [20,30,40,1,49,90,55,30,30,105])
 
 @pre_entry
 def test_empty():

@@ -290,6 +290,14 @@ def p_primary_int(p):
     p[0] = ASTInteger(p, p[1])
 
 
+def p_primary_this(p):
+    '''primary : THIS'''
+    p[0] = ASTVariable(p, "this")
+
+def p_primary_super(p):
+    '''primary : SUPER'''
+    p[0] = ASTVariable(p, "super")
+
 def p_primary_true(p):
     '''primary : TRUE'''
     p[0] = ASTBoolean(p, True)

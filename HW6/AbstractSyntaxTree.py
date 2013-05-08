@@ -129,6 +129,18 @@ class ASTContext(object):
             return False
         return True
 
+    def lookup_function(self, cltype, func, args):   
+        if func in self.classes[cltype]['fun_decl']:
+            functions = self.classes[cltype]['fun_decl'][func]
+            for f in functions: #find the matching signature
+                if len(args) == len(self.functions[f]):
+                    if all([self.classes_castable(b,a) for a,b in 
+                               zip(args, self.functions[f])]):
+                        return f
+        if self.classes[cltype]['super'] is not None:
+            return self.lookup_function(self.classes[cltype]['super'], func, args)
+
+
     def __str__(self):
         return 'Declared: [%s], Defined: [%s]' % (
                ','.join([repr(x) for x in self.declared]),
@@ -738,7 +750,7 @@ class ASTDeclareClass(ASTNode):
             astc.classes[self.name]['super'] = self.super
 
         # properties
-        i = 0
+        n = 0
         for vl in self.prop_decl:
             for d in vl.declarations:
                 var_name, var_type = d.value, d.v_type
@@ -746,23 +758,37 @@ class ASTDeclareClass(ASTNode):
                     print 'Redeclarations of variable name: %s in class: %s' % (var_name, self.name)
                     return False
                 astc.classes[self.name]['types'][var_name] = var_type
-                astc.classes[self.name]['positions'][var_name] = i
-                i += 1;
+                astc.classes[self.name]['positions'][var_name] = n
+                n += 1;
+
         astc.classes[self.name]['prop_decl'] = self.prop_decl
-        
-        astc.classes[self.name]['fun_decl'] = { i.name: "__"+self.name+"___"+i.name 
-                                                        for i in self.fun_decl};
-        for d in self.fun_decl:
-            d.name = "__"+self.name+"___"+d.name
-            d.formals = [ASTDeclareVariable(None, "this", (self.name, 0))]+d.formals
+
+
+        #print astc.classes[self.name]['fun_decl'] 
+
+        astc.classes[self.name]['fun_decl'] = {};
+        for d in self.fun_decl:  # for each function
+            new_name = self.name+"_"+d.name+"_"+str(hash(str([i.type(astc) for i in d.formals]))%100000000)
+
+            d.formals = [ASTDeclareVariable(None, "this", (self.name, 0))]+d.formals  # add 'this'   
+            if self.super:
+                d.formals = [ASTDeclareVariable(None, "super", (self.super, 0))]+d.formals  # add 'super'
+            else: # define a useless variable here to keep argument the same for classes that dont have superclasses
+                  # but still ensure an error if someone trys to use super when they shouldn't
+                d.formals = [ASTDeclareVariable(None, "__super__unsed_self", (self.name, 0))]+d.formals  # add 'super'
+
+            if d.name in astc.classes[self.name]['fun_decl']:
+              if new_name in astc.classes[self.name]['fun_decl'][d.name]:
+                 print 'Redeclaration of function: %s in class: %s' % (d.name, self.name)
+                 return False
+              astc.classes[self.name]['fun_decl'][d.name] += [new_name]
+            else:
+              astc.classes[self.name]['fun_decl'][d.name] = [new_name]
+            d.name = new_name
             astc.functions[d.name] = d.formals
             astc.types[d.name] = d.type(astc)
             astc.debug_functions[d.name] = d
 
-        if self.super:
-            for i in astc.classes[self.super]['fun_decl']:
-                if i not in astc.classes[self.name]['fun_decl']:
-                    astc.classes[self.name]['fun_decl'][i] = astc.classes[self.super]['fun_decl'][i]
 
         return True
 
@@ -1116,7 +1142,6 @@ class ASTFor(ASTNode):
         return 'for [%s; %s; %s] do...' % (self.init_part, self.cond_part,
                                            self.incr_part)
 
-
 class ASTFunctionCall(ASTNode):
     COLOR = NODE_COLORS['ASTFunctionCall']
 
@@ -1139,13 +1164,14 @@ class ASTFunctionCall(ASTNode):
 
     def wellformed(self, astc):
         if self.cl:
-            print astc.functions
-            if self.name in astc.classes[self.cl.type(astc)[0]]['fun_decl']:
-                self.name = astc.classes[self.cl.type(astc)[0]]['fun_decl'][self.name]
-                self.arguments = [self.cl] + self.arguments
-            else:
+            self.arguments = [self.cl, self.cl] + self.arguments
+
+            f = astc.lookup_function(self.cl.type(astc)[0], self.name, self.arguments)
+            if not f:
                 print "Missing function: %s.%s" % (self.cl.value, self.name)
                 return False  
+            else: 
+                self.name = f
         else:
             if self.name not in astc.functions:
                 print "Missing function: %s" % self.name

@@ -1,0 +1,60 @@
+class Point {
+    int x;
+
+    int one() {
+        return 1;
+    }
+    int sum(int y, int z) { 
+        return this.x+y+z; 
+    }
+}
+
+class Point2D extends Point {
+    int y;
+
+    int sum(int z) { 
+        return this.x+this.y+z; 
+    }
+}
+
+class Point3D extends Point2D {
+    int z;
+
+    int one() {
+        // 49 is the ascii character code for '1'
+        // arguably, this function still returns '1'
+        return super.one()*49; 
+    }
+
+    int sum() { 
+        return this.z+this.x+this.y; 
+    }
+    int sum(int x, int y, int z) { 
+        return this.sum()+x+y+z; 
+    }
+}
+
+void main() {
+    Point3D p3d;
+    Point p;
+
+    p3d = new Point3D();
+    p3d.x = 20;
+    p3d.y = 30;
+    p3d.z = 40;
+
+    p = p3d;
+
+    print(p.x);
+    print(p3d.y);
+    print(p3d.z);
+
+    print(p.one());
+    print(p3d.one());
+    print(p3d.sum());
+    print(p3d.sum(5));
+    print(p3d.sum(5,5));
+    print(p.sum(5,5));
+    print(p3d.sum(5,5,5));
+    return;
+}
