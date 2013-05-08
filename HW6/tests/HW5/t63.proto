@@ -4,7 +4,7 @@ class foo {
       int z;
 }
 
-int bar[](foo F) {
+int[] bar(foo F) {
     int array[];
 
     array = new int[3];
