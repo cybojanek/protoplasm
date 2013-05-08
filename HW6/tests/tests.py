@@ -228,6 +228,10 @@ def test_comments():
     """comments"""
     compile_and_run('comments', [1])
 
+@pre_entry
+def test_inheritance():
+    """class inheritance"""
+    compile_and_run('class_inherited_properties', [20, 30, 40])
 
 @pre_entry
 def test_empty():

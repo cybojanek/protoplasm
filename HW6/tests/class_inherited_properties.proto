@@ -12,6 +12,7 @@ class Point3D extends Point2D {
 
 void main() {
     Point3D p3d;
+    Point2D p2d;
     Point p;
 
     p3d = new Point3D();
@@ -20,12 +21,11 @@ void main() {
     p3d.z = 40;
 
     p = p3d;
-
-    print(p3d.x);
-    print(p3d.y);
-    print(p3d.z);
+    p2d = p3d;
 
     print(p.x);
-
+    print(p2d.y);
+    print(p3d.z);
+    
     return;
 }
