@@ -120,26 +120,26 @@ class ASTContext(object):
         rt = r.type(self)
         if lt != rt:
             # handle superclasses
-            if ( lt[0] in self.classes and rt[0] in self.classes
-                     and lt[1] == 0 and rt[1] == 0):
+            if (lt[0] in self.classes and rt[0] in self.classes
+                    and lt[1] == 0 and rt[1] == 0):
                 s = self.classes[rt[0]]['super']
-                while s!= None:
-                    if s == lt[0]: return True
+                while s is not None:
+                    if s == lt[0]:
+                        return True
                     s = self.classes[s]['super']
             return False
         return True
 
-    def lookup_function(self, cltype, func, args):   
+    def lookup_function(self, cltype, func, args):
         if func in self.classes[cltype]['fun_decl']:
             functions = self.classes[cltype]['fun_decl'][func]
-            for f in functions: #find the matching signature
+            for f in functions:  # find the matching signature
                 if len(args) == len(self.functions[f]):
-                    if all([self.classes_castable(b,a) for a,b in 
-                               zip(args, self.functions[f])]):
+                    if all([self.classes_castable(b, a) for a, b in
+                           zip(args, self.functions[f])]):
                         return f
         if self.classes[cltype]['super'] is not None:
             return self.lookup_function(self.classes[cltype]['super'], func, args)
-
 
     def __str__(self):
         return 'Declared: [%s], Defined: [%s]' % (
@@ -255,8 +255,7 @@ class ASTProgram(ASTNode):
                         colorize('%s:' % self.p.lexer.proto_file, 'white'),
                         colorize('error:', 'red'),
                         colorize('redeclaration of function:', 'white'),
-                        colorize("'%s'" % d.name, 'yellow')
-                        )
+                        colorize("'%s'" % d.name, 'yellow'))
                     print function_to_string(d, astc)
                     print colorize('previously declared as:', 'white')
                     print function_name_to_string(d.name, astc)
@@ -293,16 +292,14 @@ class ASTProgram(ASTNode):
                 colorize('%s:' % self.p.lexer.proto_file, 'white'),
                 colorize('error:', 'red'),
                 colorize("'main'", 'yellow'),
-                colorize("function missing", 'white')
-                )
+                colorize("function missing", 'white'))
             return False
         if len(astc.functions['main']) != 0:
             print '%s %s %s %s' % (
                 colorize('%s:' % self.p.lexer.proto_file, 'white'),
                 colorize('error:', 'red'),
                 colorize("'main'", 'yellow'),
-                colorize("function has arguments", 'white')
-                )
+                colorize("function has arguments", 'white'))
             print function_name_to_string('main', astc)
             ok = False
         if astc.types['main'] != ('void', 0):
@@ -311,8 +308,7 @@ class ASTProgram(ASTNode):
                 colorize('error:', 'red'),
                 colorize("'main'", 'yellow'),
                 colorize("function has non-void return type:", 'white'),
-                colorize('%s%s' % (astc.types['main'][0], "[]" * astc.types['main'][1]), 'green')
-                )
+                colorize('%s%s' % (astc.types['main'][0], "[]" * astc.types['main'][1]), 'green'))
             print function_name_to_string('main', astc)
             ok = False
         if not ok:
@@ -491,7 +487,7 @@ class ASTArray(ASTNode):
 
         val.is_pointer = True
         val._elem = elem
-        val._base = base 
+        val._base = base
         icc.push_var(val)
 
     def to_stack(self):
@@ -744,7 +740,7 @@ class ASTDeclareClass(ASTNode):
         self.super = superclass
 
     def first_pass(self, astc):
-        astc.classes[self.name] = { 'super': None, 'types': {}, 'positions': {}}
+        astc.classes[self.name] = {'super': None, 'types': {}, 'positions': {}}
         if self.super:
             self.prop_decl = astc.classes[self.super]['prop_decl'] + self.prop_decl
             astc.classes[self.name]['super'] = self.super
@@ -759,37 +755,34 @@ class ASTDeclareClass(ASTNode):
                     return False
                 astc.classes[self.name]['types'][var_name] = var_type
                 astc.classes[self.name]['positions'][var_name] = n
-                n += 1;
+                n += 1
 
         astc.classes[self.name]['prop_decl'] = self.prop_decl
-
-
-        #print astc.classes[self.name]['fun_decl'] 
-
-        astc.classes[self.name]['fun_decl'] = {};
+        astc.classes[self.name]['fun_decl'] = {}
         for d in self.fun_decl:  # for each function
             new_name = self.name+"_"+d.name+"_"+str(hash(str([i.type(astc) for i in d.formals]))%100000000)
 
-            d.formals = [ASTDeclareVariable(None, "this", (self.name, 0))]+d.formals  # add 'this'   
+            d.formals = [ASTDeclareVariable(None, "this", (self.name, 0))] + d.formals  # add 'this'
             if self.super:
-                d.formals = [ASTDeclareVariable(None, "super", (self.super, 0))]+d.formals  # add 'super'
-            else: # define a useless variable here to keep argument the same for classes that dont have superclasses
-                  # but still ensure an error if someone trys to use super when they shouldn't
+                d.formals = [ASTDeclareVariable(None, "super", (self.super, 0))] + d.formals  # add 'super'
+            else:
+                # define a useless variable here to keep argument the same for
+                # classes that dont have superclasses
+                # but still ensure an error if someone trys to use super when
+                # they shouldn't
                 d.formals = [ASTDeclareVariable(None, "__super__unsed_self", (self.name, 0))]+d.formals  # add 'super'
 
             if d.name in astc.classes[self.name]['fun_decl']:
-              if new_name in astc.classes[self.name]['fun_decl'][d.name]:
-                 print 'Redeclaration of function: %s in class: %s' % (d.name, self.name)
-                 return False
-              astc.classes[self.name]['fun_decl'][d.name] += [new_name]
+                if new_name in astc.classes[self.name]['fun_decl'][d.name]:
+                    print 'Redeclaration of function: %s in class: %s' % (d.name, self.name)
+                    return False
+                astc.classes[self.name]['fun_decl'][d.name] += [new_name]
             else:
-              astc.classes[self.name]['fun_decl'][d.name] = [new_name]
+                astc.classes[self.name]['fun_decl'][d.name] = [new_name]
             d.name = new_name
             astc.functions[d.name] = d.formals
             astc.types[d.name] = d.type(astc)
             astc.debug_functions[d.name] = d
-
-
         return True
 
     def wellformed(self, astc):
@@ -798,7 +791,7 @@ class ASTDeclareClass(ASTNode):
                 return False
         for f in self.fun_decl:
             if not f.wellformed(astc):
-                return False            
+                return False
         return True
 
     def gencode(self, icc):
@@ -811,6 +804,7 @@ class ASTDeclareClass(ASTNode):
         name = "%s\nclass: %s" % (counter, self.name)
         graph.add_node(name, fillcolor=ASTDeclareClass.COLOR)
         graph.add_edge(parent, name)
+
 
 class ASTDeclareList(ASTNode):
     COLOR = NODE_COLORS['ASTDeclareList']
@@ -1142,6 +1136,7 @@ class ASTFor(ASTNode):
         return 'for [%s; %s; %s] do...' % (self.init_part, self.cond_part,
                                            self.incr_part)
 
+
 class ASTFunctionCall(ASTNode):
     COLOR = NODE_COLORS['ASTFunctionCall']
 
@@ -1169,8 +1164,8 @@ class ASTFunctionCall(ASTNode):
             f = astc.lookup_function(self.cl.type(astc)[0], self.name, self.arguments)
             if not f:
                 print "Missing function: %s.%s" % (self.cl.value, self.name)
-                return False  
-            else: 
+                return False
+            else:
                 self.name = f
         else:
             if self.name not in astc.functions:

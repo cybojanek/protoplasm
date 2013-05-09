@@ -23,6 +23,7 @@ def p_pgm(p):
     '''pgm : pgm_seq'''
     p[0] = ASTProgram(p, p[1])
 
+
 def p_pgm_decl(p):
     '''pgm_seq : decl pgm_seq'''
     p[0] = [p[1]] + p[2]
@@ -47,11 +48,13 @@ def p_decl_classdecl(p):
     '''decl : classdecl'''
     p[0] = p[1]
 
+
 def p_dimstar_d(p):
     '''dimstar : LBRACE RBRACE dimstar
                | empty'''
     if len(p) == 4:  # Count how many dimensions
-        p[0] = 1 + (p[3] if p[3] else 0);
+        p[0] = 1 + (p[3] if p[3] else 0)
+
 
 def p_var(p):
     '''var : ID dimstar'''
@@ -60,8 +63,9 @@ def p_var(p):
 
 def p_vardecl(p):
     '''vardecl : type varlist SEMICOLON'''
-    p[0] = ASTDeclareList(p, p[1][0], 
-        [ASTDeclareVariable(v, v[0], (p[1][0], v[1])) for v in p[2]] )
+    p[0] = ASTDeclareList(p, p[1][0],
+        [ASTDeclareVariable(v, v[0], (p[1][0], v[1])) for v in p[2]])
+
 
 def p_vardecl_star(p):
     '''vardecl_star : vardecl vardecl_star
@@ -71,6 +75,7 @@ def p_vardecl_star(p):
     else:
         p[0] = []
 
+
 def p_fundecl(p):
     '''fundecl : type dimstar ID LPAREN formals_question RPAREN stmt
                | type ID LPAREN formals_question RPAREN stmt'''
@@ -79,13 +84,16 @@ def p_fundecl(p):
     elif len(p) == 8:
         p[0] = ASTFunctionDeclare(p, (p[1][0], (p[2] if p[2] else 0)), p[3], p[5], p[7])
 
+
 def p_memberdecl_vardecl(p):
     '''memberdecl : vardecl'''
     p[0] = p[1]
 
+
 def p_memberdecl_fundecl(p):
     '''memberdecl : fundecl'''
     p[0] = p[1]
+
 
 def p_memberdecl_star(p):
     '''memberdecl_star : memberdecl memberdecl_star
@@ -94,14 +102,16 @@ def p_memberdecl_star(p):
         p[0] = [p[1]] + p[2]
     else:
         p[0] = []
-        
+
+
 def p_classdecl(p):
     '''classdecl : CLASS CLASSID EXTENDS CLASSID LCURLY memberdecl_star  RCURLY
                  | CLASS CLASSID LCURLY memberdecl_star  RCURLY'''
-    if len(p) == 6:            
+    if len(p) == 6:
         p[0] = ASTDeclareClass(p, p[2], p[4])
     elif len(p) == 8:
         p[0] = ASTDeclareClass(p, p[2], p[6], p[4])
+
 
 def p_type(p):
     '''type : INT
@@ -109,6 +119,7 @@ def p_type(p):
             | VOID
             | CLASSID'''
     p[0] = (p[1], 0)
+
 
 def p_varlist(p):
     '''varlist : var COMMA varlist
@@ -125,7 +136,8 @@ def p_formals(p):
     if len(p) == 5:
         p[0] = [ASTDeclareVariable(p, p[2][0], (p[1][0], p[2][1]))] + p[4]
     else:
-        p[0] = [ASTDeclareVariable(p, p[2][0], (p[1][0], p[2][1]))] 
+        p[0] = [ASTDeclareVariable(p, p[2][0], (p[1][0], p[2][1]))]
+
 
 def p_formals_question(p):
     '''formals_question : formals'''
@@ -202,9 +214,9 @@ def p_se_increment(p):
           | PLUSPLUS lhs
           | MINUSMINUS lhs'''
     if p[2] in ("++", "--"):
-        p[0] = ASTPrePostIncrement(p, p[1], p[2], 1);
+        p[0] = ASTPrePostIncrement(p, p[1], p[2], 1)
     elif p[1] in ("++", "--"):
-        p[0] = ASTPrePostIncrement(p, p[2], p[1], 0);
+        p[0] = ASTPrePostIncrement(p, p[2], p[1], 0)
 
 
 def p_se_question(p):
@@ -294,9 +306,11 @@ def p_primary_this(p):
     '''primary : THIS'''
     p[0] = ASTVariable(p, "this")
 
+
 def p_primary_super(p):
     '''primary : SUPER'''
     p[0] = ASTVariable(p, "super")
+
 
 def p_primary_true(p):
     '''primary : TRUE'''
@@ -357,9 +371,11 @@ def p_function_call(p):
     '''functioncall : ID LPAREN args_question RPAREN'''
     p[0] = ASTFunctionCall(p, p[1], p[3])
 
+
 def p_field_call(p):
     '''functioncall : primary DOT ID LPAREN args_question RPAREN'''
     p[0] = ASTFunctionCall(p, p[3], p[5], p[1])
+
 
 def p_args(p):
     '''args : ae COMMA args
@@ -422,11 +438,6 @@ def p_empty(p):
 # | |___|  _ <|  _ <| |_| |  _ < ___) | #
 # |_____|_| \_\_| \_\\___/|_| \_\____/  #
 #########################################
-
-
-
-
-    # pass
 # def p_error(p):
 #     print "MEOW"
     # print p.__dict__
@@ -499,6 +510,7 @@ def print_expected_error(p, t, message, missing=None, aug=1):
     if missing:
         print '%s%s' % (' ' * (col - aug), colorize(missing, 'green'))
     p.parser.errok()
+
 
 # Syntax errors
 def p_error(p):

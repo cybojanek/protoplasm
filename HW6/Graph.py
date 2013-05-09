@@ -1,5 +1,3 @@
-
-
 class UndirectedGraph(object):
     DEFAULT_COLOR = '#FFFFFF'
 

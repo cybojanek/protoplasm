@@ -1,5 +1,5 @@
 ### Homework 6
-Implements HW4 proto compiler
+Implements HW6 proto compiler
 
 Python packages used:
 
@@ -7,12 +7,12 @@ Python packages used:
 
 * **argparse** for command line arguments (argparse is standard on 2.7+) (optional, includes default fallback mode)
 
-* **pygraphviz** for graphing the AST and register allocation
+* **pygraphviz** for graphing the AST, register allocation, and basic blocks
 
 Usage:
 
 ```bash
-python proplasm4.py [OPTS] ex1.proto
+python proplasm5.py [OPTS] ex1.proto
 ```
 
 Command line arguments (only available with argparse):
