@@ -2,6 +2,8 @@
   "scopeName": "source.proto",
   "fileTypes": ["proto"],
   "patterns": [
+    { "include": "#subclass-definition" },
+    { "include": "#class-definition" },
     { "include": "#function-definition" },
     { "include": "#comment-line" },
     { "include": "#control-flow" },
@@ -18,15 +20,33 @@
     { "include": "#operator-assignment" }
   ],
   "repository": {
+    "subclass-definition": {
+        "begin": "^([\\s]*)(class)([\\s]+)([\\w]+)([\\s]+)(extends)([\\s]+)([\\w]+)",
+        "beginCaptures": {
+            "2": { "name": "keyword.control.proto" },
+            "4": { "name": "storage.type.proto" },
+            "6": { "name": "keyword.control.proto" },
+            "8": { "name": "storage.type.proto" }
+        },
+        "end": "(?={)"
+    },
+    "class-definition": {
+        "begin": "^([\\s]*)(class)([\\s]+)([\\w]+)",
+        "beginCaptures": {
+            "2": { "name": "keyword.control.proto" },
+            "4": { "name": "storage.type.proto" }
+        },
+        "end": "(?={)"
+    },
     "function-definition": {
-        "begin": "^([\\s]*)(?!if|then|else|while|do|for|new|return)([\\w]+)([\\s]+)([_a-zA-Z]+)([\\s]*\\()",
+        "begin": "^([\\s]*)(?!if|then|else|while|do|for|new|return)([\\w]+)([\\[\\]]*)([\\s]+)([_a-zA-Z]+)([\\s]*\\()",
         "beginCaptures": {
             "2": { "name": "storage.type.proto" },
-            "4": { "name": "entity.name.function.proto" }
+            "5": { "name": "entity.name.function.proto" }
         },
         "end": "(?={)",
         "patterns": [
-          { "include": "#variables-declare" }
+          { "include": "#parameters-declare" }
         ]
     },
     "comment-line": {
@@ -40,7 +60,7 @@
         "comment": "Control flow keywords"
     },
     "control": {
-        "match": "\\b(new)\\b",
+        "match": "\\b(new|this|super|extends|class)\\b",
         "name": "keyword.control.proto",
         "comment": "Control keywords"
     },
@@ -60,18 +80,18 @@
         "comment": "Built in constants"
     },
     "parameters-declare": {
-        "begin": "([_a-zA-Z]\\w*)([\\s]+)([_a-zA-Z]\\w*)",
+        "begin": "([_a-zA-Z]\\w*)([\\[\\]]*)([\\s]+)([_a-zA-Z]\\w*)",
         "beginCaptures": {
             "1": { "name": "storage.type.proto" },
-            "3": { "name": "variable.parameter.proto" }
+            "4": { "name": "variable.parameter.proto" }
         },
         "end": "."
     },
     "variables-declare": {
-        "begin": "([_a-zA-Z]\\w*)([\\s]+)([_a-zA-Z]\\w*)",
+        "begin": "([_a-zA-Z]\\w*)([\\[\\]]*)([\\s]+)(?!if|then|else|while|do|for|new|return)([_a-zA-Z]\\w*)",
         "beginCaptures": {
             "1": { "name": "storage.type.proto" },
-            "3": { "name": "variable.other.proto" }
+            "4": { "name": "variable.other.proto" }
         },
         "end": "."
     },
