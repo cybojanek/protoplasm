@@ -156,7 +156,7 @@ class ASTNode(object):
     COLOR = NODE_COLORS['ASTNode']
 
     def __init__(self):
-        raise NotImplemented()
+        raise NotImplementedError(type(self))
 
     def type(self, astc):
         """Return the type of this expression
@@ -168,7 +168,7 @@ class ASTNode(object):
         ('str', dimensions)
 
         """
-        raise NotImplemented()
+        raise NotImplementedError(type(self))
 
     def wellformed(self):
         """Check language semantics.
@@ -179,7 +179,7 @@ class ASTNode(object):
         True / False for good / bad
 
         """
-        raise NotImplemented()
+        raise NotImplementedError(type(self))
 
     def gencode(self, icc):
         """Generate IntermediateCode
@@ -188,7 +188,7 @@ class ASTNode(object):
         icc - IntermediateCodeContext
 
         """
-        raise NotImplemented()
+        raise NotImplementedError(type(self))
 
     def to_stack(self):
         """Convert from internal tree representation to an
@@ -198,7 +198,7 @@ class ASTNode(object):
         array of ASTNode in reverse order of operations
 
         """
-        raise NotImplemented()
+        raise NotImplementedError(type(self))
 
     def add_edges_to_graph(self, graph, parent, counter):
         """Add nodes and edges to a graph
@@ -212,7 +212,7 @@ class ASTNode(object):
         counter
 
         """
-        raise NotImplemented()
+        raise NotImplementedError(type(self))
 
 
 def type_to_string(t):
@@ -445,6 +445,12 @@ class ASTAllocObject(ASTNode):
 
     def to_stack(self):
         return [self]
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n objalloc(%s)" % (counter, self.size)
+        graph.add_node(name, fillcolor=ASTAllocObject.COLOR)
+        graph.add_edge(parent, name)
+        return counter
 
 
 class ASTArray(ASTNode):
@@ -804,6 +810,7 @@ class ASTDeclareClass(ASTNode):
         name = "%s\nclass: %s" % (counter, self.name)
         graph.add_node(name, fillcolor=ASTDeclareClass.COLOR)
         graph.add_edge(parent, name)
+        return counter
 
 
 class ASTDeclareList(ASTNode):
@@ -1046,6 +1053,12 @@ class ASTFieldAccess(ASTNode):
 
     def to_stack(self):
         return [self] + self.value.to_stack()
+
+    def add_edges_to_graph(self, graph, parent, counter):
+        name = "%s\n%s.%s" % (counter, self.value, self.field)
+        graph.add_node(name, fillcolor=ASTFieldAccess.COLOR)
+        graph.add_edge(parent, name)
+        return counter
 
 
 class ASTFor(ASTNode):

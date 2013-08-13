@@ -9,3 +9,11 @@ If you want to try it out, you're going to need the python **ply** package as a 
 ## Sublime Text
 
 If you're like me and you **LOVE** Sublime Text, then I added a syntax highlighter, preference file for comments, and some snippets for autocompletion. I could have just used the **C** syntax highlighter, but I wanted to learn how Sublime Text does it, which was kinda fun.
+
+## Screenshots
+
+![Sublime Text](https://github.com/cybojanek/protoplasm/raw/master/Sublime.png)
+![AST](https://github.com/cybojanek/protoplasm/raw/master/fibonacci.ast.png)
+![Basic Blocks](https://github.com/cybojanek/protoplasm/raw/master/fibonacci_basic_blocks.png)
+![Coloring 1](https://github.com/cybojanek/protoplasm/raw/master/fibonacci_1_coloring.png)
+![Coloring 7](https://github.com/cybojanek/protoplasm/raw/master/fibonacci_7_coloring.png)

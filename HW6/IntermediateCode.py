@@ -1212,9 +1212,9 @@ class ICContextBasicBlock(object):
     def graph_label(self):
         s = ''
         for x in self.instructions:
-            line = '%s' % x
-            line = '%s%s\l' % (line, ' ' * (15 - len(line)))
-            line = '%sOut: %s  In: %s\l' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            line = '%s\l' % x
+            # line = '%s%s\l' % (line, ' ' * (15 - len(line)))
+            # line = '%sOut: %s  In: %s\l' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
             s += line
             #s += '%s\t%s\n' % (x, x.liveliness['out'])
         return s
@@ -1223,8 +1223,8 @@ class ICContextBasicBlock(object):
         s = ''
         for x in self.instructions:
             line = '%s' % x
-            line = '%s%s' % (line, ' ' * (20 - len(line)))
-            line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
+            # line = '%s%s' % (line, ' ' * (20 - len(line)))
+            # line = '%sOut: %s  In: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['in']])
             # line = '%sOut: %s  Def: %s\n' % (line, [str(y) for y in x.liveliness['out']], [str(y) for y in x.liveliness['defined']])
             s += line
             #s += '%s\t%s\n' % (x, x.liveliness['out'])
